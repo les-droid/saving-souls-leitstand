@@ -128,7 +128,23 @@
   }
 
   /* ---- Start ---- */
+  /* Übergangsmodus: solange keine Supabase-Konfiguration eingetragen ist, Board nur lesbar aus dem Seed */
+  function nurLesen() {
+    var S = window.LEITSTAND_SEED || {};
+    var schreib = function () { banner("Board ist im Übergangsmodus (nur lesen, Stand " + (window.LEITSTAND_SEED_STAND || "") + ") — Live-Betrieb folgt, sobald die Datenbank eingetragen ist.", 7000); return Promise.resolve(); };
+    function coll(name, order) {
+      var self = { orderBy: function (f, d) { return coll(name, { f: f, dir: d || "asc" }); }, where: function () { return self; }, limit: function () { return self; },
+        _snap: function () { var c = S[name] || {}; var docs = sortDocs(Object.keys(c).map(function (k) { return snapDoc(k, c[k]); }), order); return { docs: docs, empty: !docs.length, size: docs.length, forEach: function (fn) { docs.forEach(fn); } }; },
+        get: function () { return Promise.resolve(self._snap()); }, onSnapshot: function (cb) { try { cb(self._snap()); } catch (e) {} return function () {}; },
+        add: schreib, doc: function (id) { return doc(name + "/" + id); } };
+      return self;
+    }
+    function doc(p) { var t = p.split("/"), c = t[0], id = t.slice(1).join("/"); return { get: function () { return Promise.resolve(snapDoc(id, (S[c] || {})[id])); }, onSnapshot: function (cb) { try { cb(snapDoc(id, (S[c] || {})[id])); } catch (e) {} return function () {}; }, set: schreib, update: schreib, delete: schreib }; }
+    return { collection: function (n) { return coll(n); }, doc: doc };
+  }
+
   ready = new Promise(function (resolve) {
+    if (/DEIN-PROJEKT/.test(SUPABASE_URL) || /DEIN-ANON/.test(SUPABASE_ANON)) { resolve(nurLesen()); return; }
     if (!window.supabase) { console.error("supabase-js nicht geladen"); resolve(null); return; }
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
     var start = function () {
