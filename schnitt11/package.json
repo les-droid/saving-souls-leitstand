@@ -1,0 +1,7 @@
+{
+  "name": "saving-souls-listener",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node listener.mjs" },
+  "dependencies": { "@supabase/supabase-js": "^2.45.0" }
+}
