@@ -59,3 +59,10 @@ begin
 end $$;
 drop trigger if exists nur_team_trg on auth.users;
 create trigger nur_team_trg before insert on auth.users for each row execute function public.nur_team();
+
+-- 7) Härtung (Supabase Security Advisor): feste search_path, SECURITY-DEFINER-Funktionen nicht über die API aufrufbar
+alter function public.docs_patch(text, text, jsonb, text) set search_path = public;
+alter function public.s11_claim(text) set search_path = public;
+alter function public.nur_team() set search_path = public;
+revoke execute on function public.s11_claim(text) from public, anon, authenticated;   -- nur service_role (Listener Schnitt 11)
+revoke execute on function public.nur_team() from public, anon, authenticated;        -- nur Trigger

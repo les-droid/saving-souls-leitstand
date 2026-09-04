@@ -6,8 +6,8 @@
   "use strict";
 
   /* ---- Konfiguration (Supabase → Settings → API) ---- */
-  var SUPABASE_URL  = "https://DEIN-PROJEKT.supabase.co";
-  var SUPABASE_ANON = "DEIN-ANON-KEY";   /* öffentlich; Daten schützt Row Level Security */
+  var SUPABASE_URL  = "https://yfkckqbrksivksotopfo.supabase.co";
+  var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlma2NrcWJya3Npdmtzb3RvcGZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NDA2ODcsImV4cCI6MjEwNDExNjY4N30.-G-Wy2BlQsMFeq1nd97bXu8FPje4S6s0RAcqWmmQyro";   /* anon-Key: öffentlich; Daten schützt Row Level Security */
   var LOGIN_SITE    = location.origin + location.pathname;
 
   var TABELLE = "docs";
