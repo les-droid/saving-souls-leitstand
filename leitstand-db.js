@@ -9,11 +9,30 @@
   var SUPABASE_URL  = "https://yfkckqbrksivksotopfo.supabase.co";
   var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlma2NrcWJya3Npdmtzb3RvcGZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NDA2ODcsImV4cCI6MjEwNDExNjY4N30.-G-Wy2BlQsMFeq1nd97bXu8FPje4S6s0RAcqWmmQyro";   /* anon-Key: öffentlich; Daten schützt Row Level Security */
   var LOGIN_SITE    = location.origin + location.pathname;
+  /* Team-Passwort (SHA-256, Klartext steht nicht im Code). Vorhang gegen Mitleser mit Link; die Daten
+     schützt weiterhin der GitHub-Login + Team-Liste in der Datenbank. */
+  var TOR_HASH      = "4a6dc797e7f4f79644c9394a1ec04da93b255226fefce205c7eead4c59dde387";
+  /* GitHub-Login → Kürzel im Board (weitere Team-Mitglieder hier ergänzen) */
+  var GITHUB_KUERZEL = { "les-droid": "LES" };
 
   var TABELLE = "docs";
   var sb = null, session = null;
   var ready;                    /* Promise<db> */
   var wer = function () { try { return localStorage.getItem("ss-wer") || "?"; } catch (e) { return "?"; } };
+
+  /* ---- Rückkehr vom GitHub-Login: Tokens SOFORT aus der URL sichern ----
+     Das Board-Script setzt beim Start per history.replaceState seinen Seiten-Hash und würde
+     "#access_token=…" überschreiben, bevor supabase-js (asynchron) dazu kommt. Deshalb hier
+     synchron einlesen, URL bereinigen und die Session später selbst setzen. */
+  var oauth = null, oauthFehler = null;
+  (function () {
+    var h = location.hash || "";
+    if (!/(^#|&)(access_token|error|error_description)=/.test(h)) return;
+    var p = {};
+    h.replace(/^#/, "").split("&").forEach(function (kv) { var t = kv.split("="); try { p[decodeURIComponent(t[0])] = decodeURIComponent((t[1] || "").replace(/\+/g, " ")); } catch (e) {} });
+    if (p.access_token) oauth = p; else oauthFehler = p.error_description || p.error || "Anmeldung fehlgeschlagen";
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+  })();
 
   /* ---- Hilfen ---- */
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -46,9 +65,41 @@
       '<button id="liveLoginBtn" style="font:inherit;font-weight:600;padding:12px 18px;border:0;border-radius:12px;background:#56ABB5;color:#0E181B;cursor:pointer;width:100%">Mit GitHub anmelden</button>' +
       '<div id="liveLoginErr" style="font-size:12px;color:#E87A46;margin-top:10px"></div></div>';
     document.body.appendChild(el);
+    if (oauthFehler) { el.querySelector("#liveLoginErr").textContent = /Kein Team-Mitglied/.test(oauthFehler) ? "Dieses GitHub-Konto ist nicht in der Team-Liste. Bitte LES den GitHub-Namen schicken." : oauthFehler; oauthFehler = null; }
     el.querySelector("#liveLoginBtn").addEventListener("click", function () {
       sb.auth.signInWithOAuth({ provider: "github", options: { redirectTo: LOGIN_SITE } })
         .then(function (r) { if (r.error) document.getElementById("liveLoginErr").textContent = r.error.message; });
+    });
+  }
+
+  /* ---- Team-Passwort: einmal je Gerät, danach gemerkt ---- */
+  function sha256(s) {
+    return crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)).then(function (b) {
+      return Array.prototype.map.call(new Uint8Array(b), function (x) { return ("0" + x.toString(16)).slice(-2); }).join("");
+    });
+  }
+  function tor() {
+    try { if (localStorage.getItem("ss-tor") === TOR_HASH.slice(0, 16)) return Promise.resolve(); } catch (e) {}
+    return new Promise(function (resolve) {
+      var el = document.createElement("div"); el.id = "liveTor";
+      el.style.cssText = "position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:#0E181B";
+      el.innerHTML = '<form style="background:#162327;color:#E4ECEA;border:1px solid rgba(255,255,255,.1);padding:28px 30px;border-radius:18px;width:min(340px,88vw);text-align:center;font:15px -apple-system,system-ui,sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.4)">' +
+        '<div style="font-size:20px;font-weight:600;margin-bottom:6px">Saving Souls Leitstand</div>' +
+        '<div style="font-size:13px;color:#93A8AA;margin-bottom:18px">Team-Passwort eingeben. Wird auf diesem Gerät gemerkt.</div>' +
+        '<input id="liveTorPw" type="password" autocomplete="current-password" placeholder="Passwort" style="font:inherit;width:100%;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:#0E181B;color:#E4ECEA;margin-bottom:10px">' +
+        '<button type="submit" style="font:inherit;font-weight:600;padding:12px 18px;border:0;border-radius:12px;background:#56ABB5;color:#0E181B;cursor:pointer;width:100%">Weiter</button>' +
+        '<div id="liveTorErr" style="font-size:12px;color:#E87A46;margin-top:10px;min-height:14px"></div></form>';
+      var anhaengen = function () { document.body.appendChild(el); try { el.querySelector("#liveTorPw").focus(); } catch (e) {} };
+      if (document.body) anhaengen(); else document.addEventListener("DOMContentLoaded", anhaengen);
+      el.querySelector("form").addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        var v = el.querySelector("#liveTorPw").value.trim().toLowerCase();
+        sha256(v).then(function (h) {
+          if (h !== TOR_HASH) { el.querySelector("#liveTorErr").textContent = "Falsches Passwort."; return; }
+          try { localStorage.setItem("ss-tor", TOR_HASH.slice(0, 16)); } catch (e) {}
+          el.remove(); resolve();
+        }, function () { el.querySelector("#liveTorErr").textContent = "Passwortprüfung nur über https möglich."; });
+      });
     });
   }
 
@@ -146,27 +197,53 @@
   ready = new Promise(function (resolve) {
     if (/DEIN-PROJEKT/.test(SUPABASE_URL) || /DEIN-ANON/.test(SUPABASE_ANON)) { resolve(nurLesen()); return; }
     if (!window.supabase) { console.error("supabase-js nicht geladen"); resolve(null); return; }
-    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+    /* detectSessionInUrl aus: die Tokens haben wir oben selbst gesichert (siehe oauth) */
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: "implicit" } });
     var start = function () {
       overlay(false); startRealtime();
+      /* Kürzel aus dem GitHub-Login ableiten, falls auf diesem Gerät noch keins gewählt ist */
+      try {
+        var gh = session && session.user && session.user.user_metadata ? session.user.user_metadata.user_name : null;
+        var k = gh && GITHUB_KUERZEL[gh];
+        if (k && !localStorage.getItem("ss-wer")) {
+          localStorage.setItem("ss-wer", k);
+          var b = document.querySelector('#whoModalBtns button[data-w="' + k + '"]'); if (b) b.click();
+        }
+      } catch (e) {}
       seed().then(function () { resolve(db); }, function () { resolve(db); });
     };
-    sb.auth.getSession().then(function (r) {
-      session = r.data.session;
+    var sessionHolen = oauth
+      ? sb.auth.setSession({ access_token: oauth.access_token, refresh_token: oauth.refresh_token })
+      : sb.auth.getSession();
+    tor().then(function () { return sessionHolen; }).then(function (r) {
+      session = r && r.data ? r.data.session : null;
+      if (r && r.error && !oauthFehler) oauthFehler = r.error.message;
+      oauth = null;
       if (session) { start(); return; }
       overlay(true);
       var sub = sb.auth.onAuthStateChange(function (_e, s) { if (s) { session = s; sub.data.subscription.unsubscribe(); start(); } });
     });
   });
 
+  function abmelden() {
+    try { localStorage.removeItem("ss-wer"); } catch (e) {}
+    var fertig = function () { location.replace(LOGIN_SITE); };
+    return (sb ? sb.auth.signOut() : Promise.resolve()).then(fertig, fertig);
+  }
   window.claude = { use: function (was) { return was === "db" ? ready : Promise.resolve(null); }, live: true,
-    logout: function () { return sb.auth.signOut().then(function () { location.reload(); }); },
+    logout: abmelden,
     user: function () { return session && session.user ? (session.user.user_metadata.user_name || session.user.email) : null; } };
 
   /* ---- Nach dem Laden: Statuszeile, Projektdatei-Links, Schnitt-11-Panel ---- */
   document.addEventListener("DOMContentLoaded", function () {
     var p = document.querySelector("p.standline");
-    if (p) { var s = document.createElement("span"); s.style.cssText = "color:#56ABB5"; s.textContent = " · live"; p.appendChild(s); }
+    if (p) {
+      var s = document.createElement("span"); s.style.cssText = "color:#56ABB5"; s.textContent = " · live"; p.appendChild(s);
+      var a = document.createElement("a"); a.href = "#"; a.textContent = "Abmelden"; a.title = "GitHub-Konto und Kürzel auf diesem Gerät wechseln";
+      a.style.cssText = "margin-left:10px;color:var(--muted,#93A8AA);text-decoration:underline;font-size:12px";
+      a.addEventListener("click", function (ev) { ev.preventDefault(); if (confirm("Abmelden? Danach kann man sich mit einem anderen GitHub-Konto anmelden und das Kürzel neu wählen.")) abmelden(); });
+      p.appendChild(a);
+    }
 
     /* Premiere-Projektdateien liegen als Kopie neben dieser Seite (projekte/) */
     setInterval(function () {

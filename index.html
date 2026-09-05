@@ -534,7 +534,6 @@
   <p class="foot">Material liegt auf dem RAID Schnitt 11 (<span class="mono">260410 Safe Haven Crew</span>) und wird nie bewegt. Schnittprojekt: <span class="mono">02 Output/premiere/260904 Saving Souls CL LES.prproj</span>. Claude pflegt dieses Board laufend (täglich 08:30 und 17:30). TS (Tassilo, Geschäftsführung) und DS (Daniel, Creative Consultant) lesen mit — Aufgaben an die beiden vergibt Claude nur auf Anweisung von LES/JB. Gestaltung nach dem Skill „apple-design" (MIT).</p>
 </div>
 
-<script src="daten-seed.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="leitstand-db.js"></script>
 <script>
@@ -567,7 +566,9 @@
   renderWho();
   var whoModal = document.getElementById("whoModal"), whoBtns = document.getElementById("whoModalBtns");
   whoBtns.innerHTML = WER.map(function (w) { return '<button type="button" class="' + (w === me ? "last" : "") + '" data-w="' + w + '">' + w + "</button>"; }).join("");
-  whoModal.classList.remove("hidden");
+  /* Kürzel nur einmal je Gerät abfragen; wechseln über „Abmelden“ in der Statuszeile */
+  var werGesetzt = false; try { werGesetzt = !!localStorage.getItem("ss-wer"); } catch (e) {}
+  if (!werGesetzt) whoModal.classList.remove("hidden");
   whoBtns.addEventListener("click", function (ev) {
     var b = ev.target.closest("button[data-w]"); if (!b) return;
     me = b.dataset.w; try { localStorage.setItem("ss-wer", me); } catch (e) {}
