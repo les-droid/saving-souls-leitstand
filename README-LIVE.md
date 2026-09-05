@@ -12,6 +12,10 @@ Team-Mitglieder in Echtzeit geteilt – unabhängig vom Claude-Account.
 - `leitstand-db.js` – Supabase-Anbindung, bildet `claude.use("db")` nach; Team-Passwort (Vorhang, einmal je Gerät);
   GitHub-Login (Tokens werden vor dem Board-Routing aus der URL gesichert); Realtime; „Abmelden“ in der Statuszeile
   (wechselt GitHub-Konto und Kürzel); Panel „Schnitt 11“
+- `leitstand-zeit.js` – Seite „Zeit“ (Stoppuhr, rückwirkende Einträge, Auswertung je Person/Kategorie, Claude-Zeit
+  automatisch aus erledigten Claude-Aufgaben) und Lagebericht-Karte auf der Startseite (Dokument `lagebericht/aktuell`,
+  für TS/DS ganz oben; „Wer macht was“ aus offenen To-dos). Claude auf Schnitt 11 schreibt beides per
+  `schnitt11/leitstand.mjs` im Gedächtnis-Repo.
 - `supabase/schema.sql` – Datenbank (einmal im Supabase-SQL-Editor ausführen)
 - Startbestand: am 04.09. importiert (59 Einträge); die Seed-Datei liegt seitdem nur noch im privaten Repo
   `saving-souls-gedaechtnis/leitstand/daten-seed-260904.js`, nicht mehr öffentlich auf GitHub Pages

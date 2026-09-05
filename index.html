@@ -299,6 +299,7 @@
       <a href="#material" data-page="material">Material</a>
       <a href="#dateien" data-page="dateien">Dateien</a>
       <a href="#reviews" data-page="reviews">Reviews <span class="n" id="navRev"></span></a>
+      <a href="#zeit" data-page="zeit">Zeit <span class="n" id="navZeit"></span></a>
       <a href="#zugang" data-page="zugang">Zugang</a>
     </nav>
   </header>
@@ -319,6 +320,14 @@
 
     <div class="grid">
       <div>
+        <section class="card" id="lageCard">
+          <h2>Lagebericht <span class="hint" id="lageMeta">für Geschäftsleitung und Team</span></h2>
+          <div id="lageBody" style="font-size:14px;line-height:1.55"><p style="color:var(--muted);margin:0">Lade Lagebericht …</p></div>
+          <details id="lageWer" style="margin-top:12px">
+            <summary style="cursor:pointer;font-size:13px;color:var(--muted)">Wer macht was · offene To-dos je Person</summary>
+            <div id="lageWerBody" style="font-size:13px;margin-top:8px"></div>
+          </details>
+        </section>
         <section class="card" id="briefingCard" style="display:none">
           <h2 id="briefingTitel">Briefing</h2>
           <p class="standline" id="briefingMeta" style="margin:-4px 0 10px"></p>
@@ -502,6 +511,53 @@
     </div>
   </div>
 
+  <!-- ===== ZEIT ===== -->
+  <div class="page" id="page-zeit">
+    <div class="grid">
+      <div>
+        <section class="card" id="zeitTimerCard">
+          <h2>Stoppuhr <span class="hint">läuft auch bei geschlossenem Board weiter (auf diesem Gerät)</span></h2>
+          <form class="add" id="zeitTimerForm">
+            <input type="text" id="zeitTimerText" placeholder="Woran arbeitest du gerade?" maxlength="200" autocomplete="off">
+            <select id="zeitTimerKat" aria-label="Kategorie"></select>
+            <button class="primary" type="submit" id="zeitTimerBtn">Start</button>
+          </form>
+          <div id="zeitTimerLauf" style="display:none;margin-top:10px;font-size:14px"></div>
+        </section>
+        <section class="card">
+          <h2>Zeit eintragen <span class="hint">auch rückwirkend · Von/Bis oder Dauer</span></h2>
+          <form class="add" id="zeitForm">
+            <select id="zeitWer" aria-label="Wer"></select>
+            <input type="date" id="zeitDatum" aria-label="Datum" style="flex:0 1 150px">
+            <input type="time" id="zeitVon" aria-label="Von" style="flex:0 1 110px">
+            <input type="time" id="zeitBis" aria-label="Bis" style="flex:0 1 110px">
+            <input type="number" id="zeitDauer" placeholder="Std." min="0" step="0.25" aria-label="Dauer in Stunden" style="flex:0 1 90px">
+            <select id="zeitKat" aria-label="Kategorie"></select>
+            <input type="text" id="zeitText" placeholder="Was wurde gemacht?" maxlength="300" autocomplete="off">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)"><input type="checkbox" id="zeitSchaetzung"> Schätzung</label>
+            <button class="primary" type="submit">Eintragen</button>
+          </form>
+          <ul class="notes" id="zeitList"></ul>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center">
+            <button type="button" class="primary" id="zeitMehr" style="display:none">Ältere anzeigen</button>
+            <a class="lnk" href="#" id="zeitCsv">Als CSV exportieren</a>
+          </div>
+        </section>
+      </div>
+      <div>
+        <section class="card">
+          <h2>Auswertung <span class="hint" id="zeitStand"></span></h2>
+          <div class="tablebox"><table id="zeitSumme"><thead><tr><th>Wer</th><th class="num">Gesamt</th><th class="num">davon sicher</th><th class="num">geschätzt</th></tr></thead><tbody></tbody></table></div>
+          <h3 style="margin:16px 0 6px;font-size:14px">Nach Kategorie</h3>
+          <div class="tablebox"><table id="zeitKatSumme"><thead><tr><th>Kategorie</th><th class="num">LES</th><th class="num">JB</th><th class="num">TS</th><th class="num">DS</th><th class="num">Claude</th></tr></thead><tbody></tbody></table></div>
+          <h3 style="margin:16px 0 6px;font-size:14px">Claude</h3>
+          <div id="zeitClaude" style="font-size:13px;line-height:1.6"></div>
+          <p style="font-size:12px;color:var(--muted);margin:12px 0 0">„Sicher“ = per Stoppuhr oder bewusst eingetragen. „Geschätzt“ = rekonstruiert aus Material, Projektdateien, Mails oder als Schätzung markiert. Claude-Zeit ohne euer Zutun kommt automatisch aus den erledigten Claude-Aufgaben und den Läufen auf Schnitt 11.</p>
+        </section>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== ZUGANG ===== -->
   <div class="page" id="page-zugang">
     <div class="grid">
@@ -548,7 +604,7 @@
   try { me = localStorage.getItem("ss-wer") || "LES"; } catch (e) {}
 
   /* ---- Seiten (Hash-Routing) ---- */
-  var PAGES = ["start", "aufgaben", "material", "dateien", "reviews", "zugang"];
+  var PAGES = ["start", "aufgaben", "material", "dateien", "reviews", "zeit", "zugang"];
   function showPage(p) {
     if (PAGES.indexOf(p) === -1) p = "start";
     PAGES.forEach(function (x) { document.getElementById("page-" + x).classList.toggle("on", x === p); });
@@ -916,3 +972,4 @@
   });
 })();
 </script>
+<script src="leitstand-zeit.js"></script>
