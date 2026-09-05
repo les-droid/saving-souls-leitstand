@@ -44,11 +44,15 @@
   function renderLage(v) {
     var body = document.getElementById("lageBody"), meta = document.getElementById("lageMeta");
     if (!v) { body.innerHTML = '<p style="color:var(--muted);margin:0">Noch kein Lagebericht hinterlegt. Claude schreibt ihn nach jedem Überwachungslauf auf Schnitt 11.</p>'; return; }
-    meta.textContent = "Stand " + (v.stand || "") + (v.von ? " · " + v.von : "");
+    meta.textContent = "Stand " + (v.stand || "");
+    /* Startseite knapp: Kurzfassung + je drei Punkte „Neu“, „Ansteht“, „Achtung“; alles Weitere aufklappbar */
+    var punkte = function (text, n) { return String(text || "").split("\n").filter(function (z) { return /^\s*([-*]|\d+\.)\s+/.test(z); }).slice(0, n).join("\n"); };
+    var spalte = function (titel, text, n) { var p = punkte(text, n); return p ? '<div style="flex:1 1 200px;min-width:0"><div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:2px">' + esc(titel) + "</div>" + md(p) + "</div>" : ""; };
     var abschnitt = function (titel, text) { return text ? '<h3 style="margin:12px 0 4px;font-size:14px">' + esc(titel) + "</h3>" + md(text) : ""; };
-    body.innerHTML = (v.kurz ? '<p style="margin:0 0 6px;font-weight:600">' + esc(v.kurz) + "</p>" : "") +
-      abschnitt("Gedreht", v.gedreht) + abschnitt("Was schiefging / Risiken", v.probleme) + abschnitt("Was ansteht", v.ansteht) + abschnitt("Wer macht was", v.wer) +
-      (v.verlauf ? '<details style="margin-top:8px"><summary style="cursor:pointer;font-size:13px;color:var(--muted)">Zuletzt passiert</summary>' + md(v.verlauf) + "</details>" : "");
+    body.innerHTML = (v.kurz ? '<p style="margin:0 0 10px;font-weight:600">' + esc(v.kurz) + "</p>" : "") +
+      '<div style="display:flex;gap:16px;flex-wrap:wrap">' + spalte("Neu", v.verlauf, 3) + spalte("Ansteht", v.ansteht, 3) + spalte("Achtung", v.probleme, 2) + "</div>" +
+      '<details style="margin-top:10px"><summary style="cursor:pointer;font-size:13px;color:var(--muted)">Ganzer Lagebericht' + (v.von ? " · " + esc(v.von) : "") + "</summary>" +
+      abschnitt("Gedreht", v.gedreht) + abschnitt("Was schiefging / Risiken", v.probleme) + abschnitt("Was ansteht", v.ansteht) + abschnitt("Wer macht was", v.wer) + abschnitt("Zuletzt passiert", v.verlauf) + "</details>";
   }
   function renderLageWer() {
     var el = document.getElementById("lageWerBody"); if (!el) return;
@@ -64,6 +68,12 @@
         (l.length > 6 ? '<li style="color:var(--muted)">… und ' + (l.length - 6) + " weitere</li>" : "") + "</ul></div>";
     }).join("");
   }
+  /* Startseite entschlacken: Projektstand-Phasen erst auf Klick */
+  (function () {
+    var ul = document.querySelector("#page-start ul.phasen"); if (!ul) return;
+    var det = document.createElement("details"); det.innerHTML = '<summary style="cursor:pointer;font-size:13px;color:var(--muted)">Phasen anzeigen</summary>';
+    ul.parentNode.insertBefore(det, ul); det.appendChild(ul);
+  })();
   function lageOben() {
     /* Geschäftsleitung: Lagebericht ganz oben, „Wer macht was“ aufgeklappt */
     var k = me(); if (k !== "TS" && k !== "DS") return;
