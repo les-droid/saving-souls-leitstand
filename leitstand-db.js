@@ -7,7 +7,7 @@
 
   /* ---- Konfiguration (Supabase → Settings → API) ---- */
   var SUPABASE_URL  = "https://yfkckqbrksivksotopfo.supabase.co";
-  var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlma2NrcWJya3Npdmtzb3RvcGZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NDA2ODcsImV4cCI6MjEwNDExNjY4N30.-G-Wy2BlQsMFeq1nd97bXu8FPje4S6s0RAcqWmmQyro";   /* anon-Key: öffentlich; Daten schützt Row Level Security */
+  var SUPABASE_ANON = "sb_publishable_XaI7tGTC3E7V2kWEI0j--A_cPeev7YG";   /* öffentlicher Publishable-Key (Legacy-Keys seit 08.09. deaktiviert); Daten schützt Row Level Security */
   var LOGIN_SITE    = location.origin + location.pathname;
   /* Team-Passwort (SHA-256, Klartext steht nicht im Code). Vorhang gegen Mitleser mit Link; die Daten
      schützt weiterhin der GitHub-Login + Team-Liste in der Datenbank. */
