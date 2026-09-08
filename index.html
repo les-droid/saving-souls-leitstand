@@ -1,4 +1,5 @@
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Saving Souls Leitstand</title>
 <style>
   :root {
@@ -619,7 +620,8 @@
   /* ---- Identität ---- */
   var whoPick = document.getElementById("whoPick");
   function renderWho() { whoPick.innerHTML = WER.map(function (w) { return '<button type="button" class="whobtn' + (w === me ? " on" : "") + '" data-w="' + w + '">' + w + "</button>"; }).join(""); }
-  whoPick.addEventListener("click", function (ev) { var b = ev.target.closest("button[data-w]"); if (!b) return; me = b.dataset.w; try { localStorage.setItem("ss-wer", me); } catch (e) {} renderWho(); });
+  /* Kürzel-Wechsel: merken und die Seite für die neue Person neu aufbauen (Briefing, Karten, Vorgaben, Reihenfolge) */
+  whoPick.addEventListener("click", function (ev) { var b = ev.target.closest("button[data-w]"); if (!b || b.dataset.w === me) return; me = b.dataset.w; try { localStorage.setItem("ss-wer", me); } catch (e) {} renderWho(); showStatus("Jetzt als " + me + " – Seite wird neu geladen …"); setTimeout(function () { location.reload(); }, 250); });
   renderWho();
   var whoModal = document.getElementById("whoModal"), whoBtns = document.getElementById("whoModalBtns");
   whoBtns.innerHTML = WER.map(function (w) { return '<button type="button" class="' + (w === me ? "last" : "") + '" data-w="' + w + '">' + w + "</button>"; }).join("");
