@@ -85,45 +85,49 @@
      Sammlung praesenz/<LES|JB>: schreibt der Listener aus den Commits auf main (Autor „CL LES“/„CL JB“,
      Marken „Sitzung gestartet“/„Sitzung beendet“). Dazu laufende Claude-Aufgaben aus todos. */
   var praesenz = [];
+  var AKTEURE = [
+    { id: "LES", name: "LES", was: "privater Claude" },
+    { id: "JB", name: "JB", was: "privater Claude" },
+    { id: "Schnitt 11", name: "Schnitt 11", was: "Claude am Schnittplatz" },
+    { id: "VPS-Routine", name: "VPS", was: "Überwachungslauf" }
+  ];
   var praesenzEl = (function () {
     var start = document.getElementById("page-start"); if (!start) return null;
-    var el = document.createElement("div"); el.id = "praesenz";
-    el.style.cssText = "display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;font-size:13px;color:var(--muted);margin:-8px 0 16px";
-    var anker = start.querySelector(".standline");
-    if (anker && anker.parentNode) anker.parentNode.insertBefore(el, anker.nextSibling); else start.insertBefore(el, start.firstChild);
+    var card = document.createElement("section"); card.className = "card"; card.id = "liveCard";
+    card.innerHTML = '<h2>Live <span class="hint">wer arbeitet gerade woran</span></h2><div id="liveRows"></div>';
+    var facts = start.querySelector(".facts");
+    if (facts && facts.parentNode) facts.parentNode.insertBefore(card, facts); else start.appendChild(card);
     var st = document.createElement("style");
-    st.textContent = "#praesenz .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);opacity:.5;margin-right:6px;vertical-align:1px}#praesenz .dot.on{opacity:1;background:#2fa84f;box-shadow:0 0 0 0 rgba(47,168,79,.6);animation:ssPuls 1.6s infinite}@keyframes ssPuls{to{box-shadow:0 0 0 7px rgba(47,168,79,0)}}#praesenz strong{color:var(--ink)}";
+    st.textContent = "#liveCard{margin-bottom:14px}#liveRows .lrow{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px solid color-mix(in srgb,var(--muted) 22%,transparent);font-size:13px;line-height:1.4}#liveRows .lrow:first-child{border-top:0;padding-top:2px}#liveRows .lname{flex:0 0 112px;font-weight:600;color:var(--ink)}#liveRows .lname small{display:block;font-weight:400;font-size:11px;color:var(--muted)}#liveRows .lstat{flex:1;min-width:0;color:var(--muted)}#liveRows .lstat b{color:var(--ink);font-weight:600}#liveRows .dot{flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:var(--muted);opacity:.45;margin-top:6px}#liveRows .dot.on{opacity:1;background:#2fa84f;box-shadow:0 0 0 0 rgba(47,168,79,.6);animation:ssPuls 1.6s infinite}@keyframes ssPuls{to{box-shadow:0 0 0 7px rgba(47,168,79,0)}}";
     document.head.appendChild(st);
-    return el;
+    return card.querySelector("#liveRows");
   })();
   var ORT_NAME = { schnitt11: "Schnitt 11", vps: "dem VPS", cloud: "Claude in der Cloud" };
   function renderPraesenz() {
     if (!praesenzEl) return;
-    var jetzt = Date.now(), teile = [];
+    var jetzt = Date.now();
     var zeit = function (iso) { var d = new Date(iso); return isNaN(d) ? "" : hhmm(d); };
-    var frisch = function (v) { return v.zuletztAm && jetzt - new Date(v.zuletztAm).getTime() < 45 * 60000; };   /* Fallback, falls der Listener aus ist */
-    var reihenfolge = ["LES", "JB", "Schnitt 11", "VPS-Routine"];
-    var aktive = praesenz.map(function (d) { return d.data(); }).filter(function (v) { return v && v.aktiv && frisch(v); })
-      .sort(function (a, b) { return (reihenfolge.indexOf(a.wer) + 1 || 99) - (reihenfolge.indexOf(b.wer) + 1 || 99); });
-    aktive.forEach(function (v) {
-      var thema = v.thema ? " an „" + esc(v.thema) + "“" : "";
+    var wann = function (iso) { if (!iso) return ""; var d = new Date(iso); return isNaN(d) ? "" : (d.toDateString() === new Date().toDateString() ? "" : fmtDatum(iso) + " ") + hhmm(d); };
+    var docs = {}; praesenz.forEach(function (d) { var v = d.data(); if (v && v.wer) docs[v.wer] = v; });
+    var zeile = function (on, name, was, stat) { return '<div class="lrow"><span class="dot' + (on ? " on" : "") + '"></span><span class="lname">' + esc(name) + "<small>" + esc(was) + "</small></span><span class=\"lstat\">" + stat + "</span></div>"; };
+    var rows = AKTEURE.map(function (a) {
+      var v = docs[a.id];
+      if (!v) return zeile(false, a.name, a.was, "noch keine Sitzung");
       var marke = /Sitzung gestartet|^Thema:/i.test(v.text || "");
-      var zuletzt = v.text && !marke && v.text !== v.thema ? " · zuletzt " + zeit(v.zuletztAm) + " „" + esc(v.text) + "“" : "";
-      var kopf = v.wer === "Schnitt 11" ? "<strong>Claude auf Schnitt 11</strong> arbeitet gerade" + thema
-        : v.wer === "VPS-Routine" ? "<strong>Überwachungslauf auf dem VPS</strong>"
-        : "<strong>" + esc(v.wer) + "</strong> arbeitet gerade mit Claude" + thema + (!v.thema && marke ? ' <span style="opacity:.7">(Thema folgt)</span>' : "");
-      teile.push('<span><span class="dot on"></span>' + kopf + (v.wer === "VPS-Routine" ? "" : " · seit " + zeit(v.seit)) + zuletzt + "</span>");
+      var thema = v.thema ? " an <b>„" + esc(v.thema) + "“</b>" : "";
+      var zuletzt = v.text && !marke && v.text !== v.thema ? " · zuletzt " + wann(v.zuletztAm) + " „" + esc(v.text) + "“" : "";
+      var lebt = v.prozesse > 0 ? (v.geprueft && jetzt - new Date(v.geprueft).getTime() < 12 * 60000) : (v.zuletztAm && jetzt - new Date(v.zuletztAm).getTime() < 45 * 60000);
+      var on = !!(v.aktiv && lebt);
+      if (a.id === "VPS-Routine") return zeile(v.zuletztAm && jetzt - new Date(v.zuletztAm).getTime() < 15 * 60000, a.name, a.was, "letzter Lauf " + wann(v.zuletztAm));
+      if (!on) return zeile(false, a.name, a.was, (a.id === "Schnitt 11" ? "Claude nicht aktiv" : "nicht aktiv") + (v.zuletztAm ? " · zuletzt " + wann(v.zuletztAm) + (v.thema ? " „" + esc(v.thema) + "“" : "") : ""));
+      var kopf = a.id === "Schnitt 11" ? (v.art === "lauf" ? "<b>unbeaufsichtigter Lauf</b>" : "<b>Sitzung läuft</b>") : "<b>arbeitet</b>";
+      return zeile(true, a.name, a.was, kopf + thema + (!v.thema && a.id !== "Schnitt 11" ? " (Thema folgt)" : "") + (v.seit ? " · seit " + wann(v.seit) : "") + zuletzt);
     });
     todos.forEach(function (d) {
       var v = d.data(); if (!v || v.s11status !== "laeuft") return;
-      teile.push('<span><span class="dot on"></span><strong>Claude-Aufgabe</strong> läuft auf ' + esc(ORT_NAME[v.s11ziel] || "Schnitt 11") + " · „" + esc(v.text) + "“" + (v.s11fortschritt ? ' <span style="opacity:.7">' + esc(String(v.s11fortschritt).slice(0, 90)) + "</span>" : "") + "</span>");
+      rows.push(zeile(true, "Aufgabe", "auf " + (ORT_NAME[v.s11ziel] || "Schnitt 11"), "<b>„" + esc(v.text) + "“</b>" + (v.s11fortschritt ? " · " + esc(String(v.s11fortschritt).slice(0, 100)) : "")));
     });
-    if (!teile.length) {
-      var letzte = praesenz.map(function (d) { return d.data(); }).filter(function (v) { return v && v.zuletztAm && (v.wer === "LES" || v.wer === "JB"); })
-        .sort(function (a, b) { return a.zuletztAm < b.zuletztAm ? 1 : -1; })[0];
-      teile.push('<span><span class="dot"></span>Gerade arbeitet niemand mit Claude' + (letzte ? " · zuletzt " + esc(letzte.wer) + " am " + fmtDatum(letzte.zuletztAm) + " " + zeit(letzte.zuletztAm) : "") + "</span>");
-    }
-    praesenzEl.innerHTML = teile.join("");
+    praesenzEl.innerHTML = rows.join("");
   }
   setInterval(renderPraesenz, 60000);
 
