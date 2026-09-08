@@ -396,6 +396,7 @@
             <select id="todoPrio" aria-label="Priorität"><option value="1">hoch</option><option value="2" selected>mittel</option><option value="3">niedrig</option></select>
             <select id="todoWer" aria-label="Zuständig"><option>alle</option><option>LES</option><option>JB</option><option>TS</option><option>DS</option><option>Claude</option></select>
             <select id="todoTyp" aria-label="Art"><option value="aufgabe">Aufgabe (Haken)</option><option value="frage">Rückfrage (Antwortfeld)</option><option value="claude">Claude-Aufgabe (Jetzt erledigen)</option></select>
+            <select id="todoZiel" aria-label="Wo soll Claude arbeiten" title="Nur für Claude-Aufgaben"><option value="egal">Ort egal (Repo, Texte)</option><option value="schnitt11">nur Schnitt 11 (RAID, Premiere)</option></select>
             <button class="primary" type="submit">Anlegen</button>
             <textarea id="todoBeschr" placeholder="Genaue Beschreibung: Was ist zu tun, woran erkennt man, dass es fertig ist? (optional)" maxlength="2000"></textarea>
           </form>
@@ -732,9 +733,16 @@
     var extra = "";
     if (typ === "frage" && !v.done) extra = '<form class="tantwort" data-act="antwort"><input type="text" placeholder="Antwort …" maxlength="1000"><button type="submit">Antworten</button></form>';
     if (typ === "frage" && v.antwort) extra += '<div class="tantwort-text">Antwort (' + esc(v.antwortVon || "") + '): ' + esc(v.antwort) + "</div>";
-    if (typ === "claude" && !v.done) extra = v.angefordert
-      ? '<div class="tclaude"><span class="warte">Angefordert' + (v.angefordertVon ? " von " + esc(v.angefordertVon) : "") + '</span><span>— Claude erledigt es beim nächsten Lauf (stündlich 8–20 Uhr)</span></div>'
-      : '<div class="tclaude"><button type="button" data-act="jetzt">Jetzt erledigen</button><span>gibt Claude den Auftrag für den nächsten Lauf</span></div>';
+    if (typ === "claude" && !v.done) {
+      var nurS11 = v.ziel === "schnitt11";
+      var lauf = v.s11status === "laeuft" ? "— läuft gerade auf " + esc(v.s11ziel === "cloud" ? "Claude in der Cloud" : "Schnitt 11")
+        : v.s11status === "fehler" ? "— Fehler, siehe Panel „Schnitt 11“"
+        : nurS11 ? "— wartet auf Schnitt 11 (braucht RAID/Premiere; läuft nur, wenn der Rechner an ist)"
+        : "— Schnitt 11 nimmt es in Sekunden; ist der Rechner aus, übernimmt die Cloud stündlich (8–20 Uhr)";
+      extra = v.angefordert
+        ? '<div class="tclaude"><span class="warte">Angefordert' + (v.angefordertVon ? " von " + esc(v.angefordertVon) : "") + '</span><span>' + lauf + '</span></div>'
+        : '<div class="tclaude"><button type="button" data-act="jetzt">Jetzt erledigen</button><span>' + (nurS11 ? "startet auf Schnitt 11" : "startet sofort auf Schnitt 11, sonst stündlich in der Cloud") + '</span></div>';
+    }
     return '<li class="' + (v.done ? "done" : "") + '" data-id="' + esc(item.id) + '"><span class="prio p' + p + '" title="Priorität: ' + PRIO_TXT[p] + '"></span>' +
       '<input type="checkbox"' + (v.done ? " checked" : "") + ' aria-label="erledigt"><span class="tbody"><span class="ttext">' + esc(v.text) + "</span>" + det + extra + "</span>" +
       '<span class="chip ' + esc(v.wer || "alle") + '">' + esc(v.wer || "alle") + '</span>' + (v.done ? '<button type="button" class="undo" data-act="undo">Zurückholen</button>' : "") + '<button class="del" title="Löschen" aria-label="Löschen">×</button></li>';
@@ -856,7 +864,8 @@
   document.getElementById("todoForm").addEventListener("submit", function (ev) {
     ev.preventDefault(); var inp = document.getElementById("todoInput"), beschr = document.getElementById("todoBeschr"); var t = inp.value.trim(); if (!t || !db) return;
     var wer = document.getElementById("todoWer").value; var typ = document.getElementById("todoTyp").value; if (wer === "Claude") typ = "claude";
-    db.collection("todos").add({ text: t, beschreibung: beschr.value.trim(), prio: Number(document.getElementById("todoPrio").value) || 2, wer: wer, typ: typ, done: false, created: new Date().toISOString() })
+    var ziel = typ === "claude" ? (document.getElementById("todoZiel").value || "egal") : undefined;
+    db.collection("todos").add({ text: t, beschreibung: beschr.value.trim(), prio: Number(document.getElementById("todoPrio").value) || 2, wer: wer, typ: typ, ziel: ziel, done: false, created: new Date().toISOString() })
       .then(function () { inp.value = ""; beschr.value = ""; }).catch(function () { showStatus("Speichern fehlgeschlagen — kurz warten und noch einmal versuchen."); });
   });
   document.getElementById("noteForm").addEventListener("submit", function (ev) {

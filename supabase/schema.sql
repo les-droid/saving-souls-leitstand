@@ -21,22 +21,27 @@ returns void language sql security invoker as $$
     set data = public.docs.data || excluded.data, updated_by = excluded.updated_by, updated_at = now();
 $$;
 
--- 3) Atomares Beanspruchen einer Claude-Aufgabe durch Schnitt 11 (verhindert Doppelausführung)
-create or replace function public.s11_claim(p_id text)
-returns jsonb language plpgsql security definer as $$
+-- 3) Atomares Beanspruchen einer Claude-Aufgabe (verhindert Doppelausführung, auch bei mehreren Listenern)
+--    p_ziel = Name des Rechners ('schnitt11', 'cloud', …). Aufgaben mit ziel='schnitt11' nimmt nur Schnitt 11;
+--    ziel fehlt oder 'egal' = jeder darf.
+drop function if exists public.s11_claim(text);
+create or replace function public.s11_claim(p_id text, p_ziel text default 'schnitt11')
+returns jsonb language plpgsql security definer set search_path = public as $$
 declare r jsonb;
 begin
   update public.docs
-     set data = data || jsonb_build_object('s11status','laeuft','s11gestartetAm',to_char(now() at time zone 'utc','YYYY-MM-DD"T"HH24:MI:SS"Z"'),'s11fortschritt','gestartet …'),
-         updated_by = 'schnitt11', updated_at = now()
+     set data = data || jsonb_build_object('s11status','laeuft','s11ziel',p_ziel,'s11gestartetAm',to_char(now() at time zone 'utc','YYYY-MM-DD"T"HH24:MI:SS"Z"'),'s11fortschritt','gestartet …'),
+         updated_by = p_ziel, updated_at = now()
    where collection = 'todos' and id = p_id
      and coalesce(data->>'typ','') = 'claude'
      and coalesce((data->>'angefordert')::boolean,false)
      and coalesce((data->>'done')::boolean,false) = false
      and coalesce(data->>'s11status','') not in ('laeuft','fertig')
+     and (coalesce(data->>'ziel','egal') = 'egal' or data->>'ziel' = p_ziel)
   returning data into r;
   return r;
 end $$;
+revoke execute on function public.s11_claim(text, text) from public, anon, authenticated;
 
 -- 4) Zugriff: nur eingeloggte Team-Mitglieder (GitHub-Login), volle Rechte
 alter table public.docs enable row level security;
