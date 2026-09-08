@@ -81,6 +81,45 @@
     var det = document.getElementById("lageWer"); if (det) det.open = true;
   }
 
+  /* ================= Wer ist gerade dran? (Präsenz) =================
+     Sammlung praesenz/<LES|JB>: schreibt der Listener aus den Commits auf main (Autor „CL LES“/„CL JB“,
+     Marken „Sitzung gestartet“/„Sitzung beendet“). Dazu laufende Claude-Aufgaben aus todos. */
+  var praesenz = [];
+  var praesenzEl = (function () {
+    var start = document.getElementById("page-start"); if (!start) return null;
+    var el = document.createElement("div"); el.id = "praesenz";
+    el.style.cssText = "display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;font-size:13px;color:var(--muted);margin:-8px 0 16px";
+    var anker = start.querySelector(".standline");
+    if (anker && anker.parentNode) anker.parentNode.insertBefore(el, anker.nextSibling); else start.insertBefore(el, start.firstChild);
+    var st = document.createElement("style");
+    st.textContent = "#praesenz .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);opacity:.5;margin-right:6px;vertical-align:1px}#praesenz .dot.on{opacity:1;background:#2fa84f;box-shadow:0 0 0 0 rgba(47,168,79,.6);animation:ssPuls 1.6s infinite}@keyframes ssPuls{to{box-shadow:0 0 0 7px rgba(47,168,79,0)}}#praesenz strong{color:var(--ink)}";
+    document.head.appendChild(st);
+    return el;
+  })();
+  var ORT_NAME = { schnitt11: "Schnitt 11", vps: "dem VPS", cloud: "Claude in der Cloud" };
+  function renderPraesenz() {
+    if (!praesenzEl) return;
+    var jetzt = Date.now(), teile = [];
+    var zeit = function (iso) { var d = new Date(iso); return isNaN(d) ? "" : hhmm(d); };
+    praesenz.forEach(function (d) {
+      var v = d.data(); if (!v || !v.aktiv) return;
+      if (!(v.zuletztAm && jetzt - new Date(v.zuletztAm).getTime() < 45 * 60000)) return;   /* Fallback, falls der Listener aus ist */
+      teile.push('<span><span class="dot on"></span><strong>' + esc(v.wer) + "</strong> arbeitet gerade mit Claude · seit " + zeit(v.seit) +
+        (v.text && !/Sitzung gestartet/i.test(v.text) ? " · zuletzt " + zeit(v.zuletztAm) + " „" + esc(v.text) + "“" : "") + "</span>");
+    });
+    todos.forEach(function (d) {
+      var v = d.data(); if (!v || v.s11status !== "laeuft") return;
+      teile.push('<span><span class="dot on"></span><strong>Claude-Aufgabe</strong> läuft auf ' + esc(ORT_NAME[v.s11ziel] || "Schnitt 11") + " · „" + esc(v.text) + "“</span>");
+    });
+    if (!teile.length) {
+      var letzte = praesenz.map(function (d) { return d.data(); }).filter(function (v) { return v && v.zuletztAm; })
+        .sort(function (a, b) { return a.zuletztAm < b.zuletztAm ? 1 : -1; })[0];
+      teile.push('<span><span class="dot"></span>Gerade arbeitet niemand mit Claude' + (letzte ? " · zuletzt " + esc(letzte.wer) + " am " + fmtDatum(letzte.zuletztAm) + " " + zeit(letzte.zuletztAm) : "") + "</span>");
+    }
+    praesenzEl.innerHTML = teile.join("");
+  }
+  setInterval(renderPraesenz, 60000);
+
   /* ================= Zeiterfassung ================= */
   function selectFuellen(sel, liste, name, wert) {
     sel.innerHTML = liste.map(function (k) { return '<option value="' + esc(k) + '"' + (k === wert ? " selected" : "") + ">" + esc(name[k] || k) + "</option>"; }).join("");
@@ -205,7 +244,8 @@
   window.claude.use("db").then(function (d) {
     if (!d) return; db = d;
     db.doc("lagebericht/aktuell").onSnapshot(function (snap) { renderLage(snap.exists ? snap.data() : null); }, function () { renderLage(null); });
-    db.collection("todos").onSnapshot(function (snap) { todos = snap.docs; renderLageWer(); renderSumme(); }, function () {});
+    db.collection("todos").onSnapshot(function (snap) { todos = snap.docs; renderLageWer(); renderSumme(); renderPraesenz(); }, function () {});
+    db.collection("praesenz").onSnapshot(function (snap) { praesenz = snap.docs; renderPraesenz(); }, function () {});
     db.collection("zeiten").onSnapshot(function (snap) { zeiten = snap.docs; renderZeiten(); }, function () {});
   });
   /* Kürzel-Wechsel im Kopf: Vorgabe im Formular nachziehen */
