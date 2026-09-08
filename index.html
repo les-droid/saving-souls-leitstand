@@ -735,13 +735,14 @@
     if (typ === "frage" && v.antwort) extra += '<div class="tantwort-text">Antwort (' + esc(v.antwortVon || "") + '): ' + esc(v.antwort) + "</div>";
     if (typ === "claude" && !v.done) {
       var nurS11 = v.ziel === "schnitt11";
-      var lauf = v.s11status === "laeuft" ? "— läuft gerade auf " + esc(v.s11ziel === "cloud" ? "Claude in der Cloud" : "Schnitt 11")
+      var ORT = { schnitt11: "Schnitt 11", vps: "dem VPS", cloud: "Claude in der Cloud" };
+      var lauf = v.s11status === "laeuft" ? "— läuft gerade auf " + esc(ORT[v.s11ziel] || v.s11ziel || "Schnitt 11")
         : v.s11status === "fehler" ? "— Fehler, siehe Panel „Schnitt 11“"
         : nurS11 ? "— wartet auf Schnitt 11 (braucht RAID/Premiere; läuft nur, wenn der Rechner an ist)"
-        : "— Schnitt 11 nimmt es in Sekunden; ist der Rechner aus, übernimmt die Cloud stündlich (8–20 Uhr)";
+        : "— Schnitt 11 oder der VPS nehmen es in Sekunden (VPS läuft rund um die Uhr)";
       extra = v.angefordert
         ? '<div class="tclaude"><span class="warte">Angefordert' + (v.angefordertVon ? " von " + esc(v.angefordertVon) : "") + '</span><span>' + lauf + '</span></div>'
-        : '<div class="tclaude"><button type="button" data-act="jetzt">Jetzt erledigen</button><span>' + (nurS11 ? "startet auf Schnitt 11" : "startet sofort auf Schnitt 11, sonst stündlich in der Cloud") + '</span></div>';
+        : '<div class="tclaude"><button type="button" data-act="jetzt">Jetzt erledigen</button><span>' + (nurS11 ? "startet auf Schnitt 11" : "startet sofort auf Schnitt 11 oder dem VPS") + '</span></div>';
     }
     return '<li class="' + (v.done ? "done" : "") + '" data-id="' + esc(item.id) + '"><span class="prio p' + p + '" title="Priorität: ' + PRIO_TXT[p] + '"></span>' +
       '<input type="checkbox"' + (v.done ? " checked" : "") + ' aria-label="erledigt"><span class="tbody"><span class="ttext">' + esc(v.text) + "</span>" + det + extra + "</span>" +
