@@ -101,18 +101,25 @@
     if (!praesenzEl) return;
     var jetzt = Date.now(), teile = [];
     var zeit = function (iso) { var d = new Date(iso); return isNaN(d) ? "" : hhmm(d); };
-    praesenz.forEach(function (d) {
-      var v = d.data(); if (!v || !v.aktiv) return;
-      if (!(v.zuletztAm && jetzt - new Date(v.zuletztAm).getTime() < 45 * 60000)) return;   /* Fallback, falls der Listener aus ist */
-      teile.push('<span><span class="dot on"></span><strong>' + esc(v.wer) + "</strong> arbeitet gerade mit Claude · seit " + zeit(v.seit) +
-        (v.text && !/Sitzung gestartet/i.test(v.text) ? " · zuletzt " + zeit(v.zuletztAm) + " „" + esc(v.text) + "“" : "") + "</span>");
+    var frisch = function (v) { return v.zuletztAm && jetzt - new Date(v.zuletztAm).getTime() < 45 * 60000; };   /* Fallback, falls der Listener aus ist */
+    var reihenfolge = ["LES", "JB", "Schnitt 11", "VPS-Routine"];
+    var aktive = praesenz.map(function (d) { return d.data(); }).filter(function (v) { return v && v.aktiv && frisch(v); })
+      .sort(function (a, b) { return (reihenfolge.indexOf(a.wer) + 1 || 99) - (reihenfolge.indexOf(b.wer) + 1 || 99); });
+    aktive.forEach(function (v) {
+      var thema = v.thema ? " an „" + esc(v.thema) + "“" : "";
+      var marke = /Sitzung gestartet|^Thema:/i.test(v.text || "");
+      var zuletzt = v.text && !marke && v.text !== v.thema ? " · zuletzt " + zeit(v.zuletztAm) + " „" + esc(v.text) + "“" : "";
+      var kopf = v.wer === "Schnitt 11" ? "<strong>Claude auf Schnitt 11</strong> arbeitet gerade" + thema
+        : v.wer === "VPS-Routine" ? "<strong>Überwachungslauf auf dem VPS</strong>"
+        : "<strong>" + esc(v.wer) + "</strong> arbeitet gerade mit Claude" + thema + (!v.thema && marke ? ' <span style="opacity:.7">(Thema folgt)</span>' : "");
+      teile.push('<span><span class="dot on"></span>' + kopf + (v.wer === "VPS-Routine" ? "" : " · seit " + zeit(v.seit)) + zuletzt + "</span>");
     });
     todos.forEach(function (d) {
       var v = d.data(); if (!v || v.s11status !== "laeuft") return;
-      teile.push('<span><span class="dot on"></span><strong>Claude-Aufgabe</strong> läuft auf ' + esc(ORT_NAME[v.s11ziel] || "Schnitt 11") + " · „" + esc(v.text) + "“</span>");
+      teile.push('<span><span class="dot on"></span><strong>Claude-Aufgabe</strong> läuft auf ' + esc(ORT_NAME[v.s11ziel] || "Schnitt 11") + " · „" + esc(v.text) + "“" + (v.s11fortschritt ? ' <span style="opacity:.7">' + esc(String(v.s11fortschritt).slice(0, 90)) + "</span>" : "") + "</span>");
     });
     if (!teile.length) {
-      var letzte = praesenz.map(function (d) { return d.data(); }).filter(function (v) { return v && v.zuletztAm; })
+      var letzte = praesenz.map(function (d) { return d.data(); }).filter(function (v) { return v && v.zuletztAm && (v.wer === "LES" || v.wer === "JB"); })
         .sort(function (a, b) { return a.zuletztAm < b.zuletztAm ? 1 : -1; })[0];
       teile.push('<span><span class="dot"></span>Gerade arbeitet niemand mit Claude' + (letzte ? " · zuletzt " + esc(letzte.wer) + " am " + fmtDatum(letzte.zuletztAm) + " " + zeit(letzte.zuletztAm) : "") + "</span>");
     }
