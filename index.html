@@ -595,7 +595,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="leitstand-db.js?v=260908c"></script>
+<script src="leitstand-db.js?v=260908d"></script>
 <script>
 (function () {
   "use strict";
@@ -742,6 +742,7 @@
       var ORT = { schnitt11: "Schnitt 11", vps: "dem VPS", cloud: "Claude in der Cloud" };
       var lauf = v.s11status === "laeuft" ? "— läuft gerade auf " + esc(ORT[v.s11ziel] || v.s11ziel || "Schnitt 11")
         : v.s11status === "fehler" ? "— Fehler, siehe Panel „Schnitt 11“"
+        : v.s11status === "wartet" && v.s11wiederAb ? "— pausiert, " + esc(v.s11fortschritt || ("geht von selbst weiter ab " + new Date(v.s11wiederAb).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })))
         : nurS11 ? "— wartet auf Schnitt 11 (braucht RAID/Premiere; läuft nur, wenn der Rechner an ist)"
         : "— Schnitt 11 oder der VPS nehmen es in Sekunden (VPS läuft rund um die Uhr)";
       extra = v.angefordert
@@ -986,4 +987,4 @@
   });
 })();
 </script>
-<script src="leitstand-zeit.js?v=260908c"></script>
+<script src="leitstand-zeit.js?v=260908d"></script>
