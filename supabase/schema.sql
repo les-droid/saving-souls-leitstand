@@ -50,7 +50,7 @@ alter table public.docs replica identity full;
 -- 6) Nur bekannte GitHub-Logins dürfen sich registrieren
 create or replace function public.nur_team()
 returns trigger language plpgsql security definer as $$
-declare erlaubt text[] := array['les-droid'];   -- GitHub-Usernames von JB, TS, DS hier ergänzen
+declare erlaubt text[] := array['les-droid', 'jnbjonathan-beep'];   -- LES, JB; GitHub-Usernames von TS, DS hier ergänzen
 begin
   if not (coalesce(new.raw_user_meta_data->>'user_name','') = any(erlaubt)) then
     raise exception 'Kein Team-Mitglied: %', new.raw_user_meta_data->>'user_name';

@@ -13,7 +13,7 @@
      schützt weiterhin der GitHub-Login + Team-Liste in der Datenbank. */
   var TOR_HASH      = "4a6dc797e7f4f79644c9394a1ec04da93b255226fefce205c7eead4c59dde387";
   /* GitHub-Login → Kürzel im Board (weitere Team-Mitglieder hier ergänzen) */
-  var GITHUB_KUERZEL = { "les-droid": "LES" };
+  var GITHUB_KUERZEL = { "les-droid": "LES", "jnbjonathan-beep": "JB" };
 
   var TABELLE = "docs";
   var sb = null, session = null;
