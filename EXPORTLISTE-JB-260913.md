@@ -115,11 +115,20 @@ aber es fehlt weiterhin der Beleg, dass der Adobe-Admin `postproduction01@` Entw
 erteilt und Client-ID/Secret an LES übergeben hat. Die bisherigen Uploads (O-Ton v05/v06, Reel v02)
 sind in **interaktiven** Sitzungen auf Schnitt 11 entstanden, nicht automatisiert.
 
-**Der Listener hilft hier nicht:** Laut Notiz vom 08.09. läuft der Claude-Aufruf des Listeners mit
-`cwd`=Repo **ohne `--add-dir`** — das RAID ist für den Lauf nicht erreichbar (`ls`/`find` auf
-`/Volumes` blockiert, obwohl gemountet) — und mit `acceptEdits` **ohne Befehlsrechte**. Der
-v06-Bau am 09.09. hat nur als interaktive Sitzung mit LES funktioniert. Eine Board-Aufgabe
-„exportieren und hochladen“ würde also voraussichtlich scheitern, wie am 08.09. schon einmal.
+**Zum Listener — Stand 13.09., gegenüber der ersten Fassung dieser Liste korrigiert:**
+Der Aufgabenweg funktioniert. Die drei zuvor offenen Claude-Aufgaben (u. a. `dt10-einspielen`
+vom 11.09.) standen nur deshalb unangetastet da, weil bei keiner `angefordert` gesetzt war —
+`s11_claim` verlangt das, es hatte nie jemand „Jetzt erledigen“ gedrückt. Eine am 13.09. 13:18
+angeforderte Aufgabe wurde binnen Sekunden übernommen (`s11status = laeuft`). Auch das
+Session-Limit vom 08.09. („resets 7:40pm“) ist längst zurückgesetzt.
+
+**Offen bleibt der Rechte-Blocker, nicht der Aufgabenweg:** Laut Notiz vom 08.09. lief der
+Claude-Aufruf des Listeners mit `cwd`=Repo **ohne `--add-dir`** — RAID für den Lauf nicht
+erreichbar (`ls`/`find` auf `/Volumes` blockiert, obwohl gemountet) — und mit `acceptEdits`
+**ohne Befehlsrechte**; am 09.09. scheiterten zwei Läufe an „workspace has not been trusted“.
+Dass das behoben ist, ist nicht belegt. Der v06-Bau am 09.09. lief als interaktive Sitzung mit LES.
+Ein Export über den Listener ist damit unbewiesen — **die Einsortierung aus Abschnitt C dagegen
+braucht weder RAID-Bild noch Frame.io und läuft auch ohne.**
 
 Schnitt 11 ist aktuell erreichbar (Listener läuft, PID 832, RAID gemountet, Stand 13.09. 13:12) —
 für einen **interaktiven** Lauf sind die Voraussetzungen also da.
@@ -132,9 +141,12 @@ für einen **interaktiven** Lauf sind die Voraussetzungen also da.
    (https://f.io/t6ViBr-v) und die beiden fertigen DT7-Interviews (zusammen 27:46) hochladen.
    Das deckt „Interviews“ und „situative O-Töne“ schon zu einem guten Teil ab.
 2. **Ein interaktiver Lauf auf Schnitt 11** für die Sequenzen aus Abschnitt B, plus
-   `260911 DT10 SLX CL LES` (40:34) als aktuellsten Drehtag.
+   `260911 DT10 SLX CL LES` (40:34) als aktuellsten Drehtag. Interaktiv deshalb, weil der
+   Export Bild vom RAID und Rendern braucht — genau das, was über den Listener unbewiesen ist.
 3. **Vorher klären:** ob der Adobe-Rechte-Blocker inzwischen weg ist. Wenn nein, läuft der Upload
    wie bisher von Hand über Frame.io Drive.
-4. **Offen und nicht nebenbei zu erledigen:** die Einsortierung der acht unsortierten Drehtage
-   (Abschnitt C). Ohne sie ist „die interessanten Stellen“ nicht lieferbar, sondern nur
-   „alle Selects je Drehtag“.
+4. **Läuft bereits:** die Einsortierung der unsortierten Drehtage (Abschnitt C) als
+   Claude-Aufgabe `jb-sichtung-vorauswahl` auf Schnitt 11, angefordert am 13.09. 13:18,
+   vom Listener um 13:18:57 übernommen. Grundlage ist der vorhandene Transkript-Korpus,
+   DT10 zuerst. Bewusst ohne Export und ohne Frame.io geschnitten, damit sie unabhängig
+   vom Rechte-Blocker durchläuft. Ergebnis je Clip mit Belegstelle aus dem Transkript.
