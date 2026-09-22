@@ -52,12 +52,15 @@ create policy team_docs on public.docs for all to authenticated using (true) wit
 alter publication supabase_realtime add table public.docs;
 alter table public.docs replica identity full;
 
--- 6) Nur bekannte GitHub-Logins dürfen sich registrieren
+-- 6) Nur bekannte GitHub-Logins ODER die Kürzel-Konten (Kürzel+Passwort-Login) dürfen sich registrieren
 create or replace function public.nur_team()
 returns trigger language plpgsql security definer as $$
 declare erlaubt text[] := array['les-droid', 'jnbjonathan-beep'];   -- LES, JB; GitHub-Usernames von TS, DS hier ergänzen
 begin
-  if not (coalesce(new.raw_user_meta_data->>'user_name','') = any(erlaubt)) then
+  if not (
+    coalesce(new.raw_user_meta_data->>'user_name','') = any(erlaubt)
+    or new.email = any(array['les@leitstand.dropout-films.de','jb@leitstand.dropout-films.de'])
+  ) then
     raise exception 'Kein Team-Mitglied: %', new.raw_user_meta_data->>'user_name';
   end if;
   return new;
