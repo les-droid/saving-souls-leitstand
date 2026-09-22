@@ -9,14 +9,14 @@
   var SUPABASE_URL  = "https://yfkckqbrksivksotopfo.supabase.co";
   var SUPABASE_ANON = "sb_publishable_XaI7tGTC3E7V2kWEI0j--A_cPeev7YG";   /* öffentlicher Publishable-Key (Legacy-Keys seit 08.09. deaktiviert); Daten schützt Row Level Security */
   var LOGIN_SITE    = location.origin + location.pathname;
-  /* Team-Passwort (SHA-256, Klartext steht nicht im Code). Vorhang gegen Mitleser mit Link; die Daten
-     schützt weiterhin der GitHub-Login + Team-Liste in der Datenbank. */
-  var TOR_HASH      = "4a6dc797e7f4f79644c9394a1ec04da93b255226fefce205c7eead4c59dde387";
-  /* GitHub-Login → Kürzel im Board (weitere Team-Mitglieder hier ergänzen) */
+  /* Kürzel + Passwort (Supabase Auth E-Mail/Passwort) — Hauptweg der Anmeldung. Die Konten legt
+     bzw. aktualisiert serverseitig konto-anlegen.mjs; hier steht kein Passwort. */
+  var KUERZEL_KONTEN = { LES: "les@leitstand.dropout-films.de", JB: "jb@leitstand.dropout-films.de" };
+  /* GitHub-Login → Kürzel im Board (Zweitweg unter dem Formular; weitere Team-Mitglieder hier ergänzen) */
   var GITHUB_KUERZEL = { "les-droid": "LES", "jnbjonathan-beep": "JB" };
 
   var TABELLE = "docs";
-  var sb = null, session = null;
+  var sb = null, session = null, start;
   var ready;                    /* Promise<db> */
   var wer = function () { try { return localStorage.getItem("ss-wer") || "?"; } catch (e) { return "?"; } };
 
@@ -52,54 +52,60 @@
     b.innerHTML = t; clearTimeout(b._t); b._t = setTimeout(function () { b.remove(); }, ms || 6000);
   }
 
-  /* ---- Login-Overlay ---- */
+  /* ---- Login-Overlay: Kürzel + Passwort (Hauptweg), GitHub als Zweitweg darunter ---- */
   function overlay(zeige) {
     var el = document.getElementById("liveLogin");
     if (!zeige) { if (el) el.remove(); return; }
     if (el) return;
     el = document.createElement("div"); el.id = "liveLogin";
     el.style.cssText = "position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(14,24,27,.82);backdrop-filter:blur(8px)";
-    el.innerHTML = '<div style="background:#162327;color:#E4ECEA;border:1px solid rgba(255,255,255,.1);padding:28px 30px;border-radius:18px;max-width:340px;text-align:center;font:15px -apple-system,system-ui,sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.4)">' +
+    var kuerzelBtns = Object.keys(KUERZEL_KONTEN).map(function (k) {
+      return '<button type="button" class="liveLoginKuerzel" data-k="' + k + '" style="flex:1;font:700 16px -apple-system,system-ui,sans-serif;padding:12px 0;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:#0E181B;color:#E4ECEA;cursor:pointer">' + k + "</button>";
+    }).join("");
+    el.innerHTML = '<div style="background:#162327;color:#E4ECEA;border:1px solid rgba(255,255,255,.1);padding:28px 30px;border-radius:18px;max-width:340px;width:calc(100% - 40px);text-align:center;font:15px -apple-system,system-ui,sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.4)">' +
       '<div style="font-size:20px;font-weight:600;margin-bottom:6px">Saving Souls Leitstand</div>' +
-      '<div style="font-size:13px;color:#93A8AA;margin-bottom:18px">Anmelden mit dem GitHub-Konto, das im Repo Collaborator ist. Danach sind To-dos, Notizen und Befehle live für alle.</div>' +
-      '<button id="liveLoginBtn" style="font:inherit;font-weight:600;padding:12px 18px;border:0;border-radius:12px;background:#56ABB5;color:#0E181B;cursor:pointer;width:100%">Mit GitHub anmelden</button>' +
-      '<div id="liveLoginErr" style="font-size:12px;color:#E87A46;margin-top:10px"></div></div>';
+      '<div style="font-size:13px;color:#93A8AA;margin-bottom:16px">Kürzel wählen, Passwort eingeben. Danach sind To-dos, Notizen und Befehle live für alle.</div>' +
+      '<div style="display:flex;gap:10px;margin-bottom:14px">' + kuerzelBtns + "</div>" +
+      '<form id="liveLoginForm">' +
+        '<input id="liveLoginPw" type="password" autocomplete="current-password" placeholder="Passwort" style="font:inherit;width:100%;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:#0E181B;color:#E4ECEA;margin-bottom:10px">' +
+        '<button type="submit" id="liveLoginBtn" style="font:inherit;font-weight:600;padding:12px 18px;border:0;border-radius:12px;background:#56ABB5;color:#0E181B;cursor:pointer;width:100%">Anmelden</button>' +
+      "</form>" +
+      '<div id="liveLoginErr" style="font-size:12px;color:#E87A46;margin-top:10px;min-height:14px"></div>' +
+      '<button type="button" id="liveGithubBtn" style="margin-top:16px;font:600 12px -apple-system,system-ui,sans-serif;background:none;border:0;color:#93A8AA;text-decoration:underline;cursor:pointer">Mit GitHub anmelden</button>' +
+      "</div>";
     document.body.appendChild(el);
     if (oauthFehler) { el.querySelector("#liveLoginErr").textContent = /Kein Team-Mitglied/.test(oauthFehler) ? "Dieses GitHub-Konto ist nicht in der Team-Liste. Bitte LES den GitHub-Namen schicken." : oauthFehler; oauthFehler = null; }
-    el.querySelector("#liveLoginBtn").addEventListener("click", function () {
-      sb.auth.signInWithOAuth({ provider: "github", options: { redirectTo: LOGIN_SITE } })
-        .then(function (r) { if (r.error) document.getElementById("liveLoginErr").textContent = r.error.message; });
-    });
-  }
-
-  /* ---- Team-Passwort: einmal je Gerät, danach gemerkt ---- */
-  function sha256(s) {
-    return crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)).then(function (b) {
-      return Array.prototype.map.call(new Uint8Array(b), function (x) { return ("0" + x.toString(16)).slice(-2); }).join("");
-    });
-  }
-  function tor() {
-    try { if (localStorage.getItem("ss-tor") === TOR_HASH.slice(0, 16)) return Promise.resolve(); } catch (e) {}
-    return new Promise(function (resolve) {
-      var el = document.createElement("div"); el.id = "liveTor";
-      el.style.cssText = "position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:#0E181B";
-      el.innerHTML = '<form style="background:#162327;color:#E4ECEA;border:1px solid rgba(255,255,255,.1);padding:28px 30px;border-radius:18px;width:min(340px,88vw);text-align:center;font:15px -apple-system,system-ui,sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.4)">' +
-        '<div style="font-size:20px;font-weight:600;margin-bottom:6px">Saving Souls Leitstand</div>' +
-        '<div style="font-size:13px;color:#93A8AA;margin-bottom:18px">Team-Passwort eingeben. Wird auf diesem Gerät gemerkt.</div>' +
-        '<input id="liveTorPw" type="password" autocomplete="current-password" placeholder="Passwort" style="font:inherit;width:100%;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:#0E181B;color:#E4ECEA;margin-bottom:10px">' +
-        '<button type="submit" style="font:inherit;font-weight:600;padding:12px 18px;border:0;border-radius:12px;background:#56ABB5;color:#0E181B;cursor:pointer;width:100%">Weiter</button>' +
-        '<div id="liveTorErr" style="font-size:12px;color:#E87A46;margin-top:10px;min-height:14px"></div></form>';
-      var anhaengen = function () { document.body.appendChild(el); try { el.querySelector("#liveTorPw").focus(); } catch (e) {} };
-      if (document.body) anhaengen(); else document.addEventListener("DOMContentLoaded", anhaengen);
-      el.querySelector("form").addEventListener("submit", function (ev) {
-        ev.preventDefault();
-        var v = el.querySelector("#liveTorPw").value.trim().toLowerCase();
-        sha256(v).then(function (h) {
-          if (h !== TOR_HASH) { el.querySelector("#liveTorErr").textContent = "Falsches Passwort."; return; }
-          try { localStorage.setItem("ss-tor", TOR_HASH.slice(0, 16)); } catch (e) {}
-          el.remove(); resolve();
-        }, function () { el.querySelector("#liveTorErr").textContent = "Passwortprüfung nur über https möglich."; });
+    var gewaehltesKuerzel = null;
+    var kuerzelKnoepfe = el.querySelectorAll(".liveLoginKuerzel");
+    var markiere = function () {
+      Array.prototype.forEach.call(kuerzelKnoepfe, function (b) {
+        var an = b.dataset.k === gewaehltesKuerzel;
+        b.style.borderColor = an ? "#56ABB5" : "rgba(255,255,255,.18)"; b.style.color = an ? "#56ABB5" : "#E4ECEA";
       });
+    };
+    Array.prototype.forEach.call(kuerzelKnoepfe, function (b) {
+      b.addEventListener("click", function () { gewaehltesKuerzel = b.dataset.k; markiere(); try { el.querySelector("#liveLoginPw").focus(); } catch (e) {} });
+    });
+    el.querySelector("#liveLoginForm").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var errEl = el.querySelector("#liveLoginErr"); errEl.textContent = "";
+      if (!gewaehltesKuerzel) { errEl.textContent = "Bitte zuerst das Kürzel wählen."; return; }
+      var pw = el.querySelector("#liveLoginPw").value;
+      if (!pw) { errEl.textContent = "Bitte Passwort eingeben."; return; }
+      var kuerzel = gewaehltesKuerzel;
+      sb.auth.signInWithPassword({ email: KUERZEL_KONTEN[kuerzel], password: pw }).then(function (r) {
+        if (r.error) { errEl.textContent = "Passwort falsch oder Konto noch nicht angelegt."; return; }
+        session = r.data.session;
+        try {
+          localStorage.setItem("ss-wer", kuerzel);
+          var b = document.querySelector('#whoModalBtns button[data-w="' + kuerzel + '"]'); if (b) b.click();
+        } catch (e) {}
+        start();
+      });
+    });
+    el.querySelector("#liveGithubBtn").addEventListener("click", function () {
+      sb.auth.signInWithOAuth({ provider: "github", options: { redirectTo: LOGIN_SITE } })
+        .then(function (r) { if (r.error) el.querySelector("#liveLoginErr").textContent = r.error.message; });
     });
   }
 
@@ -230,9 +236,15 @@
     if (!window.supabase) { console.error("supabase-js nicht geladen"); resolve(null); return; }
     /* detectSessionInUrl aus: die Tokens haben wir oben selbst gesichert (siehe oauth) */
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: "implicit" } });
-    var start = function () {
+    var gestartet = false;
+    /* Idempotent: der Kürzel+Passwort-Login ruft das hier direkt nach Erfolg auf, gleichzeitig
+       feuert dieselbe Anmeldung den onAuthStateChange-Listener weiter unten — beide dürfen
+       start() aufrufen, ausgeführt wird es nur einmal. */
+    start = function () {
+      if (gestartet) return; gestartet = true;
       overlay(false); startRealtime();
-      /* Kürzel aus dem GitHub-Login ableiten, falls auf diesem Gerät noch keins gewählt ist */
+      /* Kürzel aus dem GitHub-Login ableiten, falls auf diesem Gerät noch keins gewählt ist
+         (beim Kürzel+Passwort-Login ist ss-wer an dieser Stelle schon gesetzt). */
       try {
         var gh = session && session.user && session.user.user_metadata ? session.user.user_metadata.user_name : null;
         var k = gh && GITHUB_KUERZEL[gh];
@@ -246,7 +258,7 @@
     var sessionHolen = oauth
       ? sb.auth.setSession({ access_token: oauth.access_token, refresh_token: oauth.refresh_token })
       : sb.auth.getSession();
-    tor().then(function () { return sessionHolen; }).then(function (r) {
+    sessionHolen.then(function (r) {
       session = r && r.data ? r.data.session : null;
       if (r && r.error && !oauthFehler) oauthFehler = r.error.message;
       oauth = null;
