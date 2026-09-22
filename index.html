@@ -266,10 +266,14 @@
   .prioqual.hoch { background: var(--prio-hoch); color: #06251A; } .prioqual.mittel { background: var(--prio-mittel); color: #2B2205; } .prioqual.niedrig { background: var(--prio-niedrig); color: var(--ink); }
   .senschip { display: inline-flex; align-items: center; gap: 3px; font: 600 10px var(--font-mono); text-transform: uppercase; color: var(--danger); border: 1px solid var(--danger); border-radius: 999px; padding: 2px 7px; white-space: nowrap; cursor: help; }
   .tablebox.trans table { table-layout: fixed; }
-  table.transtbl th { cursor: pointer; user-select: none; white-space: nowrap; }
+  table.transtbl th { cursor: pointer; user-select: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   table.transtbl th .sortmark { color: var(--accent); margin-left: 3px; }
-  table.transtbl td.inhalt { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  table.transtbl td.personen { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  table.transtbl td { overflow: hidden; }
+  table.transtbl td.clip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Inhalt bekommt den größten Anteil der Tabellenbreite (Spaltenbreiten: siehe <colgroup>) und
+     bricht um statt abzuschneiden — max. 3 Zeilen, voller Text im title-Attribut. */
+  table.transtbl td.inhalt { white-space: normal; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+  table.transtbl td.personen { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   table.transtbl tbody tr { cursor: pointer; border-left: 3px solid transparent; }
   table.transtbl tbody tr:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
   table.transtbl tbody tr.sensibel { border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 7%, transparent); }
@@ -298,6 +302,15 @@
   #transViewer .tvblock.hit { outline: 2px solid var(--accent); }
   #transViewer .tvtc { font: 600 11px var(--font-mono); color: var(--accent); white-space: nowrap; min-width: 42px; }
   #transViewer .tvladend { padding: 20px; text-align: center; color: var(--muted); font-size: 13px; }
+  #transViewer .tvkopf { padding: 12px 20px 0; grid-column: 1 / -1; }
+  #transViewer .tvinhalt { margin: 0 0 6px; font-size: 14px; line-height: 1.5; }
+  #transViewer .tvbelegzeile { margin: 0; font-size: 13px; color: var(--muted); }
+  #transViewer .tvbelegzeile strong { color: var(--ink); }
+  #transViewer .tvhinweis { margin: 8px 0 0; font-size: 12px; color: var(--muted); font-style: italic; }
+  #transViewer .tvluecke { text-align: center; color: var(--muted); font-size: 12px; padding: 2px 0; }
+  #transViewer .tvtoggle { display: block; margin: 10px 0 0; font: 600 12px var(--font-ui); padding: 6px 11px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--accent); cursor: pointer; }
+  #transViewer .tvvoll { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+  #transViewer .tvvoll.hidden { display: none; }
   @media (max-width: 720px) { #transViewer .tvbody.zweispaltig { grid-template-columns: 1fr; } }
 
   /* Dialoge und Tour */
@@ -632,7 +645,7 @@
     <div class="grid eins">
       <section class="card">
         <h2>Transkripte <span class="hint">Fach farbig wie in Premiere · Relevanz grün/gelb/grau · rot = sensibel</span></h2>
-        <p style="margin:0 0 10px;font-size:13px;color:var(--muted);">Ein Eintrag je Clip bzw. Externton-Aufnahme. Rot markierte Zeilen (<span class="senschip" title="Beispiel">⚠ sensibel</span>) vor jeder Verwendung im Schnitt gegen die Sichtungs-Notizen prüfen — die Markierung ersetzt keine eigene Prüfung. Gedimmte Zeilen haben keine Sprache (kein Transkript). Die Liste lädt zuerst ohne Transkripttext (mehrere MB); der volle Text kommt beim Öffnen eines Eintrags nach, die Suche hier durchsucht Clipname, Inhalt, Personen, Belegzitat und Zuordnung.</p>
+        <p style="margin:0 0 10px;font-size:13px;color:var(--muted);">Ein Eintrag je Clip bzw. Externton-Aufnahme. Rot markierte Zeilen (<span class="senschip" title="Beispiel">⚠ sensibel</span>) vor jeder Verwendung im Schnitt gegen die Sichtungs-Notizen prüfen — die Markierung ersetzt keine eigene Prüfung. Gedimmte Zeilen haben keine Sprache (kein Transkript). EXTERNTON zeigt, ob zu diesem Clip eine externe Tonaufnahme (Rekorder/Funkstrecke) vorliegt. Die Liste lädt zuerst ohne Transkripttext (mehrere MB); der volle Text kommt beim Öffnen eines Eintrags nach, die Suche hier durchsucht Clipname, Inhalt, Personen, Belegzitat und Zuordnung.</p>
         <div class="filterbar">
           <input type="search" id="transFilter" placeholder="Suchen — Clipname, Inhalt, Zitat, Personen …" autocomplete="off">
           <select id="transTag" multiple aria-label="Drehtag (Mehrfachauswahl mit Strg/Cmd)" title="Drehtag — Mehrfachauswahl mit Strg/Cmd-Klick"></select>
@@ -662,9 +675,14 @@
         <div class="countbar" id="transCountbar"></div>
         <div class="tablebox trans">
           <table class="transtbl" id="transTable">
+            <colgroup>
+              <col style="width:5%"><col style="width:4%"><col style="width:12%"><col style="width:6%">
+              <col style="width:9%"><col style="width:7%"><col style="width:9%"><col style="width:9%">
+              <col style="width:35%"><col style="width:4%">
+            </colgroup>
             <thead><tr>
               <th data-k="tag">Tag</th><th data-k="nr">Nr</th><th data-k="titel">Clip</th><th data-k="dauer_s">Länge</th>
-              <th data-k="fach">Fach</th><th data-k="prio">Prio</th><th data-k="extern">Ton</th><th data-k="personen">Personen</th>
+              <th data-k="fach">Fach</th><th data-k="prio">Prio</th><th data-k="extern" title="Externe Tonaufnahme (Rekorder/Funkstrecke) zu diesem Clip vorhanden: ja/nein">EXTERNTON</th><th data-k="personen">Personen</th>
               <th data-k="inhalt">Inhalt</th><th data-k="sensibel">Sens.</th>
             </tr></thead>
             <tbody id="transBody"><tr><td colspan="10" class="empty">Transkripte laden …</td></tr></tbody>
@@ -1221,7 +1239,7 @@
       var v = d.data(); if (!v) return;
       (v.kameraclips || []).forEach(function (k) {
         var key = k.tag + "__" + k.kameraclip;
-        (tonclipByClip[key] = tonclipByClip[key] || []).push({ id: d.id, tondatei: v.tondatei, konfidenz: k.konfidenz, hatTranskript: !!v.hat_transkript });
+        (tonclipByClip[key] = tonclipByClip[key] || []).push({ id: d.id, tondatei: v.tondatei, konfidenz: k.konfidenz, hatTranskript: !!v.hat_transkript, ton_start_im_clip_s: k.ton_start_im_clip_s });
       });
     });
   }
@@ -1230,7 +1248,7 @@
     var aus = [];
     cache.clips.forEach(function (d) {
       var v = d.data(); if (!v) return;
-      var e = { id: d.id, quelle: "Kamera", tag: v.tag, nr: v.nr || 0, titel: v.clip, dauer_s: v.dauer_s || 0, woerter: v.woerter || 0, jb_prio: v.jb_prio || "", zuordnung: v.zuordnung || "", inhalt: v.inhalt || "", personen: v.personen || "", beleg_zitat: v.beleg_zitat || "", adresse: v.adresse || "", sensibel: !!v.sensibel, sensibel_grund: v.sensibel_grund || "", hatTranskript: !!v.hat_transkript, externton_notiz: v.externton || "" };
+      var e = { id: d.id, quelle: "Kamera", tag: v.tag, nr: v.nr || 0, titel: v.clip, dauer_s: v.dauer_s || 0, woerter: v.woerter || 0, jb_prio: v.jb_prio || "", zuordnung: v.zuordnung || "", inhalt: v.inhalt || "", personen: v.personen || "", beleg_zeit: v.beleg_zeit || "", beleg_zitat: v.beleg_zitat || "", adresse: v.adresse || "", sensibel: !!v.sensibel, sensibel_grund: v.sensibel_grund || "", hatTranskript: !!v.hat_transkript, externton_notiz: v.externton || "" };
       e.fach = fachVon(e.zuordnung, e.quelle); e.hatExtern = hatExternVon(e.externton_notiz); e.ohneSprache = !e.hatTranskript && !e.woerter;
       aus.push(e);
     });
@@ -1297,7 +1315,7 @@
     var rowCls = []; if (e.sensibel) rowCls.push("sensibel"); if (e.ohneSprache) rowCls.push("stumm");
     return '<tr data-id="' + esc(e.id) + '" class="' + rowCls.join(" ") + '">' +
       "<td>" + esc(e.tag) + "</td><td class=\"num\">" + (e.nr || "—") + "</td>" +
-      '<td class="mono" title="' + esc(e.titel) + '">' + hi(e.titel, term) + "</td>" +
+      '<td class="mono clip" title="' + esc(e.titel) + '">' + hi(e.titel, term) + "</td>" +
       '<td class="num">' + (e.dauer_s ? tcFmt(e.dauer_s) : "—") + "</td>" +
       "<td>" + fachChip + "</td><td>" + prioChip + "</td><td>" + externTxt + "</td>" +
       '<td class="personen" title="' + esc(e.personen) + '">' + hi(e.personen, term) + "</td>" +
@@ -1370,7 +1388,10 @@
   }
   applyHashToTransFilters();
 
-  /* ---- Transkript-Viewer — lädt das volle Transkript erst hier nach (db.doc(...).get()) ---- */
+  /* ---- Transkript-Viewer — lädt das volle Transkript erst hier nach (db.doc(...).get()) ----
+     Zeigt zuerst nur die relevanten Zeilen: den Belegblock (aus beleg_zeit) mit je einem
+     Nachbarblock, dazu alle Suchtreffer; ohne beides die ersten 3 Blöcke mit Hinweis. Das volle
+     Transkript bleibt über einen Knopf erreichbar (zweiter Klick klappt wieder zu). */
   var currentViewerHits = [], currentHitIdx = -1, viewerOpenToken = 0;
   function transBlocksRaw(blocks, term, belegZitat) {
     if (!blocks || !blocks.length) return '<div class="empty">Kein Transkript.</div>';
@@ -1381,6 +1402,57 @@
   }
   function sucheTreffer(blocks, term) {
     var out = []; (blocks || []).forEach(function (b, i) { if ((b.text || "").toLowerCase().indexOf(term) !== -1) out.push(i); }); return out;
+  }
+  /* "HH:MM:SS" -> Sekunden; alles Unlesbare -> null */
+  function belegSekunden(s) {
+    var m = /^(\d{1,2}):(\d{2}):(\d{2})$/.exec(String(s || "").trim());
+    return m ? (+m[1]) * 3600 + (+m[2]) * 60 + (+m[3]) : null;
+  }
+  /* Index des Blocks, dessen Zeitfenster [t0,t1) die Belegzeit enthält — sonst der zeitlich nächste. */
+  function blockIndexBeiZeit(blocks, sek) {
+    if (sek == null || !blocks || !blocks.length) return -1;
+    for (var i = 0; i < blocks.length; i++) {
+      var t1 = blocks[i].t1 != null ? blocks[i].t1 : (blocks[i + 1] ? blocks[i + 1].t0 : Infinity);
+      if (sek >= blocks[i].t0 && sek < t1) return i;
+    }
+    var best = 0, bestDiff = Infinity;
+    blocks.forEach(function (b, i) { var d = Math.abs(b.t0 - sek); if (d < bestDiff) { bestDiff = d; best = i; } });
+    return best;
+  }
+  /* Welche Blockindizes oben stehen: Belegblock + Nachbarn, plus Suchtreffer; keins von beidem -> erste 3. */
+  function relevanteIndizes(blocks, term, belegSek) {
+    blocks = blocks || [];
+    var belegIdx = belegSek != null ? blockIndexBeiZeit(blocks, belegSek) : -1;
+    var menge = {};
+    if (belegIdx !== -1) { if (blocks[belegIdx - 1]) menge[belegIdx - 1] = 1; menge[belegIdx] = 1; if (blocks[belegIdx + 1]) menge[belegIdx + 1] = 1; }
+    if (term) sucheTreffer(blocks, term).forEach(function (i) { menge[i] = 1; });
+    var indizes = Object.keys(menge).map(Number).sort(function (a, b) { return a - b; });
+    var keinBeleg = false;
+    if (!indizes.length) { keinBeleg = true; indizes = blocks.slice(0, 3).map(function (_, i) { return i; }); }
+    return { indizes: indizes, belegIdx: belegIdx, keinBeleg: keinBeleg };
+  }
+  function transBlocksAusgewaehlt(blocks, indizes, term, belegIdx) {
+    if (!indizes.length) return "";
+    var html = "", prev = null;
+    indizes.forEach(function (i) {
+      if (prev != null && i > prev + 1) html += '<div class="tvluecke">…</div>';
+      var b = blocks[i];
+      html += '<div class="tvblock' + (i === belegIdx ? " beleg" : "") + '" data-i="' + i + '"><span class="tvtc">' + tcFmt(b.t0) + "</span><span>" + hi(b.text, term) + "</span></div>";
+      prev = i;
+    });
+    return html;
+  }
+  /* Eine Transkript-Spalte: Kopf, relevante Zeilen, Aufklapp-Knopf fürs ganze Transkript. */
+  function tvSpalte(titel, blocks, term, belegSek, toggleId, belegZitatText) {
+    blocks = blocks || [];
+    var html = "<h4>" + titel + "</h4>";
+    if (!blocks.length) return html + '<div class="empty">Kein Transkript.</div>';
+    var rel = relevanteIndizes(blocks, term, belegSek);
+    html += '<div class="tvrelevant">' + transBlocksAusgewaehlt(blocks, rel.indizes, term, rel.belegIdx) + "</div>";
+    if (rel.keinBeleg) html += '<p class="tvhinweis">Kein Beleg hinterlegt.</p>';
+    html += '<button type="button" class="tvtoggle" data-target="' + toggleId + '" data-n="' + blocks.length + '">Ganzes Transkript anzeigen (' + blocks.length + " Zeilen)</button>";
+    html += '<div class="tvvoll hidden" id="' + toggleId + '">' + transBlocksRaw(blocks, term, belegZitatText) + "</div>";
+    return html;
   }
   function openViewer(id, term) {
     var e = entriesById[id]; if (!e) return;
@@ -1393,20 +1465,28 @@
     if (e.sensibel) { sensEl.style.display = "block"; sensEl.textContent = "⚠ sensibel" + (e.sensibel_grund ? " — " + e.sensibel_grund : "") + " — vor Verwendung im Schnitt gegen die Sichtungs-Notizen prüfen, die Markierung ersetzt keine eigene Prüfung."; } else sensEl.style.display = "none";
     document.getElementById("tvTools").style.display = "none";
     var body = document.getElementById("tvBody"); body.className = "tvbody";
-    body.innerHTML = '<div class="tvladend">Transkript lädt …</div>';
+    var kopf = "";
+    if (e.inhalt) kopf += '<p class="tvinhalt">' + esc(e.inhalt) + "</p>";
+    if (e.beleg_zeit || e.beleg_zitat) kopf += '<p class="tvbelegzeile"><strong>Beleg' + (e.beleg_zeit ? " " + esc(e.beleg_zeit) : "") + ':</strong> „' + esc(e.beleg_zitat || "") + '“</p>';
+    kopf = kopf ? '<div class="tvkopf">' + kopf + "</div>" : "";
+    body.innerHTML = kopf + '<div class="tvladend">Transkript lädt …</div>';
     document.getElementById("transViewer").classList.remove("hidden");
     var externKey = e.tag + "__" + e.titel;
     var externMatches = (e.quelle === "Kamera") ? (tonclipByClip[externKey] || []) : [];
     var holeClip = (e.quelle === "Extern" ? db.doc("tonclip/" + id) : db.doc("clips/" + id)).get();
-    var holeExtern = externMatches.map(function (x) { return db.doc("tonclip/" + x.id).get().then(function (snap) { var v = snap.exists ? snap.data() : null; return { tondatei: x.tondatei, konfidenz: x.konfidenz, transkript: v ? (v.transkript || []) : [] }; }); });
+    var holeExtern = externMatches.map(function (x) { return db.doc("tonclip/" + x.id).get().then(function (snap) { var v = snap.exists ? snap.data() : null; return { tondatei: x.tondatei, konfidenz: x.konfidenz, transkript: v ? (v.transkript || []) : [], ton_start_im_clip_s: x.ton_start_im_clip_s }; }); });
     Promise.all([holeClip].concat(holeExtern)).then(function (res) {
       if (token !== viewerOpenToken) return; // Viewer wurde inzwischen für einen anderen Eintrag geöffnet
       var hauptSnap = res[0]; var hauptV = hauptSnap.exists ? hauptSnap.data() : null;
       var transkript = hauptV ? (hauptV.transkript || []) : [];
       var extern = res.slice(1);
       body.className = "tvbody" + (extern.length ? " zweispaltig" : "");
-      var html = '<div class="tvspalte"><h4>' + (e.quelle === "Extern" ? "Externton-Transkript" : "Transkript") + "</h4>" + transBlocksRaw(transkript, term, e.beleg_zitat) + "</div>";
-      extern.forEach(function (x) { html += '<div class="tvspalte"><h4>Externton — ' + esc(x.tondatei) + (x.konfidenz ? " · Konfidenz " + esc(x.konfidenz) : "") + "</h4>" + transBlocksRaw(x.transkript, term) + "</div>"; });
+      var html = kopf;
+      html += '<div class="tvspalte">' + tvSpalte(e.quelle === "Extern" ? "Externton-Transkript" : "Transkript", transkript, term, belegSekunden(e.beleg_zeit), "tvVollHaupt", e.beleg_zitat) + "</div>";
+      extern.forEach(function (x, xi) {
+        var titel = "Externton — " + esc(x.tondatei) + (x.konfidenz ? " · Konfidenz " + esc(x.konfidenz) : "");
+        html += '<div class="tvspalte">' + tvSpalte(titel, x.transkript, term, x.ton_start_im_clip_s != null ? x.ton_start_im_clip_s : null, "tvVollExtern" + xi) + "</div>";
+      });
       body.innerHTML = html;
       var hits = term ? sucheTreffer(transkript, term) : [];
       currentViewerHits = hits; currentHitIdx = -1;
@@ -1417,6 +1497,13 @@
       body.innerHTML = '<div class="tvladend">Transkript konnte nicht geladen werden — Seite neu laden.</div>';
     });
   }
+  /* Aufklapp-Knöpfe "Ganzes Transkript anzeigen" — delegiert, weil #tvBody bei jedem Öffnen neu gefüllt wird. */
+  document.getElementById("tvBody").addEventListener("click", function (ev) {
+    var btn = ev.target.closest(".tvtoggle"); if (!btn) return;
+    var ziel = document.getElementById(btn.dataset.target); if (!ziel) return;
+    var jetztVersteckt = ziel.classList.toggle("hidden");
+    btn.textContent = jetztVersteckt ? "Ganzes Transkript anzeigen (" + btn.dataset.n + " Zeilen)" : "Ganzes Transkript verbergen";
+  });
   function closeViewer() { document.getElementById("transViewer").classList.add("hidden"); }
   document.getElementById("transBody").addEventListener("click", function (ev) {
     var tr = ev.target.closest("tr[data-id]"); if (!tr) return;
