@@ -9,6 +9,8 @@
     --ink: #E4ECEA; --muted: #93A8AA; --accent: #56ABB5; --accent-ink: #0E181B;
     --signal: #E87A46; --ok: #74B287; --line: #27393E;
     --chip-les: #56ABB5; --chip-jb: #C9A45B; --chip-ts: #B08BD0; --chip-ds: #D98890; --chip-claude: #93A8AA;
+    --danger: #E5484D; --prio-hoch: #3FB77D; --prio-mittel: #E8C547; --prio-niedrig: #4B6167;
+    --fach-interview: #F5A623; --fach-oton: #F2E14C; --fach-broll: #3FB8AF; --fach-unklar: #B08BD0; --fach-extern: #93A8AA;
     --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
     --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, "Segoe UI", Roboto, sans-serif;
     --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -217,6 +219,87 @@
   ul.tree .files li a { font: 600 12px var(--font-ui); color: var(--accent); text-decoration: none; padding: 3px 8px; border-radius: 7px; border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); white-space: nowrap; }
   ul.tree .files li a:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 
+  /* Nur nach Session sichtbar */
+  .gated { display: none; }
+
+  /* Boards */
+  .boardtag-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; margin: 18px 0 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .boardtag-head:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+  .boardtag-head .btag { font-family: var(--font-display); font-weight: 650; font-size: 15px; letter-spacing: -0.01em; }
+  .boardtag-head .bdatum, .boardtag-head .bzahl { font: 500 12px var(--font-mono); color: var(--muted); }
+  .boardgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; margin-bottom: 6px; }
+  .boardcard { display: block; text-decoration: none; color: var(--ink); background: var(--material); -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%);
+    border: 1px solid var(--material-edge); box-shadow: var(--shadow); border-radius: 14px; overflow: hidden; cursor: zoom-in; transition: transform 120ms ease-out, box-shadow 120ms ease-out; }
+  .boardcard:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(27,39,43,0.08), 0 14px 34px rgba(27,39,43,0.12); }
+  .boardcard img { width: 100%; display: block; aspect-ratio: 3 / 1.1; object-fit: cover; background: var(--surface2); }
+  .boardcard .bmeta { padding: 8px 12px 10px; }
+  .boardcard .bk { display: flex; align-items: baseline; gap: 8px; font: 600 11px var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .boardcard .bk .bn { margin-left: auto; color: var(--accent); }
+  .boardcard .bv { margin-top: 3px; font-size: 12px; color: var(--muted); }
+  #boardLightbox { position: fixed; inset: 0; z-index: 65; background: rgba(6, 10, 12, 0.92); display: flex; flex-direction: column; }
+  #boardLightbox.hidden { display: none; }
+  #boardLightbox .lbbar { display: flex; align-items: center; gap: 12px; padding: 14px 18px; color: var(--ink); flex-wrap: wrap; }
+  #boardLightbox .lbtag { font-family: var(--font-display); font-weight: 650; font-size: 16px; }
+  #boardLightbox .lbmeta { font: 500 12px var(--font-mono); color: var(--muted); }
+  #boardLightbox .lbclose { margin-left: auto; background: none; border: 1px solid var(--material-edge); color: var(--ink); border-radius: 8px; padding: 6px 12px; font: 600 13px var(--font-ui); cursor: pointer; }
+  #boardLightbox .lbstage { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; padding: 0 54px 18px; position: relative; }
+  #boardLightbox .lbstage img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  #boardLightbox .lbnav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.08); border: 1px solid var(--material-edge); color: var(--ink); width: 40px; height: 40px; border-radius: 50%; font-size: 18px; cursor: pointer; }
+  #boardLightbox .lbnav.prev { left: 8px; } #boardLightbox .lbnav.next { right: 8px; }
+  #boardLightbox .lbnav:hover { background: rgba(255,255,255,0.16); }
+
+  /* Transkripte */
+  .filterbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .filterbar input[type="search"], .filterbar input[type="text"], .filterbar select { background: color-mix(in srgb, var(--surface) 70%, transparent); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; font: 400 13px var(--font-ui); }
+  .filterbar input[type="search"] { flex: 1 1 220px; }
+  .filterbar select[multiple] { min-width: 100px; max-width: 140px; height: 30px; padding: 3px 6px; }
+  .filterbar label.chk { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .countbar { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font: 500 12px var(--font-mono); color: var(--muted); margin-bottom: 10px; }
+  .countbar strong { color: var(--ink); font-weight: 700; }
+  mark { background: color-mix(in srgb, var(--accent) 55%, transparent); color: var(--ink); border-radius: 3px; padding: 0 1px; }
+  .fach { font: 600 10px var(--font-mono); text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 7px; border-radius: 999px; white-space: nowrap; color: #1B272B; }
+  .fach.Interview { background: var(--fach-interview); } .fach.OTon { background: var(--fach-oton); }
+  .fach.BRoll { background: var(--fach-broll); } .fach.unklar { background: var(--fach-unklar); color: #fff; }
+  .fach.Extern { background: var(--fach-extern); color: #16232780; }
+  .prioqual { font: 600 10px var(--font-mono); text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+  .prioqual.hoch { background: var(--prio-hoch); color: #06251A; } .prioqual.mittel { background: var(--prio-mittel); color: #2B2205; } .prioqual.niedrig { background: var(--prio-niedrig); color: var(--ink); }
+  .senschip { display: inline-flex; align-items: center; gap: 3px; font: 600 10px var(--font-mono); text-transform: uppercase; color: var(--danger); border: 1px solid var(--danger); border-radius: 999px; padding: 2px 7px; white-space: nowrap; cursor: help; }
+  .tablebox.trans table { table-layout: fixed; }
+  table.transtbl th { cursor: pointer; user-select: none; white-space: nowrap; }
+  table.transtbl th .sortmark { color: var(--accent); margin-left: 3px; }
+  table.transtbl td.inhalt { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  table.transtbl td.personen { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  table.transtbl tbody tr { cursor: pointer; border-left: 3px solid transparent; }
+  table.transtbl tbody tr:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  table.transtbl tbody tr.sensibel { border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 7%, transparent); }
+  table.transtbl tbody tr.stumm { opacity: 0.5; }
+  table.transtbl tbody tr.stumm:hover { opacity: 0.75; }
+
+  #transViewer { position: fixed; inset: 0; z-index: 65; background: color-mix(in srgb, var(--ink) 40%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center; padding: 24px; }
+  #transViewer.hidden { display: none; }
+  #transViewer .tvcard { background: var(--material-strong); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid var(--material-edge); border-radius: 18px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); max-width: 900px; width: 100%; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; }
+  #transViewer .tvhead { padding: 16px 20px 12px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+  #transViewer .tvtitel { font-family: var(--font-display); font-weight: 650; font-size: 16px; }
+  #transViewer .tvmeta { font: 500 12px var(--font-mono); color: var(--muted); }
+  #transViewer .tvadresse { display: inline-flex; align-items: center; gap: 6px; font: 600 12px var(--font-mono); color: var(--accent); background: none; border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: 8px; padding: 3px 9px; cursor: pointer; }
+  #transViewer .tvclose { margin-left: auto; background: none; border: 1px solid var(--material-edge); color: var(--ink); border-radius: 8px; padding: 5px 11px; font: 600 13px var(--font-ui); cursor: pointer; }
+  #transViewer .tvsens { margin: 10px 20px 0; padding: 8px 12px; border: 1px solid var(--danger); border-radius: 10px; color: var(--danger); font-size: 13px; }
+  #transViewer .tvtools { display: flex; gap: 8px; align-items: center; padding: 10px 20px 0; }
+  #transViewer .tvtools button { font: 600 12px var(--font-ui); padding: 6px 11px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+  #transViewer .tvbody { flex: 1; overflow-y: auto; padding: 12px 20px 20px; display: grid; grid-template-columns: 1fr; gap: 18px; }
+  #transViewer .tvbody.zweispaltig { grid-template-columns: 1fr 1fr; }
+  #transViewer .tvspalte h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; }
+  #transViewer .tvblock { display: flex; gap: 10px; padding: 5px 6px; font-size: 13px; border-radius: 8px; border-top: 1px dashed var(--line); scroll-margin-top: 60px; }
+  #transViewer .tvblock:first-child { border-top: none; }
+  #transViewer .tvblock.beleg { background: color-mix(in srgb, var(--accent) 14%, transparent); border-top-color: transparent; }
+  #transViewer .tvblock.hit { outline: 2px solid var(--accent); }
+  #transViewer .tvtc { font: 600 11px var(--font-mono); color: var(--accent); white-space: nowrap; min-width: 42px; }
+  #transViewer .tvladend { padding: 20px; text-align: center; color: var(--muted); font-size: 13px; }
+  @media (max-width: 720px) { #transViewer .tvbody.zweispaltig { grid-template-columns: 1fr; } }
+
   /* Dialoge und Tour */
   #whoModal, #introOffer { position: fixed; inset: 0; background: color-mix(in srgb, var(--ink) 40%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
     display: flex; align-items: center; justify-content: center; z-index: 50; }
@@ -302,6 +385,8 @@
       <a href="#material" data-page="material">Material</a>
       <a href="#dateien" data-page="dateien">Dateien</a>
       <a href="#reviews" data-page="reviews">Reviews <span class="n" id="navRev"></span></a>
+      <a href="#boards" data-page="boards" class="gated" id="navBoards">Boards</a>
+      <a href="#transkripte" data-page="transkripte" class="gated" id="navTranskripte">Transkripte</a>
       <a href="#zeit" data-page="zeit">Zeit <span class="n" id="navZeit"></span></a>
       <a href="#zugang" data-page="zugang">Zugang</a>
     </nav>
@@ -515,6 +600,96 @@
     </div>
   </div>
 
+  <!-- ===== BOARDS ===== -->
+  <div class="page" id="page-boards">
+    <div class="grid eins">
+      <section class="card">
+        <h2>Stills-Boards <span class="count" id="boardsCount"></span><span class="hint">B-Roll je Drehtag — nur zur Sichtung, kein Endschnitt</span></h2>
+        <p style="margin:0 0 10px;font-size:13px;color:var(--muted);">Bilder liegen im privaten Storage-Bucket und werden nur über eine signierte URL geladen — kein öffentlicher Zugriff. Klick auf ein Board öffnet die Vollbildansicht.</p>
+        <div class="explorer-bar">
+          <select id="boardsTagFilter" aria-label="Drehtag"><option value="">Alle Drehtage</option></select>
+          <span class="mono" id="boardsHits"></span>
+        </div>
+        <div id="boardsByTag"><div class="empty">Boards laden …</div></div>
+      </section>
+    </div>
+  </div>
+  <div id="boardLightbox" class="hidden" role="dialog" aria-modal="true" aria-label="Board Vollbild">
+    <div class="lbbar">
+      <span class="lbtag" id="lbTag"></span>
+      <span class="lbmeta" id="lbMeta"></span>
+      <button type="button" class="lbclose" id="lbClose">Schließen (Esc)</button>
+    </div>
+    <div class="lbstage">
+      <button type="button" class="lbnav prev" id="lbPrev" aria-label="Vorheriges Board">‹</button>
+      <img id="lbImg" alt="">
+      <button type="button" class="lbnav next" id="lbNext" aria-label="Nächstes Board">›</button>
+    </div>
+  </div>
+
+  <!-- ===== TRANSKRIPTE ===== -->
+  <div class="page" id="page-transkripte">
+    <div class="grid eins">
+      <section class="card">
+        <h2>Transkripte <span class="hint">Fach farbig wie in Premiere · Relevanz grün/gelb/grau · rot = sensibel</span></h2>
+        <p style="margin:0 0 10px;font-size:13px;color:var(--muted);">Ein Eintrag je Clip bzw. Externton-Aufnahme. Rot markierte Zeilen (<span class="senschip" title="Beispiel">⚠ sensibel</span>) vor jeder Verwendung im Schnitt gegen die Sichtungs-Notizen prüfen — die Markierung ersetzt keine eigene Prüfung. Gedimmte Zeilen haben keine Sprache (kein Transkript). Die Liste lädt zuerst ohne Transkripttext (mehrere MB); der volle Text kommt beim Öffnen eines Eintrags nach, die Suche hier durchsucht Clipname, Inhalt, Personen, Belegzitat und Zuordnung.</p>
+        <div class="filterbar">
+          <input type="search" id="transFilter" placeholder="Suchen — Clipname, Inhalt, Zitat, Personen …" autocomplete="off">
+          <select id="transTag" multiple aria-label="Drehtag (Mehrfachauswahl mit Strg/Cmd)" title="Drehtag — Mehrfachauswahl mit Strg/Cmd-Klick"></select>
+          <select id="transFach" aria-label="Fach">
+            <option value="">Alle Fächer</option>
+            <option value="Interview">Interview</option>
+            <option value="OTon">O-Ton situativ</option>
+            <option value="BRoll">B-Roll</option>
+            <option value="unklar">unklar</option>
+            <option value="Extern">Externton</option>
+          </select>
+          <select id="transPrio" aria-label="Relevanz">
+            <option value="">Alle Relevanzen</option>
+            <option value="hoch">hoch</option>
+            <option value="mittel">mittel</option>
+            <option value="niedrig">niedrig</option>
+          </select>
+          <select id="transExtern" aria-label="Externton vorhanden">
+            <option value="">Externton egal</option>
+            <option value="ja">Externton: ja</option>
+            <option value="nein">Externton: nein</option>
+          </select>
+          <input type="text" id="transPersonen" placeholder="Personen …" autocomplete="off" style="flex:0 1 140px;">
+          <label class="chk"><input type="checkbox" id="transSensibelOnly">nur sensibel</label>
+          <button type="button" class="del" id="transReset" title="Filter zurücksetzen" style="border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:12px;">Filter zurücksetzen</button>
+        </div>
+        <div class="countbar" id="transCountbar"></div>
+        <div class="tablebox trans">
+          <table class="transtbl" id="transTable">
+            <thead><tr>
+              <th data-k="tag">Tag</th><th data-k="nr">Nr</th><th data-k="titel">Clip</th><th data-k="dauer_s">Länge</th>
+              <th data-k="fach">Fach</th><th data-k="prio">Prio</th><th data-k="extern">Ton</th><th data-k="personen">Personen</th>
+              <th data-k="inhalt">Inhalt</th><th data-k="sensibel">Sens.</th>
+            </tr></thead>
+            <tbody id="transBody"><tr><td colspan="10" class="empty">Transkripte laden …</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+  <div id="transViewer" class="hidden" role="dialog" aria-modal="true" aria-label="Transkript-Viewer">
+    <div class="tvcard">
+      <div class="tvhead">
+        <span class="tvtitel" id="tvTitel"></span>
+        <span class="tvmeta" id="tvMeta"></span>
+        <button type="button" class="tvadresse" id="tvAdresse" title="Adresse kopieren">📋 <span id="tvAdresseTxt"></span></button>
+        <button type="button" class="tvclose" id="tvClose">Schließen (Esc)</button>
+      </div>
+      <div class="tvsens" id="tvSens" style="display:none"></div>
+      <div class="tvtools" id="tvTools" style="display:none">
+        <span class="mono" id="tvHitInfo" style="color:var(--muted);font-size:12px;"></span>
+        <button type="button" id="tvNextHit">Nächster Suchtreffer ↓</button>
+      </div>
+      <div class="tvbody" id="tvBody"></div>
+    </div>
+  </div>
+
   <!-- ===== ZEIT ===== -->
   <div class="page" id="page-zeit">
     <div class="grid">
@@ -608,16 +783,19 @@
   try { me = localStorage.getItem("ss-wer") || "LES"; } catch (e) {}
 
   /* ---- Seiten (Hash-Routing) ---- */
-  var PAGES = ["start", "aufgaben", "material", "dateien", "reviews", "zeit", "zugang"];
+  // Die Transkripte-Seite trägt zusätzlich Filter/Sortierung als Querystring im Hash
+  // (#transkripte?…) — deshalb hier ein eigener Hash-Parser statt des rohen location.hash.
+  var PAGES = ["start", "aufgaben", "material", "dateien", "reviews", "boards", "transkripte", "zeit", "zugang"];
+  function currentPageFromHash() { var h = location.hash.replace("#", ""); var qi = h.indexOf("?"); return qi >= 0 ? h.slice(0, qi) : h; }
   function showPage(p) {
     if (PAGES.indexOf(p) === -1) p = "start";
     PAGES.forEach(function (x) { document.getElementById("page-" + x).classList.toggle("on", x === p); });
     document.querySelectorAll("nav.seg a").forEach(function (a) { a.classList.toggle("on", a.dataset.page === p); });
-    if (location.hash !== "#" + p) history.replaceState(null, "", "#" + p);
+    if (currentPageFromHash() !== p) history.replaceState(null, "", "#" + p);
     window.scrollTo({ top: 0, behavior: "auto" });
   }
-  window.addEventListener("hashchange", function () { showPage(location.hash.replace("#", "")); });
-  showPage(location.hash.replace("#", "") || "start");
+  window.addEventListener("hashchange", function () { showPage(currentPageFromHash()); if (currentPageFromHash() === "transkripte") { applyHashToTransFilters(); renderTrans(); } });
+  showPage(currentPageFromHash() || "start");
 
   /* ---- Identität ---- */
   var whoPick = document.getElementById("whoPick");
@@ -776,7 +954,7 @@
   }
 
   /* ---- Überblick-Kacheln (Start) ---- */
-  var cache = { todos: [], notes: [], hinweise: [], links: [], reviews: [], kom: [], baum: null };
+  var cache = { todos: [], notes: [], hinweise: [], links: [], reviews: [], kom: [], baum: null, boards: [], clips: [], tonclip: [] };
   function tile(page, titel, zahl, warn, body, fuss) {
     return '<a class="tile" href="#' + page + '"><div class="tk"><span>' + esc(titel) + '</span><span class="tn' + (warn ? " warn" : "") + '">' + esc(zahl) + '</span></div><div class="tv">' + body + '</div><div class="tf">' + esc(fuss) + ' →</div></a>';
   }
@@ -963,21 +1141,342 @@
   }
   document.getElementById("treeFilter").addEventListener("input", function (ev) { renderTree(ev.target.value); });
 
+  /* ---- Boards (Sammlung "boards", vollständig geladen — 20 Docs, klein) ---- */
+  var TAGE = ["DT1", "DT2", "DT3", "DT4", "AUSFLUG", "DT5", "DT6", "DT7", "DT8", "DT9", "DT10", "DT11", "OSMO-EXTERN"];
+  var TAG_DATUM = { DT1: "09.04.", DT2: "12.04.", DT3: "17.05.", DT4: "04.06.", AUSFLUG: "11.06.", DT5: "09.07.", DT6: "13.07.", DT7: "30.07.", DT8: "01.08.", DT9: "20.08.", DT10: "10.09.", DT11: "21.09." };
+  (function fuelleTagFilter(sel) { var s = document.getElementById(sel); TAGE.forEach(function (t) { var o = document.createElement("option"); o.value = t; o.textContent = t; s.appendChild(o); }); })("boardsTagFilter");
+  (function fuelleTagMulti() { var s = document.getElementById("transTag"); TAGE.forEach(function (t) { var o = document.createElement("option"); o.value = t; o.textContent = t; s.appendChild(o); }); })();
+  var boardsFlat = [];
+  function boardCard(v) {
+    var idx = boardsFlat.indexOf(v);
+    var seitenTxt = v.seiten > 1 ? (v.seite + "/" + v.seiten) : "";
+    var img = v.signed_url ? '<img src="' + esc(v.signed_url) + '" loading="lazy" alt="Stillsboard ' + esc(v.tag) + (seitenTxt ? " Seite " + esc(seitenTxt) : "") + '">' : "";
+    var masse = v.breite && v.hoehe ? v.breite + "×" + v.hoehe + "px" : "";
+    return '<a class="boardcard" href="' + esc(v.signed_url || "#") + '" target="_blank" rel="noopener noreferrer" data-idx="' + idx + '">' + img +
+      '<div class="bmeta"><div class="bk"><span>' + esc(v.tag) + '</span><span class="bn">' + esc(seitenTxt) + '</span></div>' +
+      '<div class="bv">' + (v.clips ? v.clips.length : 0) + " Clips" + (masse ? " · " + esc(masse) : "") + "</div></div></a>";
+  }
+  function renderBoards() {
+    var f = document.getElementById("boardsTagFilter").value;
+    var list = cache.boards.map(function (d) { return d.data(); }).filter(function (v) { return v && (!f || v.tag === f); });
+    list.sort(function (a, b) { return a.tag === b.tag ? a.seite - b.seite : TAGE.indexOf(a.tag) - TAGE.indexOf(b.tag); });
+    boardsFlat = list;
+    document.getElementById("boardsCount").textContent = cache.boards.length ? cache.boards.length + " Seiten" : "";
+    document.getElementById("boardsHits").textContent = f ? list.length + " Treffer" : "";
+    var el = document.getElementById("boardsByTag");
+    if (!list.length) { el.innerHTML = '<div class="empty">' + (cache.boards.length ? "Kein Board für diesen Drehtag." : "Noch keine Boards.") + "</div>"; return; }
+    var gruppen = {}; list.forEach(function (v) { (gruppen[v.tag] = gruppen[v.tag] || []).push(v); });
+    var keys = Object.keys(gruppen).sort(function (a, b) { return TAGE.indexOf(a) - TAGE.indexOf(b); });
+    el.innerHTML = keys.map(function (tag) {
+      var arr = gruppen[tag]; var clipsGesamt = arr.reduce(function (n, v) { return n + (v.clips ? v.clips.length : 0); }, 0);
+      return '<div class="boardtag-head"><span class="btag">' + esc(tag) + '</span>' + (TAG_DATUM[tag] ? '<span class="bdatum">' + TAG_DATUM[tag] + '</span>' : "") +
+        '<span class="bzahl">' + arr.length + (arr.length === 1 ? " Seite" : " Seiten") + " · ~" + clipsGesamt + " Clips</span></div>" +
+        '<div class="boardgrid">' + arr.map(boardCard).join("") + "</div>";
+    }).join("");
+  }
+  document.getElementById("boardsTagFilter").addEventListener("change", renderBoards);
+
+  /* ---- Board-Lightbox ---- */
+  var lbIdx = -1;
+  function openLightbox(i) {
+    if (i < 0 || i >= boardsFlat.length) return;
+    lbIdx = i; var v = boardsFlat[i];
+    var seitenTxt = v.seiten > 1 ? (" · Seite " + v.seite + "/" + v.seiten) : "";
+    var masse = v.breite && v.hoehe ? (" · " + v.breite + "×" + v.hoehe + "px") : "";
+    document.getElementById("lbTag").textContent = v.tag + (TAG_DATUM[v.tag] ? " · " + TAG_DATUM[v.tag] : "");
+    document.getElementById("lbMeta").textContent = (v.clips ? v.clips.length : 0) + " Clips" + seitenTxt + masse + " · " + (i + 1) + "/" + boardsFlat.length;
+    document.getElementById("lbImg").src = v.signed_url || ""; document.getElementById("lbImg").alt = "Stillsboard " + v.tag;
+    document.getElementById("boardLightbox").classList.remove("hidden");
+  }
+  function closeLightbox() { document.getElementById("boardLightbox").classList.add("hidden"); lbIdx = -1; }
+  document.getElementById("boardsByTag").addEventListener("click", function (ev) {
+    var a = ev.target.closest("a.boardcard"); if (!a) return;
+    if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button === 1) return;
+    ev.preventDefault(); openLightbox(Number(a.dataset.idx));
+  });
+  document.getElementById("lbClose").addEventListener("click", closeLightbox);
+  document.getElementById("boardLightbox").addEventListener("click", function (ev) { if (ev.target.id === "boardLightbox") closeLightbox(); });
+  document.getElementById("lbPrev").addEventListener("click", function () { openLightbox((lbIdx - 1 + boardsFlat.length) % boardsFlat.length); });
+  document.getElementById("lbNext").addEventListener("click", function () { openLightbox((lbIdx + 1) % boardsFlat.length); });
+
+  /* ---- Transkripte (Sammlungen "clips" + "tonclip") ----
+     Die Liste lädt nur Metafelder (ohne "transkript" — bei 1.126 Clips mehrere MB); das volle
+     Transkript kommt per db.doc(...).get() nach, wenn ein Eintrag im Viewer geöffnet wird. */
+  var CLIP_META_FELDER = ["tag", "nr", "clip", "datei", "dauer_s", "woerter", "zuordnung", "jb_prio", "beleg_zeit", "beleg_zitat", "inhalt", "personen", "person_bild", "externton", "sichtung_gattung", "hochkant", "sensibel", "sensibel_grund", "adresse", "aufnahmedatum", "hat_transkript"];
+  var TONCLIP_META_FELDER = ["tag", "tondatei", "kameraclips", "woerter", "sensibel", "sensibel_grund", "hat_transkript"];
+  var PRIO_NUM = { hoch: 1, mittel: 2, niedrig: 3 };
+  var FACH_LABEL = { Interview: "Interview", OTon: "O-Ton", BRoll: "B-Roll", unklar: "unklar", Extern: "Extern" };
+  function fachVon(zuordnung, quelle) {
+    if (quelle === "Extern") return "Extern";
+    if (zuordnung === "Interview") return "Interview";
+    if (zuordnung === "O-Ton situativ") return "OTon";
+    if (zuordnung === "unklar" || zuordnung === "FREMD") return "unklar"; // FREMD = fremdes Material ohne eigene Sichtung, als unklar eingestuft
+    return "BRoll"; // "B-Roll ohne Sprache" und alles Übrige
+  }
+  function hatExternVon(s) { s = (s || "").trim(); if (!s || s === "ohne") return false; if (/^kein/i.test(s)) return false; return true; }
+  var tonclipByClip = {};
+  function baueTonclipIndex() {
+    tonclipByClip = {};
+    cache.tonclip.forEach(function (d) {
+      var v = d.data(); if (!v) return;
+      (v.kameraclips || []).forEach(function (k) {
+        var key = k.tag + "__" + k.kameraclip;
+        (tonclipByClip[key] = tonclipByClip[key] || []).push({ id: d.id, tondatei: v.tondatei, konfidenz: k.konfidenz, hatTranskript: !!v.hat_transkript });
+      });
+    });
+  }
+  function transEintraege() {
+    baueTonclipIndex();
+    var aus = [];
+    cache.clips.forEach(function (d) {
+      var v = d.data(); if (!v) return;
+      var e = { id: d.id, quelle: "Kamera", tag: v.tag, nr: v.nr || 0, titel: v.clip, dauer_s: v.dauer_s || 0, woerter: v.woerter || 0, jb_prio: v.jb_prio || "", zuordnung: v.zuordnung || "", inhalt: v.inhalt || "", personen: v.personen || "", beleg_zitat: v.beleg_zitat || "", adresse: v.adresse || "", sensibel: !!v.sensibel, sensibel_grund: v.sensibel_grund || "", hatTranskript: !!v.hat_transkript, externton_notiz: v.externton || "" };
+      e.fach = fachVon(e.zuordnung, e.quelle); e.hatExtern = hatExternVon(e.externton_notiz); e.ohneSprache = !e.hatTranskript && !e.woerter;
+      aus.push(e);
+    });
+    cache.tonclip.forEach(function (d) {
+      var v = d.data(); if (!v) return;
+      var e = { id: d.id, quelle: "Extern", tag: v.tag, nr: 0, titel: v.tondatei, dauer_s: 0, woerter: v.woerter || 0, jb_prio: "", zuordnung: (v.kameraclips || []).length ? "Externton, " + v.kameraclips.length + " Kameraclip(s)" : "Externton", inhalt: "", personen: "", beleg_zitat: "", adresse: v.tag + "/" + v.tondatei, sensibel: !!v.sensibel, sensibel_grund: v.sensibel_grund || "", hatTranskript: !!v.hat_transkript, externton_notiz: "" };
+      e.fach = "Extern"; e.hatExtern = true; e.ohneSprache = !e.hatTranskript && !e.woerter;
+      aus.push(e);
+    });
+    return aus;
+  }
+  function tcFmt(s) { s = Math.round(s || 0); var m = Math.floor(s / 60); return m + ":" + String(s % 60).padStart(2, "0"); }
+  function fmtDauerLang(s) { s = Math.round(s || 0); var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h + ":" + String(m).padStart(2, "0") + " h"; }
+  function hi(text, term) {
+    var s = esc(text); if (!term) return s;
+    try { var re = new RegExp("(" + term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "ig"); return s.replace(re, "<mark>$1</mark>"); } catch (e) { return s; }
+  }
+  var sortState = { key: "prio", dir: "asc" };
+  function cmpVal(e, key) {
+    switch (key) {
+      case "tag": return TAGE.indexOf(e.tag); case "nr": return e.nr; case "titel": return (e.titel || "").toLowerCase();
+      case "dauer_s": return e.dauer_s; case "fach": return e.fach;
+      case "prio": return PRIO_NUM[e.jb_prio] || 2.5;
+      case "extern": return e.hatExtern ? 1 : 0; case "personen": return (e.personen || "").toLowerCase();
+      case "inhalt": return (e.inhalt || "").toLowerCase(); case "sensibel": return e.sensibel ? 1 : 0;
+      default: return 0;
+    }
+  }
+  function sortList(list) {
+    var k = sortState.key, d = sortState.dir === "desc" ? -1 : 1;
+    list.sort(function (a, b) {
+      var va = cmpVal(a, k), vb = cmpVal(b, k);
+      var c = va < vb ? -1 : va > vb ? 1 : 0;
+      if (c === 0) c = a.tag === b.tag ? a.nr - b.nr : TAGE.indexOf(a.tag) - TAGE.indexOf(b.tag);
+      return c * d;
+    });
+  }
+  function updateSortMarks() {
+    document.querySelectorAll("#transTable th[data-k]").forEach(function (th) {
+      th.innerHTML = th.textContent.replace(/ [▲▼]$/, "") + (th.dataset.k === sortState.key ? ' <span class="sortmark">' + (sortState.dir === "desc" ? "▼" : "▲") + "</span>" : "");
+    });
+  }
+  document.querySelector("#transTable thead").addEventListener("click", function (ev) {
+    var th = ev.target.closest("th[data-k]"); if (!th) return;
+    var k = th.dataset.k;
+    if (sortState.key === k) sortState.dir = sortState.dir === "asc" ? "desc" : "asc"; else sortState = { key: k, dir: "asc" };
+    renderTrans(); writeTransHash();
+  });
+  function activeFilters() {
+    return {
+      q: document.getElementById("transFilter").value.trim(),
+      tags: Array.prototype.map.call(document.getElementById("transTag").selectedOptions, function (o) { return o.value; }),
+      fach: document.getElementById("transFach").value, prio: document.getElementById("transPrio").value,
+      extern: document.getElementById("transExtern").value, personen: document.getElementById("transPersonen").value.trim(),
+      sensibel: document.getElementById("transSensibelOnly").checked
+    };
+  }
+  function transRow(e, term) {
+    var prioChip = e.jb_prio ? '<span class="prioqual ' + e.jb_prio + '">' + e.jb_prio + '</span>' : '<span style="color:var(--muted)">–</span>';
+    var fachChip = '<span class="fach ' + e.fach + '">' + FACH_LABEL[e.fach] + '</span>';
+    var sensCell = e.sensibel ? '<span class="senschip" title="' + esc(e.sensibel_grund || "sensibel — Grund nicht dokumentiert") + '">⚠</span>' : '<span style="color:var(--muted)">–</span>';
+    var externTxt = e.hatExtern ? '<span class="ton-ja">ja</span>' : '<span class="ton-nein">nein</span>';
+    var inhaltTxt = e.inhalt || (e.quelle === "Extern" ? e.zuordnung : "");
+    var rowCls = []; if (e.sensibel) rowCls.push("sensibel"); if (e.ohneSprache) rowCls.push("stumm");
+    return '<tr data-id="' + esc(e.id) + '" class="' + rowCls.join(" ") + '">' +
+      "<td>" + esc(e.tag) + "</td><td class=\"num\">" + (e.nr || "—") + "</td>" +
+      '<td class="mono" title="' + esc(e.titel) + '">' + hi(e.titel, term) + "</td>" +
+      '<td class="num">' + (e.dauer_s ? tcFmt(e.dauer_s) : "—") + "</td>" +
+      "<td>" + fachChip + "</td><td>" + prioChip + "</td><td>" + externTxt + "</td>" +
+      '<td class="personen" title="' + esc(e.personen) + '">' + hi(e.personen, term) + "</td>" +
+      '<td class="inhalt" title="' + esc(inhaltTxt) + '">' + hi(inhaltTxt, term) + "</td>" +
+      "<td>" + sensCell + "</td></tr>";
+  }
+  var entriesById = {};
+  function renderTrans() {
+    var fl = activeFilters(); var term = fl.q.toLowerCase();
+    var alle = transEintraege();
+    entriesById = {}; alle.forEach(function (e) { entriesById[e.id] = e; });
+    var list = alle.filter(function (e) {
+      if (fl.tags.length && fl.tags.indexOf(e.tag) === -1) return false;
+      if (fl.fach && e.fach !== fl.fach) return false;
+      if (fl.prio && e.jb_prio !== fl.prio) return false;
+      if (fl.extern === "ja" && !e.hatExtern) return false;
+      if (fl.extern === "nein" && e.hatExtern) return false;
+      if (fl.personen && (e.personen || "").toLowerCase().indexOf(fl.personen.toLowerCase()) === -1) return false;
+      if (fl.sensibel && !e.sensibel) return false;
+      if (!term) return true;
+      // Volltext nur über die geladenen Metafelder — das Transkript selbst kommt erst beim
+      // Öffnen eines Eintrags nach (siehe Kopf der Seite/Hinweistext).
+      var hay = (e.titel + " " + e.inhalt + " " + e.personen + " " + e.beleg_zitat + " " + e.zuordnung).toLowerCase();
+      return hay.indexOf(term) !== -1;
+    });
+    sortList(list); updateSortMarks();
+    var clipsGesamt = alle.filter(function (e) { return e.quelle === "Kamera"; }).length;
+    var clipsGefiltert = list.filter(function (e) { return e.quelle === "Kamera"; }).length;
+    var sekunden = list.reduce(function (n, e) { return n + (e.dauer_s || 0); }, 0);
+    document.getElementById("transCountbar").innerHTML = "<span><strong>" + clipsGefiltert + "</strong> von " + clipsGesamt + " Clips</span><span>" + list.length + " Einträge gesamt (inkl. Externton)</span><span>" + fmtDauerLang(sekunden) + "</span>";
+    var seite = list.slice(0, 400);
+    document.getElementById("transBody").innerHTML = seite.length ? seite.map(function (e) { return transRow(e, term); }).join("") + (list.length > seite.length ? '<tr><td colspan="10" class="empty">… ' + (list.length - seite.length) + " weitere — Suche eingrenzen.</td></tr>" : "") : '<tr><td colspan="10" class="empty">' + (cache.clips.length || cache.tonclip.length ? "Nichts gefunden." : "Transkripte laden …") + "</td></tr>";
+  }
+  ["transFilter", "transFach", "transPrio", "transExtern", "transPersonen"].forEach(function (id) { document.getElementById(id).addEventListener("input", function () { renderTrans(); writeTransHash(); }); });
+  document.getElementById("transTag").addEventListener("change", function () { renderTrans(); writeTransHash(); });
+  document.getElementById("transSensibelOnly").addEventListener("change", function () { renderTrans(); writeTransHash(); });
+  document.getElementById("transReset").addEventListener("click", function () {
+    document.getElementById("transFilter").value = "";
+    Array.prototype.forEach.call(document.getElementById("transTag").options, function (o) { o.selected = false; });
+    document.getElementById("transFach").value = ""; document.getElementById("transPrio").value = ""; document.getElementById("transExtern").value = "";
+    document.getElementById("transPersonen").value = ""; document.getElementById("transSensibelOnly").checked = false;
+    sortState = { key: "prio", dir: "asc" }; renderTrans(); writeTransHash();
+  });
+
+  /* ---- Zustand in der URL (#transkripte?…) ---- */
+  function writeTransHash() {
+    if (currentPageFromHash() !== "transkripte") return;
+    var fl = activeFilters(); var parts = [];
+    if (fl.q) parts.push("q=" + encodeURIComponent(fl.q));
+    if (fl.tags.length) parts.push("tag=" + fl.tags.map(encodeURIComponent).join(","));
+    if (fl.fach) parts.push("fach=" + fl.fach);
+    if (fl.prio) parts.push("prio=" + fl.prio);
+    if (fl.extern) parts.push("extern=" + fl.extern);
+    if (fl.personen) parts.push("pers=" + encodeURIComponent(fl.personen));
+    if (fl.sensibel) parts.push("sens=1");
+    parts.push("sort=" + sortState.key + (sortState.dir === "desc" ? ":desc" : ""));
+    history.replaceState(null, "", "#transkripte" + (parts.length ? "?" + parts.join("&") : ""));
+  }
+  function applyHashToTransFilters() {
+    var h = location.hash.replace("#", ""); var qi = h.indexOf("?"); if (qi < 0) return;
+    var params = {}; h.slice(qi + 1).split("&").forEach(function (p) { var kv = p.split("="); if (kv[0]) params[kv[0]] = decodeURIComponent(kv[1] || ""); });
+    if (params.q) document.getElementById("transFilter").value = params.q;
+    if (params.tag) { var set = params.tag.split(","); Array.prototype.forEach.call(document.getElementById("transTag").options, function (o) { o.selected = set.indexOf(o.value) !== -1; }); }
+    if (params.fach) document.getElementById("transFach").value = params.fach;
+    if (params.prio) document.getElementById("transPrio").value = params.prio;
+    if (params.extern) document.getElementById("transExtern").value = params.extern;
+    if (params.pers) document.getElementById("transPersonen").value = params.pers;
+    if (params.sens) document.getElementById("transSensibelOnly").checked = true;
+    if (params.sort) { var sp = params.sort.split(":"); sortState = { key: sp[0], dir: sp[1] === "desc" ? "desc" : "asc" }; }
+  }
+  applyHashToTransFilters();
+
+  /* ---- Transkript-Viewer — lädt das volle Transkript erst hier nach (db.doc(...).get()) ---- */
+  var currentViewerHits = [], currentHitIdx = -1, viewerOpenToken = 0;
+  function transBlocksRaw(blocks, term, belegZitat) {
+    if (!blocks || !blocks.length) return '<div class="empty">Kein Transkript.</div>';
+    return blocks.map(function (b, i) {
+      var isBeleg = belegZitat && b.text && b.text.indexOf(belegZitat) !== -1;
+      return '<div class="tvblock' + (isBeleg ? " beleg" : "") + '" data-i="' + i + '"><span class="tvtc">' + tcFmt(b.t0) + "</span><span>" + hi(b.text, term) + "</span></div>";
+    }).join("");
+  }
+  function sucheTreffer(blocks, term) {
+    var out = []; (blocks || []).forEach(function (b, i) { if ((b.text || "").toLowerCase().indexOf(term) !== -1) out.push(i); }); return out;
+  }
+  function openViewer(id, term) {
+    var e = entriesById[id]; if (!e) return;
+    var token = ++viewerOpenToken;
+    document.getElementById("tvTitel").textContent = e.titel;
+    document.getElementById("tvMeta").textContent = e.tag + (e.nr ? " #" + e.nr : "") + " · " + FACH_LABEL[e.fach] + (e.jb_prio ? " · Relevanz " + e.jb_prio : "") + (e.dauer_s ? " · " + tcFmt(e.dauer_s) + " min" : "") + (e.woerter ? " · " + e.woerter + " Wörter" : "");
+    document.getElementById("tvAdresseTxt").textContent = e.adresse || "—";
+    document.getElementById("tvAdresse").onclick = function () { copyToClipboard(e.adresse); };
+    var sensEl = document.getElementById("tvSens");
+    if (e.sensibel) { sensEl.style.display = "block"; sensEl.textContent = "⚠ sensibel" + (e.sensibel_grund ? " — " + e.sensibel_grund : "") + " — vor Verwendung im Schnitt gegen die Sichtungs-Notizen prüfen, die Markierung ersetzt keine eigene Prüfung."; } else sensEl.style.display = "none";
+    document.getElementById("tvTools").style.display = "none";
+    var body = document.getElementById("tvBody"); body.className = "tvbody";
+    body.innerHTML = '<div class="tvladend">Transkript lädt …</div>';
+    document.getElementById("transViewer").classList.remove("hidden");
+    var externKey = e.tag + "__" + e.titel;
+    var externMatches = (e.quelle === "Kamera") ? (tonclipByClip[externKey] || []) : [];
+    var holeClip = (e.quelle === "Extern" ? db.doc("tonclip/" + id) : db.doc("clips/" + id)).get();
+    var holeExtern = externMatches.map(function (x) { return db.doc("tonclip/" + x.id).get().then(function (snap) { var v = snap.exists ? snap.data() : null; return { tondatei: x.tondatei, konfidenz: x.konfidenz, transkript: v ? (v.transkript || []) : [] }; }); });
+    Promise.all([holeClip].concat(holeExtern)).then(function (res) {
+      if (token !== viewerOpenToken) return; // Viewer wurde inzwischen für einen anderen Eintrag geöffnet
+      var hauptSnap = res[0]; var hauptV = hauptSnap.exists ? hauptSnap.data() : null;
+      var transkript = hauptV ? (hauptV.transkript || []) : [];
+      var extern = res.slice(1);
+      body.className = "tvbody" + (extern.length ? " zweispaltig" : "");
+      var html = '<div class="tvspalte"><h4>' + (e.quelle === "Extern" ? "Externton-Transkript" : "Transkript") + "</h4>" + transBlocksRaw(transkript, term, e.beleg_zitat) + "</div>";
+      extern.forEach(function (x) { html += '<div class="tvspalte"><h4>Externton — ' + esc(x.tondatei) + (x.konfidenz ? " · Konfidenz " + esc(x.konfidenz) : "") + "</h4>" + transBlocksRaw(x.transkript, term) + "</div>"; });
+      body.innerHTML = html;
+      var hits = term ? sucheTreffer(transkript, term) : [];
+      currentViewerHits = hits; currentHitIdx = -1;
+      document.getElementById("tvTools").style.display = term ? "flex" : "none";
+      document.getElementById("tvHitInfo").textContent = term ? (hits.length + " Treffer für „" + term + "“ in diesem Transkript") : "";
+    }, function () {
+      if (token !== viewerOpenToken) return;
+      body.innerHTML = '<div class="tvladend">Transkript konnte nicht geladen werden — Seite neu laden.</div>';
+    });
+  }
+  function closeViewer() { document.getElementById("transViewer").classList.add("hidden"); }
+  document.getElementById("transBody").addEventListener("click", function (ev) {
+    var tr = ev.target.closest("tr[data-id]"); if (!tr) return;
+    openViewer(tr.dataset.id, activeFilters().q.toLowerCase());
+  });
+  document.getElementById("tvClose").addEventListener("click", closeViewer);
+  document.getElementById("transViewer").addEventListener("click", function (ev) { if (ev.target.id === "transViewer") closeViewer(); });
+  document.getElementById("tvNextHit").addEventListener("click", function () {
+    if (!currentViewerHits.length) return;
+    currentHitIdx = (currentHitIdx + 1) % currentViewerHits.length;
+    var blockIdx = currentViewerHits[currentHitIdx];
+    document.querySelectorAll("#tvBody .tvblock.hit").forEach(function (x) { x.classList.remove("hit"); });
+    var blockEl = document.querySelector('#tvBody .tvspalte:first-child .tvblock[data-i="' + blockIdx + '"]');
+    if (blockEl) { blockEl.classList.add("hit"); blockEl.scrollIntoView({ behavior: "smooth", block: "center" }); }
+    document.getElementById("tvHitInfo").textContent = (currentHitIdx + 1) + " / " + currentViewerHits.length + " Treffer";
+  });
+  function fallbackCopy(t) { var ta = document.createElement("textarea"); ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); } catch (e) {} document.body.removeChild(ta); }
+  function copyToClipboard(t) {
+    if (!t) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(t).then(function () { toastUndo("Adresse kopiert: " + t); }).catch(function () { fallbackCopy(t); toastUndo("Adresse kopiert: " + t); }); }
+    else { fallbackCopy(t); toastUndo("Adresse kopiert: " + t); }
+  }
+  document.addEventListener("keydown", function (ev) {
+    var lbOpen = !document.getElementById("boardLightbox").classList.contains("hidden");
+    if (ev.key === "Escape") {
+      if (!document.getElementById("transViewer").classList.contains("hidden")) closeViewer();
+      else if (lbOpen) closeLightbox();
+    } else if (lbOpen && ev.key === "ArrowLeft") { openLightbox((lbIdx - 1 + boardsFlat.length) % boardsFlat.length); }
+    else if (lbOpen && ev.key === "ArrowRight") { openLightbox((lbIdx + 1) % boardsFlat.length); }
+  });
+
   if (!(window.claude && window.claude.use)) {
     showStatus("Geteilte Inhalte sind hier nicht verfügbar (Seite läuft außerhalb von claude.ai). Stand und Tabellen gelten trotzdem.");
-    renderTodos([]); renderNotes([]); renderLinks([]); renderHinweise([]); renderTree(""); renderReviews(); renderTiles();
+    renderTodos([]); renderNotes([]); renderLinks([]); renderHinweise([]); renderTree(""); renderReviews(); renderBoards(); renderTrans(); renderTiles();
     return;
   }
   claude.use("db").then(function (d) {
-    if (!d) { showStatus("Geteilte Inhalte sind in dieser Ansicht nicht verfügbar. Stand und Tabellen gelten trotzdem."); renderTodos([]); renderNotes([]); renderLinks([]); renderHinweise([]); renderTree(""); renderReviews(); renderTiles(); return; }
+    if (!d) { showStatus("Geteilte Inhalte sind in dieser Ansicht nicht verfügbar. Stand und Tabellen gelten trotzdem."); renderTodos([]); renderNotes([]); renderLinks([]); renderHinweise([]); renderTree(""); renderReviews(); renderBoards(); renderTrans(); renderTiles(); return; }
     db = d;
     if (whoModal.classList.contains("hidden")) maybeJbCard();
+    // Boards/Transkripte enthalten Personen- und Ortsangaben — Reiter erst zeigen, wenn eine
+    // echte Session steht: erst wenn die Live-Abfrage der Sammlung "clips" tatsächlich
+    // Dokumente liefert (nicht schon, weil claude.use("db") irgendein Objekt liefert).
+    var reiterFreigeschaltet = false;
+    function pruefeReiterFreischaltung(snap) {
+      if (reiterFreigeschaltet) return;
+      if (!snap || !snap.docs || !snap.docs.length) return;
+      reiterFreigeschaltet = true;
+      document.getElementById("navBoards").classList.remove("gated");
+      document.getElementById("navTranskripte").classList.remove("gated");
+    }
     db.collection("todos").onSnapshot(function (snap) { cache.todos = snap.docs; renderTodos(snap.docs); renderTiles(); }, function () { showStatus("Live-Verbindung zu den To-dos verloren — Seite neu laden."); });
     db.collection("hinweise").orderBy("created", "desc").onSnapshot(function (snap) { cache.hinweise = snap.docs; renderHinweise(snap.docs); renderTiles(); }, function () {});
     db.collection("notes").orderBy("created", "desc").onSnapshot(function (snap) { cache.notes = snap.docs; renderNotes(snap.docs); renderTiles(); }, function () {});
     db.collection("links").orderBy("created", "asc").onSnapshot(function (snap) { cache.links = snap.docs; renderLinks(snap.docs); renderTiles(); }, function () {});
     db.collection("reviews").orderBy("created", "desc").onSnapshot(function (snap) { revDocs = snap.docs; cache.reviews = snap.docs; renderReviews(); renderTiles(); }, function () {});
     db.collection("review_kommentare").onSnapshot(function (snap) { komDocs = snap.docs; cache.kom = snap.docs; renderReviews(); renderTiles(); }, function () {});
+    db.collection("boards").onSnapshot(function (snap) { cache.boards = snap.docs; renderBoards(); }, function () { showStatus("Live-Verbindung zu den Boards verloren — Seite neu laden."); });
+    db.collectionFelder("clips", CLIP_META_FELDER).onSnapshot(function (snap) { cache.clips = snap.docs; pruefeReiterFreischaltung(snap); renderTrans(); }, function () { showStatus("Live-Verbindung zu den Transkripten verloren — Seite neu laden."); });
+    db.collectionFelder("tonclip", TONCLIP_META_FELDER).onSnapshot(function (snap) { cache.tonclip = snap.docs; renderTrans(); }, function () {});
     db.doc("dateien/baum").onSnapshot(function (snap) {
       var v = snap.exists ? snap.data() : null; baum = (v && v.eintraege) || []; cache.baum = v; renderTiles();
       document.getElementById("treeCount").textContent = baum.length ? baum.length + " Dateien" : "";

@@ -125,6 +125,27 @@
       return r.data.map(function (x) { return snapDoc(x.id, x.data); });
     });
   }
+  /* Wie ladeCollection, aber lädt nur die genannten Felder aus der jsonb-Spalte "data" statt
+     des ganzen Dokuments (PostgREST-JSON-Pfad "feld:data->feld" behält den echten Typ — Zahl
+     bleibt Zahl, Bool bleibt Bool). Für Sammlungen, deren volle Dokumente mehrere MB groß sind
+     (z. B. "clips" mit eingebettetem Transkript); das ausgesparte Feld lädt man einzeln über
+     db.doc(name + "/" + id).get(). Seitenweise (PostgREST liefert sonst nur die ersten 1000 Zeilen). */
+  function ladeCollectionFelder(name, felder) {
+    var sel = "id," + felder.map(function (f) { return f + ":data->" + f; }).join(",");
+    function seite(off, acc) {
+      return sb.from(TABELLE).select(sel).eq("collection", name).range(off, off + 999).then(function (r) {
+        if (r.error) throw r.error;
+        acc = acc.concat(r.data);
+        return r.data.length < 1000 ? acc : seite(off + 1000, acc);
+      });
+    }
+    return seite(0, []).then(function (rows) {
+      return rows.map(function (x) {
+        var v = {}; felder.forEach(function (f) { v[f] = x[f]; });
+        return snapDoc(x.id, v);
+      });
+    });
+  }
   function sammlung(name, order, filter, lim) {
     var self = {
       orderBy: function (f, dir) { return sammlung(name, { f: f, dir: dir || "asc" }, filter, lim); },
@@ -149,6 +170,16 @@
     };
     return self;
   }
+  function sammlungFelder(name, felder) {
+    return {
+      get: function () { return ladeCollectionFelder(name, felder).then(function (docs) { return { docs: docs, empty: docs.length === 0, size: docs.length, forEach: function (fn) { docs.forEach(fn); } }; }); },
+      onSnapshot: function (cb, err) {
+        var laden = function () { ladeCollectionFelder(name, felder).then(function (docs) { cb({ docs: docs, empty: docs.length === 0, size: docs.length, forEach: function (fn) { docs.forEach(fn); } }); }).catch(function (e) { if (err) err(e); }); };
+        laden();
+        return on(name, function () { laden(); });
+      }
+    };
+  }
   function dokument(pfad) {
     var t = pfad.split("/"); var coll = t[0], id = t.slice(1).join("/");
     var lade = function () { return sb.from(TABELLE).select("data").eq("collection", coll).eq("id", id).maybeSingle().then(function (r) { if (r.error) throw r.error; return snapDoc(id, r.data ? r.data.data : undefined); }); };
@@ -165,7 +196,7 @@
       delete: function () { return sb.from(TABELLE).delete().eq("collection", coll).eq("id", id).then(function (r) { if (r.error) throw r.error; }); }
     };
   }
-  var db = { collection: function (n) { return sammlung(n); }, doc: dokument };
+  var db = { collection: function (n) { return sammlung(n); }, collectionFelder: sammlungFelder, doc: dokument };
 
   /* ---- Einmalige Übernahme des Startbestands ---- */
   function seed() {
@@ -191,7 +222,7 @@
       return self;
     }
     function doc(p) { var t = p.split("/"), c = t[0], id = t.slice(1).join("/"); return { get: function () { return Promise.resolve(snapDoc(id, (S[c] || {})[id])); }, onSnapshot: function (cb) { try { cb(snapDoc(id, (S[c] || {})[id])); } catch (e) {} return function () {}; }, set: schreib, update: schreib, delete: schreib }; }
-    return { collection: function (n) { return coll(n); }, doc: doc };
+    return { collection: function (n) { return coll(n); }, collectionFelder: function (n) { return coll(n); }, doc: doc };
   }
 
   ready = new Promise(function (resolve) {
