@@ -101,7 +101,7 @@
           var b = document.querySelector('#whoModalBtns button[data-w="' + kuerzel + '"]'); if (b) b.click();
         } catch (e) {}
         start();
-      });
+      }, function (e) { errEl.textContent = "Keine Verbindung zum Server: " + (e && e.message ? e.message : e); });
     });
     el.querySelector("#liveGithubBtn").addEventListener("click", function () {
       sb.auth.signInWithOAuth({ provider: "github", options: { redirectTo: LOGIN_SITE } })

@@ -9,9 +9,10 @@ Team-Mitglieder in Echtzeit geteilt – unabhängig vom Claude-Account.
 
 ## Dateien
 - `index.html` – Board (Script 1 = Board-Logik; Kürzel-Dialog nur, solange auf dem Gerät keins gewählt ist)
-- `leitstand-db.js` – Supabase-Anbindung, bildet `claude.use("db")` nach; Team-Passwort (Vorhang, einmal je Gerät);
-  GitHub-Login (Tokens werden vor dem Board-Routing aus der URL gesichert); Realtime; „Abmelden“ in der Statuszeile
-  (wechselt GitHub-Konto und Kürzel); Panel „Schnitt 11“
+- `leitstand-db.js` – Supabase-Anbindung, bildet `claude.use("db")` nach; Anmeldung mit Kürzel + Passwort
+  (Supabase-Konten `les@…`/`jb@…`, `KUERZEL_KONTEN`), GitHub-Login als Zweitweg (Tokens werden vor dem
+  Board-Routing aus der URL gesichert); Realtime; „Abmelden“ in der Statuszeile (wechselt Konto und Kürzel);
+  Panel „Schnitt 11“
 - `leitstand-zeit.js` – Seite „Zeit“ (Stoppuhr, rückwirkende Einträge, Auswertung je Person/Kategorie, Claude-Zeit
   automatisch aus erledigten Claude-Aufgaben) und Lagebericht-Karte auf der Startseite (Dokument `lagebericht/aktuell`,
   für TS/DS ganz oben; „Wer macht was“ aus offenen To-dos). Claude auf Schnitt 11 schreibt beides per
@@ -21,19 +22,21 @@ Team-Mitglieder in Echtzeit geteilt – unabhängig vom Claude-Account.
   `saving-souls-gedaechtnis/leitstand/daten-seed-260904.js`, nicht mehr öffentlich auf GitHub Pages
 
 ## Zugang
-- Team-Passwort: Klartext nur im Team, im Code steht der SHA-256-Hash (`TOR_HASH` in `leitstand-db.js`).
-  Ändern: neuen Hash eintragen (`printf '%s' 'neues-passwort' | sha256sum`), alle Geräte fragen dann einmal neu.
-- Danach GitHub-Login; nur Konten aus `nur_team` in `supabase/schema.sql` kommen durch. Neue Teammitglieder:
-  GitHub-Namen dort ergänzen (Migration) und in `GITHUB_KUERZEL` in `leitstand-db.js` das Kürzel zuordnen.
-- `schnitt11/` – Listener für den Schnittrechner: arbeitet Claude-Aufgaben („Jetzt erledigen“) mit Claude Code ab
-  (gehört ins Repo `saving-souls-gedaechtnis`, das der Cron auf Schnitt 11 zieht; liegt hier nur als Kopie)
-
+- Seit 22.09.2026: Kürzel wählen (LES/JB) und Passwort eingeben. Das Passwort prüft der Server (Supabase-Auth,
+  E-Mail-Konto je Kürzel aus `KUERZEL_KONTEN` in `leitstand-db.js`); die Anmeldung gilt je Browser und bleibt dort.
+  Konto anlegen oder Passwort ändern: am Schnittplatz `node ~/saving-souls-listener/konto-anlegen.mjs`
+  (fragt Kürzel und Passwort ab, braucht den Service-Key aus der `.env` des Listeners).
+- GitHub-Login bleibt als Zweitweg; nur Konten aus `nur_team` in `supabase/schema.sql` kommen durch
+  (GitHub-Namen und die zwei Kürzel-E-Mails). Neue Teammitglieder: dort ergänzen (Migration) und in
+  `KUERZEL_KONTEN` bzw. `GITHUB_KUERZEL` in `leitstand-db.js` das Kürzel zuordnen.
+- Das frühere Team-Passwort im Browser (`TOR_HASH`) ist entfallen — es wurde nur im Browser geprüft und schützte
+  nichts auf dem Server.
 ## Einrichtung
 1. Supabase-Projekt anlegen → SQL-Editor → `supabase/schema.sql` ausführen → Auth-Provider GitHub aktivieren
    (GitHub OAuth-App: Homepage `https://les-droid.github.io/saving-souls-leitstand/`, Callback aus Supabase)
    → Authentication → URL Configuration → Site URL = Homepage
 2. `leitstand-db.js`: `SUPABASE_URL` und `SUPABASE_ANON` eintragen, committen
-3. Board öffnen → „Mit GitHub anmelden“ → Startbestand wird automatisch übernommen
+3. Board öffnen → Kürzel + Passwort (oder „Mit GitHub anmelden“) → Startbestand wird automatisch übernommen
 4. Schnitt 11: `schnitt11/BOOTSTRAP.md` ausführen lassen (Cron/Claude Code) – oder von Hand nach README dort
 
 ## Claude-Aufgaben an Schnitt 11
