@@ -2,6 +2,7 @@
    Eigene Datei, wie die anderen Panels (leitstand-zeit.js/.css-Anteil in index.html).
    Nutzt nur CSS-Variablen aus index.html (:root) — keine eigenen Farben. */
 
+#page-claude .ccLesehinweis { font: 400 12px var(--font-ui); color: var(--muted, #888); margin: 0 0 10px; }
 #page-claude .ccQuick { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 #page-claude .ccQuickBtn {
   font: 600 12px var(--font-ui); padding: 7px 12px; border-radius: 999px;
