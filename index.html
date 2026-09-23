@@ -356,6 +356,7 @@
   }
   @media (prefers-contrast: more) { section.card, .fact, .modalcard, #tourCard { border: 2px solid var(--ink); background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 </style>
+<link rel="stylesheet" href="claude-chat.css?v=260923a">
 
 <div id="whoModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="whoTitle">
   <div class="modalcard">
@@ -401,6 +402,7 @@
       <a href="#boards" data-page="boards" class="gated" id="navBoards">Boards</a>
       <a href="#transkripte" data-page="transkripte" class="gated" id="navTranskripte">Transkripte</a>
       <a href="#zeit" data-page="zeit">Zeit <span class="n" id="navZeit"></span></a>
+      <a href="#claude" data-page="claude">Claude</a>
       <a href="#zugang" data-page="zugang">Zugang</a>
     </nav>
   </header>
@@ -755,6 +757,9 @@
     </div>
   </div>
 
+  <!-- ===== CLAUDE (Chat-Fernsteuerung, LES + JB) ===== -->
+  <div class="page" id="page-claude"></div>
+
   <!-- ===== ZUGANG ===== -->
   <div class="page" id="page-zugang">
     <div class="grid">
@@ -803,7 +808,7 @@
   /* ---- Seiten (Hash-Routing) ---- */
   // Die Transkripte-Seite trägt zusätzlich Filter/Sortierung als Querystring im Hash
   // (#transkripte?…) — deshalb hier ein eigener Hash-Parser statt des rohen location.hash.
-  var PAGES = ["start", "aufgaben", "material", "dateien", "reviews", "boards", "transkripte", "zeit", "zugang"];
+  var PAGES = ["start", "aufgaben", "material", "dateien", "reviews", "boards", "transkripte", "zeit", "claude", "zugang"];
   function currentPageFromHash() { var h = location.hash.replace("#", ""); var qi = h.indexOf("?"); return qi >= 0 ? h.slice(0, qi) : h; }
   function showPage(p) {
     if (PAGES.indexOf(p) === -1) p = "start";
@@ -1574,3 +1579,4 @@
 })();
 </script>
 <script src="leitstand-zeit.js?v=260908d"></script>
+<script src="claude-chat.js?v=260923a"></script>
