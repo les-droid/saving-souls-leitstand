@@ -52,6 +52,7 @@ Abbrechen: To-do löschen.
 - Hash der Aussagen-Ansicht: `ans=prio` (sonst nach Thema), `ab=0..10` (Standard 6, 0 = alle), `spr`, `dt`, `s`, `stern=einer|beide`.
 - Zeiten `t0`/`t1` gelten im Kameraclip; auch Externton-Aussagen öffnen den Kameraclip (Tontranskript als zweite Spalte).
 - Frame.io: die Adresse trägt keinen Zeitparameter; der Link öffnet die Tagesdatei, die Zeit steht daneben als „kopieren“-Knopf.
+  Ist die Zeit nur ungefähr (`fio_genau: false` – Zeit der Transkriptzeile, die Aussage beginnt wenige Sekunden später), heißt der Knopf „Zeit ca. HH:MM:SS kopieren“; bei `true` oder fehlendem Feld wie bisher.
 - Daten: Sammlung `aussagen` (ein Dokument je Aussage, vom Datenweg `260922 sichtung-nach-leitstand CL LES.mjs`,
   Schritt `--nur aussagen`). Aussagen mit `regie` (wahrheitsähnlich) werden nie angezeigt; der Datenweg überschreibt schon hochgeladene zu einem leeren Regie-Dokument. Fehlende Felder
   (`prio`, `rubrik`, `kern`, `fio_*`) hält die Seite aus; ohne `prio` steht eine Aussage unter „noch nicht bewertet“.

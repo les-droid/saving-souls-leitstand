@@ -1649,7 +1649,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
      erneutes Einspielen des Katalogs sie nie überschreibt. Jeder schaltet nur den eigenen Stern (angemeldetes
      Kürzel), sieht aber beide. Aussagen mit regie:true erscheinen nirgends. Fehlende Felder (prio, rubrik,
      kern, fio_*) werden ausgehalten: ohne prio = "noch nicht bewertet". */
-  var AUS_FELDER = ["tag", "clip", "quelle", "tondatei", "t0", "t1", "sprecher", "sprecher_sicher", "zitat", "kurz", "stufe", "sensibel", "sperre", "angefordert", "prio", "prio_grund", "rubrik", "rubrik_nr", "kern", "regie", "fio_url", "fio_tc", "fio_sek"];
+  var AUS_FELDER = ["tag", "clip", "quelle", "tondatei", "t0", "t1", "sprecher", "sprecher_sicher", "zitat", "kurz", "stufe", "sensibel", "sperre", "angefordert", "prio", "prio_grund", "rubrik", "rubrik_nr", "kern", "regie", "fio_url", "fio_tc", "fio_sek", "fio_genau"];
   var STERN_KUERZEL = ["LES", "JB"];
   var AUS_STANDARD = { ans: "thema", ab: 6, s: "", spr: "", dt: "", stern: "" };
   var ausState = { ans: "thema", ab: 6, s: "", spr: "", dt: "", stern: "" };
@@ -1784,7 +1784,11 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
        Darum ehrlich beschriftet und die Zeit daneben kopierbar. */
     if (typeof e.fio_url === "string" && /^https:\/\//i.test(e.fio_url)) {
       links += '<a href="' + esc(e.fio_url) + '" target="_blank" rel="noopener noreferrer">Sichtung öffnen ▸</a>';
-      if (typeof e.fio_tc === "string" && /^[0-9:.]{1,12}$/.test(e.fio_tc)) links += '<button type="button" data-act="tc" data-tc="' + esc(e.fio_tc) + '" title="Zeit kopieren — in der Sichtung dorthin springen">Zeit ' + esc(e.fio_tc) + " kopieren</button>";
+      if (typeof e.fio_tc === "string" && /^[0-9:.]{1,12}$/.test(e.fio_tc)) {
+        /* fio_genau === false: Zeit der Transkriptzeile, die Aussage beginnt wenige Sekunden später -> "ca."; true/fehlend unverändert */
+        var ca = e.fio_genau === false;
+        links += '<button type="button" data-act="tc" data-tc="' + esc(e.fio_tc) + '" title="' + (ca ? "Zeit der Transkriptzeile, die Aussage beginnt wenige Sekunden später" : "Zeit kopieren — in der Sichtung dorthin springen") + '">Zeit ' + (ca ? "ca. " : "") + esc(e.fio_tc) + " kopieren</button>";
+      }
     }
     return '<article class="aus' + (e.sensibel ? " sens" : "") + (e.sperre ? " sperre" : "") + '" data-id="' + esc(e.id) + '">' +
       '<div class="ausprio ' + (p ? "p" + p : "keine") + '" title="' + (p ? "Prio " + p + " von 10" : "noch nicht bewertet") + '">' + (p || "–") + "</div>" +
