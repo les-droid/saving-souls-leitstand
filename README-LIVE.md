@@ -50,12 +50,15 @@ Abbrechen: To-do löschen.
   die bisherige Clip-Tabelle ist die zweite Ansicht („Clips“, Hash `#transkripte?v=clips&…`). Alte Clip-Links
   ohne `v=` (mit `q`, `tag`, `fach`, `extern`, `pers`, `sens` oder `sort`) öffnen weiter die Clip-Tabelle.
 - Hash der Aussagen-Ansicht: `ans=prio` (sonst nach Thema), `ab=0..10` (Standard 6, 0 = alle), `spr`, `dt`, `s`, `stern=einer|beide`.
+- Zeiten `t0`/`t1` gelten im Kameraclip; auch Externton-Aussagen öffnen den Kameraclip (Tontranskript als zweite Spalte).
+- Frame.io: die Adresse trägt keinen Zeitparameter; der Link öffnet die Tagesdatei, die Zeit steht daneben als „kopieren“-Knopf.
 - Daten: Sammlung `aussagen` (ein Dokument je Aussage, vom Datenweg `260922 sichtung-nach-leitstand CL LES.mjs`,
-  Schritt `--nur aussagen`). Aussagen mit `regie` werden nicht hochgeladen und nie angezeigt. Fehlende Felder
+  Schritt `--nur aussagen`). Aussagen mit `regie` (wahrheitsähnlich) werden nie angezeigt; der Datenweg überschreibt schon hochgeladene zu einem leeren Regie-Dokument. Fehlende Felder
   (`prio`, `rubrik`, `kern`, `fio_*`) hält die Seite aus; ohne `prio` steht eine Aussage unter „noch nicht bewertet“.
 - **Sterne** liegen in der eigenen Sammlung `aussagen_sterne` (Dokument-Id `<Aussage-Id>__<Kürzel>`, Felder
   `aussage`, `kuerzel`, `stern`), nie im Katalog-Dokument — ein erneutes Einspielen berührt sie nicht. Jeder schaltet in der
-  Oberfläche nur den eigenen Stern (angemeldetes Kürzel LES/JB). Die Sperre „nur der eigene“ ist **Oberfläche, keine
+  Oberfläche nur den eigenen Stern; das Kürzel wird aus der **Anmeldung** abgeleitet (`claude.kuerzel()` in `leitstand-db.js`:
+  GitHub-Name oder Kürzel-Konto), nicht aus „Ich bin“. Ohne eindeutige Zuordnung sind beide Sterne gesperrt. Die Sperre „nur der eigene“ ist **Oberfläche, keine
   Datenbank-Regel**: die bestehende Policy `team_docs` erlaubt allen Team-Konten alles auf `docs`.
 - **Lokale Demo:** `index.html?demo=1` (nur auf localhost, 127.0.0.1, [::1] oder als file:) lädt `aussagen-demo.js` mit
   erfundenen Beispieldaten; keine Datenbank, keine Anmeldung, Sterne nur im Speicher. Auf der Live-Seite wird die Datei nie geladen.

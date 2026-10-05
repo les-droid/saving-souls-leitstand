@@ -33,7 +33,7 @@
   for (var t = 0; t < 2; t++) {
     var tb = [];
     for (var k = 0; k < 24; k++) tb.push({ t0: k * 10, t1: k * 10 + 10, text: pick(SATZ).replace("%T", pick(TH)) + " (Ton " + t + "-" + k + ")." });
-    store.tonclip[TAGE_D[t] + "__DEMO_TON_0" + (t + 1)] = { tag: TAGE_D[t], tondatei: "DEMO_TON_0" + (t + 1), kameraclips: [], woerter: 24 * 11, hat_transkript: true, transkript: tb };
+    store.tonclip[TAGE_D[t] + "__DEMO_TON_0" + (t + 1)] = { tag: TAGE_D[t], tondatei: "DEMO_TON_0" + (t + 1), kameraclips: [{ tag: TAGE_D[t], kameraclip: "DEMO_C0" + (11 + t), konfidenz: "hoch", ton_start_im_clip_s: t === 0 ? 80 : 120 }], woerter: 24 * 11, hat_transkript: true, transkript: tb };
   }
   function hms(s) { return String(Math.floor(s / 3600)).padStart(2, "0") + ":" + String(Math.floor(s % 3600 / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); }
 
@@ -43,7 +43,9 @@
     var cl = o.ext ? null : clipListe[o.clip % clipListe.length];
     var blocks = o.ext ? store.tonclip[TAGE_D[o.ext - 1] + "__DEMO_TON_0" + o.ext].transkript : cl.bl;
     var von = o.von, bis = o.von + o.laenge;
-    var teile = blocks.filter(function (x) { return x.t0 >= von && x.t0 < bis; });
+    /* Katalogzeiten gelten im KAMERACLIP; das Tontranskript beginnt um ton_start_im_clip_s später (Sync-Versatz). */
+    var tv = o.ext ? store.tonclip[TAGE_D[o.ext - 1] + "__DEMO_TON_0" + o.ext].kameraclips[0].ton_start_im_clip_s : 0;
+    var teile = blocks.filter(function (x) { return x.t0 >= von - tv && x.t0 < bis - tv; });
     var zitat = teile.map(function (x) { return x.text; }).join(" ");
     var a = { tag: o.ext ? TAGE_D[o.ext - 1] : cl.tag, clip: o.ext ? "DEMO_C0" + (10 + o.ext) : cl.clip, quelle: o.ext ? "EXT" : "KAM", tondatei: o.ext ? "DEMO_TON_0" + o.ext + ".WAV" : "", t0: hms(von), t1: hms(bis),
       sprecher: o.sp || SPRECHER[n % 4], sprecher_sicher: o.sicher || ["sicher", "wahrscheinlich", "unsicher"][n % 3], zitat: zitat, kurz: o.kurz || ("Beispielaussage Nr. " + (n + 1) + " zum Thema " + TH[n % 6]), stufe: "B", sensibel: o.sens || "" };
@@ -54,7 +56,7 @@
     if (o.sperre) a.sperre = "einwilligung";
     if (o.angef) a.angefordert = o.angef;
     if (o.fio !== false) { a.fio_url = "https://example.com/sichtung/" + (n + 1); a.fio_tc = hms(von); a.fio_sek = von; }
-    if (o.regie) a.regie = true;
+    if (o.regie) a.regie = o.regie;
     store.aussagen[a.tag + "__" + a.clip + "__" + a.t0 + "__" + n] = a; n++;
   }
   for (var i = 0; i < 40; i++) {
@@ -68,10 +70,13 @@
   neu({ clip: 5, von: 0, laenge: 10, prio: 8, rub: 3, kern: ["<b>x</b> & \"q\""], kurz: "Test <b>Sonderzeichen</b> & \"Anführungszeichen\" — dürfen nicht als HTML laufen", sens: "Hinweis mit <i>Tags</i>" });
   neu({ clip: 6, von: 50, laenge: 10, prio: 6, rub: null, kern: true, kurz: "Bewertet, aber ohne Rubrik (Demo)" });
   neu({ clip: 7, von: 60, laenge: 20, prio: 5, rub: 4, kern: false, sperre: true, angef: "00:01:00", kurz: "Gesperrt und angefordert (Demo)" });
-  neu({ ext: 1, von: 30, laenge: 30, prio: 8, rub: 1, kern: true, kurz: "Aussage aus Externton (Demo)", fio: false });
-  neu({ ext: 2, von: 0, laenge: 20, prio: 4, rub: 2, kern: false, kurz: "Zweite Externton-Aussage (Demo)" });
+  neu({ ext: 1, von: 110, laenge: 30, prio: 8, rub: 1, kern: true, kurz: "Aussage aus Externton (Demo)", fio: false });
+  neu({ ext: 2, von: 130, laenge: 20, prio: 4, rub: 2, kern: false, kurz: "Zweite Externton-Aussage (Demo)" });
   /* ohne prio (noch nicht bewertet) */
   for (var u = 0; u < 6; u++) neu({ clip: 8 + u, von: u * 30, laenge: 20, kurz: "Noch nicht bewertet Nr. " + (u + 1) + " (Demo)", fio: u % 2 === 0, sens: u === 3 ? "Demo-Hinweis" : "" });
+  /* Regie unscharf: "ja" zählt als Regie (verborgen), "nein" nicht (sichtbar) */
+  neu({ clip: 9, von: 310, laenge: 10, prio: 7, rub: 0, regie: "ja", kurz: "REGIE-JA DARF NICHT ERSCHEINEN" });
+  neu({ clip: 9, von: 320, laenge: 10, prio: 7, rub: 0, regie: "nein", kurz: "Regie-Wert „nein“ bleibt sichtbar (Demo)" });
   /* Regie-Einträge: dürfen nirgends erscheinen */
   for (var r = 0; r < 3; r++) neu({ clip: r, von: 300, laenge: 10, prio: 3, rub: 0, regie: true, kurz: "REGIE-ANSAGE DARF NICHT ERSCHEINEN " + r });
 
@@ -113,6 +118,8 @@
     };
   }
   var db = { collection: function (n) { return sammlung(n); }, collectionFelder: function (n, f) { return sammlung(n, f); }, doc: dok };
-  window.claude = { use: function (w) { return Promise.resolve(w === "db" ? db : null); }, live: false, logout: function () {}, user: function () { return "Demo"; } };
+  window.claude = { use: function (w) { return Promise.resolve(w === "db" ? db : null); }, live: false, logout: function () {}, user: function () { return "Demo"; },
+    /* Demo: Kürzel = lokale Wahl "Ich bin" (nur hier; live kommt es aus der Anmeldung) */
+    kuerzel: function () { try { var k = localStorage.getItem("ss-wer"); return k === "LES" || k === "JB" ? k : null; } catch (e) { return null; } } };
   window.LEITSTAND_DEMO_STORE = store;
 })();

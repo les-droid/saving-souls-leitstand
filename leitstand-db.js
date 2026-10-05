@@ -276,7 +276,15 @@
   }
   window.claude = { use: function (was) { return was === "db" ? ready : Promise.resolve(null); }, live: true,
     logout: abmelden,
-    user: function () { return session && session.user ? (session.user.user_metadata.user_name || session.user.email) : null; } };
+    user: function () { return session && session.user ? (session.user.user_metadata.user_name || session.user.email) : null; },
+    /* Kürzel aus der ANMELDUNG (GitHub-Name oder Kürzel-Konto), nie aus dem frei wählbaren "Ich bin"; ohne eindeutige Zuordnung null. */
+    kuerzel: function () {
+      var u = session && session.user; if (!u) return null;
+      var gh = u.user_metadata && u.user_metadata.user_name; if (gh && GITHUB_KUERZEL[gh]) return GITHUB_KUERZEL[gh];
+      var mail = String(u.email || "").toLowerCase();
+      for (var k in KUERZEL_KONTEN) if (KUERZEL_KONTEN[k] === mail) return k;
+      return null;
+    } };
 
   /* ---- Nach dem Laden: Statuszeile, Projektdatei-Links, Schnitt-11-Panel ---- */
   document.addEventListener("DOMContentLoaded", function () {

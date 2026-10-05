@@ -264,6 +264,7 @@
   .fach.Extern { background: var(--fach-extern); color: #16232780; }
   .prioqual { font: 600 10px var(--font-mono); text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
   .prioqual.hoch { background: var(--prio-hoch); color: #06251A; } .prioqual.mittel { background: var(--prio-mittel); color: #2B2205; } .prioqual.niedrig { background: var(--prio-niedrig); color: var(--ink); }
+  .senschip.voll { white-space: normal; text-transform: none; cursor: default; font-weight: 600; text-align: left; line-height: 1.35; border-radius: 10px; }
   .senschip { display: inline-flex; align-items: center; gap: 3px; font: 600 10px var(--font-mono); text-transform: uppercase; color: var(--danger); border: 1px solid var(--danger); border-radius: 999px; padding: 2px 7px; white-space: nowrap; cursor: help; }
   .tablebox.trans table { table-layout: fixed; }
   table.transtbl th { cursor: pointer; user-select: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -351,6 +352,10 @@
   .ausstern span { font: 600 10px var(--font-mono); }
   .ausstern.eigen { cursor: pointer; color: var(--ink); border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
   .ausstern.an { color: #E8C547; border-color: #E8C547; background: color-mix(in srgb, #E8C547 12%, transparent); }
+  .ausmeldung:empty { display: none; }
+  .ausmeldung { margin: 8px 0; padding: 8px 12px; border: 1px solid var(--danger); border-radius: 10px; color: var(--danger); font-size: 13px; }
+  .ausfehler { margin: 6px 0 0; font-size: 12.5px; font-weight: 600; color: var(--danger); }
+  .ausleer .fbtn { margin-top: 10px; }
   .ausleer { padding: 22px; text-align: center; color: var(--muted); font-size: 13px; }
   @media (max-width: 600px) {
     .aus { grid-template-columns: 40px 1fr; padding: 12px 4px; }
@@ -359,6 +364,11 @@
     .ausstern { flex: 1; min-height: 42px; }
     .ausact button, .ausact a { min-height: 40px; }
     .filterbar select { flex: 1 1 120px; }
+    .filterbar select, .filterbar input[type="search"], .filterbar .seg2 button, .filterbar .fbtn { min-height: 40px; }
+    .filterbar .seg2 button { padding: 8px 12px; }
+    .filterbar .fbtn { padding: 8px 12px; }
+    .ausstern { min-height: 44px; }
+    .aushead { min-height: 44px; }
   }
   #transViewer .tvblock.aushl { background: color-mix(in srgb, var(--prio-hoch) calc(var(--st, 10) * 1%), transparent); border-top-color: transparent; }
   #transViewer .tvblock.fokus { outline: 2px solid var(--signal); }
@@ -721,6 +731,7 @@
           <button type="button" class="fbtn" id="ausReset" title="Filter zurücksetzen">Zurücksetzen</button>
         </div>
         <div class="countbar" id="ausCountbar"></div>
+        <div class="ausmeldung" id="ausMeldung" role="status"></div>
         <div id="ausListe"><div class="ausleer">Aussagen laden …</div></div>
       </section>
       <section class="card" id="clipsCard">
@@ -1643,7 +1654,12 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
   var AUS_STANDARD = { ans: "thema", ab: 6, s: "", spr: "", dt: "", stern: "" };
   var ausState = { ans: "thema", ab: 6, s: "", spr: "", dt: "", stern: "" };
   var ansicht = "aus", ausDirty = false, ausZu = { "__unbewertet": true }, ausMax = 500;
-  var sterne = {}, sternPend = {};
+  var sterne = {}, sternPend = {}, sternSeq = {}, sternKette = {}, sternFehler = {}, sterneDocs = [];
+  var ausLadeStatus = "lade", sterneStatus = "lade";   // "lade" | "ok" | "fehler" | "keine-db"
+  var ausSync = true;                                    // Eingabefelder nur beim Anwenden von Hash/Zurücksetzen neu setzen, nie beim Tippen
+  var ausExplizit = false, ausAutoClips = false;
+  /* "regie" ist im Katalog noch ohne festen Typ: wahrheitsähnlich = alles außer fehlend/false/leer/„nein"/„0". */
+  function istRegie(v) { if (!v) return false; var t = String(v).trim().toLowerCase(); return ["", "false", "nein", "no", "0", "null"].indexOf(t) === -1; }
   function safeDec(s) { try { return decodeURIComponent(s); } catch (e) { return s; } }
   /* Text mit hervorgehobenen Kernstellen (wörtliche Ausschnitte) und Suchbegriff; alles läuft durch esc() via hi(). */
   function markiere(text, kerns, term) {
@@ -1665,7 +1681,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
   function ausEintraege() {
     var aus = [];
     (cache.aussagen || []).forEach(function (d) {
-      var v = d.data(); if (!v || v.regie === true) return;
+      var v = d.data(); if (!v || istRegie(v.regie)) return;
       var p = Number(v.prio), e = {};
       Object.keys(v).forEach(function (k) { e[k] = v[k]; });
       e.id = d.id; e.prio = (v.prio != null && v.prio !== "" && isFinite(p) && p >= 1 && p <= 10) ? Math.round(p) : null;
@@ -1677,9 +1693,18 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     });
     return aus;
   }
-  function ausZielId(e) {
-    if (e.quelle === "EXT" && e.tondatei) { var tid = e.tag + "__" + String(e.tondatei).replace(/\.[A-Za-z0-9]+$/, ""); if (entriesById[tid]) return tid; }
-    return e.tag + "__" + e.clip;
+  /* Zielclip im Viewer. Die Katalogzeiten t0/t1 zählen IMMER im Kameraclip (auch bei Externton-Aussagen).
+     Darum zuerst der Kameraclip-Eintrag (dessen Viewer zeigt den Externton als zweite Spalte). Nur wenn der Kameraclip
+     fehlt, aber der Tonclip mit bekanntem Sync-Versatz da ist, wird dieser benutzt und die Zeit um den Versatz
+     (ton_start_im_clip_s) umgerechnet. Ohne beides: kein Ziel (lieber kein Sprung als ein falscher). */
+  function ausZiel(e) {
+    var cam = e.tag + "__" + e.clip; if (entriesById[cam]) return { id: cam, versatz: 0 };
+    if (e.quelle === "EXT" && e.tondatei) {
+      var tid = e.tag + "__" + String(e.tondatei).replace(/\.[A-Za-z0-9]+$/, "");
+      var m = (tonclipByClip[cam] || []).filter(function (x) { return x.id === tid; })[0];
+      if (entriesById[tid] && m && m.ton_start_im_clip_s != null && isFinite(Number(m.ton_start_im_clip_s))) return { id: tid, versatz: Number(m.ton_start_im_clip_s) };
+    }
+    return null;
   }
   function sprecherName(e) { return e.sprecher || "unsicher"; }
   function sprecherHtml(e) {
@@ -1696,7 +1721,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     return (a.s0 == null ? 1e9 : a.s0) - (b.s0 == null ? 1e9 : b.s0);
   }
   function ausFiltern(alle) {
-    var q = ausState.s.toLowerCase();
+    var q = ausState.s.trim().toLowerCase();
     return alle.filter(function (e) {
       if (e.prio != null && e.prio < ausState.ab) return false;   // ohne prio bleibt sichtbar (Abschnitt "noch nicht bewertet")
       if (ausState.spr && sprecherName(e) !== ausState.spr) return false;
@@ -1705,7 +1730,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
         var n = STERN_KUERZEL.filter(function (k) { return sterneAn(e.id)[k]; }).length;
         if (ausState.stern === "beide" ? n < 2 : n < 1) return false;
       }
-      if (q && (e.kurz + " " + e.zitat + " " + e.sprecher + " " + e.clip + " " + e.rubrik + " " + (e.prio_grund || "")).toLowerCase().indexOf(q) === -1) return false;
+      if (q && [e.kurz, e.zitat, e.sprecher, e.clip, e.rubrik, e.prio_grund].map(function (x) { return x == null ? "" : String(x); }).join(" ").toLowerCase().indexOf(q) === -1) return false;
       return true;
     });
   }
@@ -1715,7 +1740,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     var gr = [];
     if (ausState.ans === "prio") { if (bew.length) gr.push({ key: "__alle", titel: "", items: bew }); }
     else {
-      var by = {}, order = [];
+      var by = Object.create(null), order = [];
       bew.forEach(function (e) {
         var k = e.rubrik || "";
         if (!by[k]) { by[k] = { key: "r:" + k, titel: k || "ohne Rubrik", nr: e.rubrik_nr, items: [] }; order.push(by[k]); }
@@ -1733,68 +1758,97 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     if (unb.length) gr.push({ key: "__unbewertet", titel: "noch nicht bewertet", items: unb });
     return gr;
   }
+  /* Das Stern-Kürzel kommt aus der ANMELDUNG (leitstand-db.js: claude.kuerzel()), nicht aus dem frei wählbaren "Ich bin".
+     Ohne eindeutige Zuordnung sind beide Sterne gesperrt. */
+  function eigenesKuerzel() { try { var k = window.claude && window.claude.kuerzel ? window.claude.kuerzel() : null; return STERN_KUERZEL.indexOf(k) !== -1 ? k : null; } catch (err) { return null; } }
   function sternHtml(e) {
-    var st = sterneAn(e.id);
+    var st = sterneAn(e.id), ich = eigenesKuerzel(), bereit = sterneStatus === "ok";
     return '<div class="aussterne">' + STERN_KUERZEL.map(function (k) {
-      var an = !!st[k], eigen = k === me;
+      var an = !!st[k], eigen = k === ich && bereit;
+      var tip = !bereit ? (sterneStatus === "fehler" ? "Sterne konnten nicht geladen werden" : sterneStatus === "keine-db" ? "Sterne gibt es nur mit Datenbank-Verbindung" : "Sterne laden …")
+        : eigen ? "Dein Stern (" + k + ")" : ich ? "Stern von " + k + " — nur " + k + " kann ihn ändern" : "Deine Anmeldung ist keinem Stern-Konto (LES/JB) zugeordnet";
       return '<button type="button" class="ausstern' + (an ? " an" : "") + (eigen ? " eigen" : "") + '" data-act="stern" data-k="' + k + '" aria-pressed="' + an + '"' +
-        (eigen ? "" : " disabled") + ' aria-label="Stern ' + k + (an ? " gesetzt" : " nicht gesetzt") + '" title="' + (eigen ? "Dein Stern (" + k + ")" : (WER.indexOf(me) !== -1 && STERN_KUERZEL.indexOf(me) === -1 ? "Sterne gibt es nur für LES und JB" : "Stern von " + k + " — nur " + k + " kann ihn ändern")) + '">' + (an ? "★" : "☆") + "<span>" + k + "</span></button>";
+        (eigen ? "" : " disabled") + ' aria-label="Stern ' + k + (an ? " gesetzt" : " nicht gesetzt") + '" title="' + esc(tip) + '">' + (an ? "★" : "☆") + "<span>" + k + "</span></button>";
     }).join("") + "</div>";
   }
   function ausRow(e, term) {
     var p = e.prio, lang = (e.zitat || "").length > 280 && e.kern.length > 0;
     var zeit = (e.t0 || "") + (e.t1 ? "–" + e.t1 : "");
     var chips = "";
-    if (e.sperre) chips += '<span class="senschip" title="Sperre: ' + esc(e.sperre) + '">⛔ Sperre: ' + esc(e.sperre) + "</span>";
-    if (e.sensibel) chips += '<span class="senschip" title="' + esc(e.sensibel) + '">⚠ sensibel</span>';
-    if (e.angefordert && String(e.angefordert).toLowerCase() !== "nein") chips += '<span class="senschip" title="Zur Verwendung angefordert">angefordert: ' + esc(e.angefordert) + "</span>";
+    if (e.sperre) chips += '<span class="senschip voll">⛔ Sperre: ' + esc(e.sperre) + "</span>";
+    if (e.sensibel) chips += '<span class="senschip voll">⚠ sensibel: ' + esc(e.sensibel) + "</span>";
+    if (e.angefordert && String(e.angefordert).toLowerCase() !== "nein") chips += '<span class="senschip voll">angefordert: ' + esc(e.angefordert) + "</span>";
     var links = "";
-    if (entriesById[ausZielId(e)]) links += '<button type="button" data-act="trans">Transkript</button>';
-    if (e.fio_url && /^https:\/\//i.test(e.fio_url)) links += '<a href="' + esc(e.fio_url) + '" target="_blank" rel="noopener noreferrer">Sichtung ▸ ' + esc(e.fio_tc || "öffnen") + "</a>";
+    if (ausZiel(e)) links += '<button type="button" data-act="trans">Transkript</button>';
+    /* Die Frame.io-Adresse trägt keinen Zeitparameter (nicht belegt): der Link öffnet die Tagesdatei am Anfang.
+       Darum ehrlich beschriftet und die Zeit daneben kopierbar. */
+    if (typeof e.fio_url === "string" && /^https:\/\//i.test(e.fio_url)) {
+      links += '<a href="' + esc(e.fio_url) + '" target="_blank" rel="noopener noreferrer">Sichtung öffnen ▸</a>';
+      if (typeof e.fio_tc === "string" && /^[0-9:.]{1,12}$/.test(e.fio_tc)) links += '<button type="button" data-act="tc" data-tc="' + esc(e.fio_tc) + '" title="Zeit kopieren — in der Sichtung dorthin springen">Zeit ' + esc(e.fio_tc) + " kopieren</button>";
+    }
     return '<article class="aus' + (e.sensibel ? " sens" : "") + (e.sperre ? " sperre" : "") + '" data-id="' + esc(e.id) + '">' +
       '<div class="ausprio ' + (p ? "p" + p : "keine") + '" title="' + (p ? "Prio " + p + " von 10" : "noch nicht bewertet") + '">' + (p || "–") + "</div>" +
       '<div class="ausmain"><h3 class="auskurz">' + hi(e.kurz || "(ohne Kurztext)", term) + "</h3>" +
       '<p class="auszit' + (lang ? " lang" : "") + '">' + markiere(e.zitat, e.kern, term) + "</p>" +
       '<div class="ausmeta">' + sprecherHtml(e) + "<span>" + esc(e.tag) + " · " + esc(e.clip) + " · " + esc(zeit) + "</span>" + chips + "</div>" +
       (e.prio_grund ? '<p class="ausgrund">' + esc(e.prio_grund) + "</p>" : "") +
-      (links ? '<div class="ausact">' + links + "</div>" : "") + "</div>" +
+      (links ? '<div class="ausact">' + links + "</div>" : "") +
+      (sternFehler[e.id] ? '<p class="ausfehler" role="alert">' + esc(sternFehler[e.id]) + "</p>" : "") + "</div>" +
       sternHtml(e) + "</article>";
   }
   function fuelleSelect(id, erste, werte, aktuell) {
     var el = document.getElementById(id); if (!el) return;
     if (aktuell && werte.indexOf(aktuell) === -1) werte = werte.concat([aktuell]);
+    var sig = werte.join("\u0001");
+    if (el._sig === sig) return;   // unverändert: nicht neu aufbauen (würde offene Auswahl und Fokus stören)
+    el._sig = sig;
     el.innerHTML = '<option value="">' + esc(erste) + "</option>" + werte.map(function (w) { return '<option value="' + esc(w) + '">' + esc(w) + "</option>"; }).join("");
     el.value = aktuell || "";
   }
-  function ausSteuerung(alle) {
+  function ausSteuerung(alle, sync) {
     var spr = {}, dt = {};
-    alle.forEach(function (e) { spr[sprecherName(e)] = 1; dt[e.tag] = 1; });
+    alle.forEach(function (e) { spr[sprecherName(e)] = 1; if (e.tag) dt[e.tag] = 1; });
     fuelleSelect("ausSpr", "Alle Sprecher", Object.keys(spr).sort(function (a, b) { return a === "unsicher" ? 1 : b === "unsicher" ? -1 : a.localeCompare(b, "de"); }), ausState.spr);
     fuelleSelect("ausDt", "Alle Drehtage", Object.keys(dt).sort(function (a, b) { return TAGE.indexOf(a) - TAGE.indexOf(b); }), ausState.dt);
     var ab = document.getElementById("ausAb");
-    if (!ab.options.length) { var h = ""; for (var i = 10; i >= 1; i--) h += '<option value="' + i + '">ab Prio ' + i + "</option>"; ab.innerHTML = h + '<option value="0">alle</option>'; }
-    ab.value = String(ausState.ab);
-    document.getElementById("ausStern").value = ausState.stern;
-    document.getElementById("ausSuche").value = ausState.s;
+    if (!ab.options.length) { var h = ""; for (var i = 10; i >= 1; i--) h += '<option value="' + i + '">ab Prio ' + i + "</option>"; ab.innerHTML = h + '<option value="0">alle</option>'; sync = true; }
+    if (sync) {   // Eingabefelder nur beim Anwenden von Hash/Zurücksetzen setzen — nie beim Tippen oder bei Datenbank-Ereignissen
+      ab.value = String(ausState.ab);
+      document.getElementById("ausStern").value = ausState.stern;
+      document.getElementById("ausSuche").value = ausState.s;
+      document.getElementById("ausSpr").value = ausState.spr; document.getElementById("ausDt").value = ausState.dt;
+    }
     document.querySelectorAll("#ausCard [data-ans]").forEach(function (b) { var an = b.dataset.ans === ausState.ans; b.classList.toggle("on", an); b.setAttribute("aria-pressed", an); });
   }
   function renderAus() {
     if (ansicht !== "aus") { ausDirty = true; return; }
     ausDirty = false;
-    var alle = ausEintraege();
-    ausSteuerung(alle);
-    var liste = ausFiltern(alle), term = ausState.s.toLowerCase(), gr = ausGruppen(liste);
+    var alle = ausEintraege(), sync = ausSync; ausSync = false;
+    ausSteuerung(alle, sync);
+    var meld = [];
+    if (sterneStatus === "fehler") meld.push("Sterne konnten nicht geladen werden — sie sind gesperrt und der Filter „mit Stern“ ist unzuverlässig. Seite neu laden.");
+    else if (sterneStatus === "ok" && !eigenesKuerzel() && db) meld.push("Deine Anmeldung ist keinem Stern-Konto (LES/JB) zugeordnet — Sterne sind nur lesbar.");
+    document.getElementById("ausMeldung").textContent = meld.join(" ");
+    var liste = ausFiltern(alle), term = ausState.s.trim().toLowerCase(), gr = ausGruppen(liste);
     var versteckt = alle.filter(function (e) { return e.prio != null && e.prio < ausState.ab; }).length;
     var unb = liste.filter(function (e) { return e.prio == null; }).length;
     document.getElementById("ausCountbar").innerHTML = "<span><strong>" + liste.length + "</strong> von " + alle.length + " Aussagen</span>" +
       (versteckt ? "<span>" + versteckt + " unter Prio " + ausState.ab + " ausgeblendet</span>" : "") + (unb ? "<span>" + unb + " noch nicht bewertet</span>" : "");
     var el = document.getElementById("ausListe");
-    if (!alle.length) { el.innerHTML = '<div class="ausleer">' + (cache.aussagen && cache.aussagen.length ? "Keine Aussagen." : "Aussagen laden …") + "</div>"; return; }
+    if (!alle.length) {
+      var clipsKnopf = '<br><button type="button" class="fbtn" data-act="clips">Zur Clip-Tabelle</button>';
+      var txt = ausLadeStatus === "fehler" ? "Aussagen konnten nicht geladen werden (Verbindung oder Berechtigung) — Seite neu laden." + clipsKnopf
+        : ausLadeStatus === "keine-db" ? "Keine Datenbank-Verbindung — Aussagen sind nicht verfügbar." + clipsKnopf
+        : ausLadeStatus === "lade" ? "Aussagen laden …"
+        : cache.aussagen && cache.aussagen.length ? "Keine Aussagen (alle als Regie-Ansage markiert)." + clipsKnopf
+        : "Noch keine Aussagen in der Datenbank — sie kommen mit dem nächsten Lauf des Datenwegs." + clipsKnopf;
+      el.innerHTML = '<div class="ausleer">' + txt + "</div>"; return;
+    }
     if (!liste.length) { el.innerHTML = '<div class="ausleer">Nichts gefunden — Filter lockern (ab Prio „alle“ zeigt alles).</div>'; return; }
     var n = 0, html = "";
     gr.forEach(function (g) {
       var rest = Math.max(0, ausMax - n), zeig = g.items.slice(0, rest); n += zeig.length;
-      var zu = !!ausZu[g.key] && g.titel !== "";
+      var zu = !!ausZu[g.key] && g.titel !== "" && !(gr.length === 1 && g.key === "__unbewertet");   // einziger Abschnitt "noch nicht bewertet" bleibt aufgeklappt
       var kopf = g.titel === "" ? "" : '<button type="button" class="aushead" data-g="' + esc(g.key) + '" aria-expanded="' + !zu + '"><span class="pfeil">▾</span>' + esc(g.titel) + ' <span class="n">' + g.items.length + "</span></button>";
       html += '<div class="ausgruppe' + (zu ? " zu" : "") + '">' + kopf + '<div class="ausliste">' + zeig.map(function (e) { return ausRow(e, term); }).join("") +
         (zeig.length < g.items.length ? '<div class="ausleer">… ' + (g.items.length - zeig.length) + ' weitere — <button type="button" class="fbtn" data-act="mehr">alle zeigen</button></div>' : "") + "</div></div>";
@@ -1802,25 +1856,31 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     el.innerHTML = html;
   }
   function baueSterne(docs) {
+    sterneDocs = docs || sterneDocs;
     sterne = {};
-    (docs || []).forEach(function (d) {
+    (sterneDocs || []).forEach(function (d) {
       var v = d.data(); if (!v || v.stern === false || STERN_KUERZEL.indexOf(v.kuerzel) === -1 || !v.aussage) return;
       (sterne[v.aussage] = sterne[v.aussage] || {})[v.kuerzel] = true;
     });
     Object.keys(sternPend).forEach(function (key) { var p = sternPend[key]; if (p.an) (sterne[p.id] = sterne[p.id] || {})[p.k] = true; else if (sterne[p.id]) delete sterne[p.id][p.k]; });
   }
   function sternUmschalten(id, k) {
-    if (k !== me || STERN_KUERZEL.indexOf(k) === -1) return;
+    if (k !== eigenesKuerzel() || sterneStatus !== "ok") return;
     if (!db) { showStatus("Sterne sind nur mit Datenbank-Verbindung möglich."); return; }
-    var key = id + "__" + k, an = !sterneAn(id)[k];
-    sternPend[key] = { id: id, k: k, an: an };
+    var key = id + "__" + k, an = !sterneAn(id)[k], seq = (sternSeq[key] = (sternSeq[key] || 0) + 1);
+    delete sternFehler[id];
+    sternPend[key] = { id: id, k: k, an: an, seq: seq };
     (sterne[id] = sterne[id] || {})[k] = an; if (!an) delete sterne[id][k];
     if (ausState.stern) renderAus(); else sternKnoepfe(id);
-    var ref = db.doc("aussagen_sterne/" + key), p;
-    try { p = an ? ref.set({ aussage: id, kuerzel: k, stern: true, gesetzt: new Date().toISOString() }) : ref.delete(); } catch (err) { p = Promise.reject(err); }
-    Promise.resolve(p).then(function () { delete sternPend[key]; }, function () {
-      delete sternPend[key];
-      (sterne[id] = sterne[id] || {})[k] = !an; if (an) delete sterne[id][k];
+    /* Schreibvorgänge je Stern nacheinander (set/delete sind getrennte Anfragen ohne garantierte Reihenfolge);
+       ausgewertet wird nur die Antwort des letzten Klicks. */
+    var ref = db.doc("aussagen_sterne/" + key);
+    var schritt = function () { try { return an ? ref.set({ aussage: id, kuerzel: k, stern: true, gesetzt: new Date().toISOString() }) : ref.delete(); } catch (err) { return Promise.reject(err); } };
+    sternKette[key] = (sternKette[key] || Promise.resolve()).then(null, function () {}).then(schritt).then(function () {
+      if (sternSeq[key] === seq) delete sternPend[key];
+    }, function () {
+      if (sternSeq[key] !== seq) return;
+      delete sternPend[key]; baueSterne(); sternFehler[id] = "Stern konnte nicht gespeichert werden — bitte nochmal versuchen.";
       showStatus("Stern konnte nicht gespeichert werden."); renderAus();
     });
   }
@@ -1832,11 +1892,16 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
   }
   function ausTranskript(id) {
     var e = ausEintraege().filter(function (x) { return x.id === id; })[0]; if (!e) return;
-    var ziel = ausZielId(e); if (!entriesById[ziel]) { showStatus("Zu dieser Aussage ist kein Clip-Transkript geladen."); return; }
-    openViewer(ziel, ausState.s.toLowerCase(), e);
+    var z = ausZiel(e); if (!z) { showStatus("Zu dieser Aussage ist kein Clip-Transkript geladen."); return; }
+    openViewer(z.id, ausState.s.trim().toLowerCase(), ausVerschoben(e, z));
   }
   /* Aussagen, die in das Transkript des Eintrags `eintragId` fallen (für Hinterlegung im Viewer) */
-  function ausFuerEintrag(eintragId) { return ausEintraege().filter(function (e) { return e.s0 != null && ausZielId(e) === eintragId; }); }
+  function ausVerschoben(e, z) { if (!z.versatz) return e; var c = {}; Object.keys(e).forEach(function (k) { c[k] = e[k]; }); c.s0 = e.s0 == null ? null : e.s0 - z.versatz; c.s1 = e.s1 == null ? null : e.s1 - z.versatz; return c; }
+  function ausFuerEintrag(eintragId) {
+    var out = [];
+    ausEintraege().forEach(function (e) { if (e.s0 == null) return; var z = ausZiel(e); if (z && z.id === eintragId) out.push(ausVerschoben(e, z)); });
+    return out;
+  }
   var viewerFokusId = null;
   /* Zeitüberlappung Block [t0,t1) ↔ Aussage [s0,s1): stärkste Prio gewinnt, Kernstellen aller treffenden Aussagen */
   function ausZuBlock(blocks, i, aus) {
@@ -1866,7 +1931,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     if (ausState.ab !== AUS_STANDARD.ab) p.push("ab=" + ausState.ab);
     if (ausState.spr) p.push("spr=" + encodeURIComponent(ausState.spr));
     if (ausState.dt) p.push("dt=" + encodeURIComponent(ausState.dt));
-    if (ausState.s) p.push("s=" + encodeURIComponent(ausState.s));
+    if (ausState.s.trim()) p.push("s=" + encodeURIComponent(ausState.s.trim()));
     if (ausState.stern) p.push("stern=" + ausState.stern);
     history.replaceState(null, "", "#transkripte" + (p.length ? "?" + p.join("&") : ""));
   }
@@ -1876,6 +1941,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     if (qi >= 0) h.slice(qi + 1).split("&").forEach(function (x) { var kv = x.split("="); if (kv[0]) params[kv[0]] = safeDec(kv[1] || ""); });
     var legacy = ["q", "tag", "fach", "extern", "pers", "sens", "sort"].some(function (k) { return params[k] !== undefined; });
     var v = params.v === "clips" || (params.v === undefined && legacy) ? "clips" : "aus";
+    ausExplizit = params.v !== undefined; ausSync = true;
     ausState = { ans: params.ans === "prio" ? "prio" : "thema", ab: AUS_STANDARD.ab, s: params.s || "", spr: params.spr || "", dt: params.dt || "", stern: params.stern === "einer" || params.stern === "beide" ? params.stern : "" };
     if (params.ab !== undefined && /^\d+$/.test(params.ab) && +params.ab <= 10) ausState.ab = +params.ab;
     setzeAnsicht(v, true);
@@ -1887,25 +1953,33 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     if (v === "aus") renderAus(); else renderTrans();
     if (!ohneHash) ausSchreibeHash();
   }
-  document.querySelector(".ansichtwahl").addEventListener("click", function (ev) { var b = ev.target.closest("button[data-v]"); if (b) setzeAnsicht(b.dataset.v); });
+  document.querySelector(".ansichtwahl").addEventListener("click", function (ev) { var b = ev.target.closest("button[data-v]"); if (b) { ausAutoClips = false; setzeAnsicht(b.dataset.v); } });
   function ausGeaendert() { renderAus(); ausSchreibeHash(); }
-  document.getElementById("ausSuche").addEventListener("input", function (ev) { ausState.s = ev.target.value.trim(); ausGeaendert(); });
+  document.getElementById("ausSuche").addEventListener("input", function (ev) { ausState.s = ev.target.value; ausGeaendert(); });   // Feld bleibt unangetastet (Leerzeichen!); gefiltert wird mit dem gekürzten Wert
   document.getElementById("ausAb").addEventListener("change", function (ev) { ausState.ab = +ev.target.value; ausGeaendert(); });
   document.getElementById("ausSpr").addEventListener("change", function (ev) { ausState.spr = ev.target.value; ausGeaendert(); });
   document.getElementById("ausDt").addEventListener("change", function (ev) { ausState.dt = ev.target.value; ausGeaendert(); });
   document.getElementById("ausStern").addEventListener("change", function (ev) { ausState.stern = ev.target.value; ausGeaendert(); });
-  document.getElementById("ausReset").addEventListener("click", function () { ausState = { ans: ausState.ans, ab: AUS_STANDARD.ab, s: "", spr: "", dt: "", stern: "" }; ausGeaendert(); });
+  document.getElementById("ausReset").addEventListener("click", function () { ausSync = true; ausState = { ans: ausState.ans, ab: AUS_STANDARD.ab, s: "", spr: "", dt: "", stern: "" }; ausGeaendert(); });
   document.querySelector("#ausCard .seg2").addEventListener("click", function (ev) { var b = ev.target.closest("button[data-ans]"); if (b) { ausState.ans = b.dataset.ans; ausGeaendert(); } });
   document.getElementById("ausZuAlle").addEventListener("click", function () {
     var gr = document.querySelectorAll("#ausListe .aushead"), alleZu = Array.prototype.every.call(gr, function (g) { return ausZu[g.dataset.g]; });
     Array.prototype.forEach.call(gr, function (g) { if (alleZu) delete ausZu[g.dataset.g]; else ausZu[g.dataset.g] = true; });
     renderAus();
   });
+  function kopiereText(t, meldung) {
+    if (!t) return;
+    var ok = function () { toastUndo(meldung); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok).catch(function () { fallbackCopy(t); ok(); });
+    else { fallbackCopy(t); ok(); }
+  }
   document.getElementById("ausListe").addEventListener("click", function (ev) {
     var kopf = ev.target.closest(".aushead");
     if (kopf) { var k = kopf.dataset.g, zu = !ausZu[k]; if (zu) ausZu[k] = true; else delete ausZu[k]; kopf.parentNode.classList.toggle("zu", zu); kopf.setAttribute("aria-expanded", !zu); return; }
     var btn = ev.target.closest("button[data-act]"); if (!btn) return;
     if (btn.dataset.act === "mehr") { ausMax += 1000; renderAus(); return; }
+    if (btn.dataset.act === "clips") { ausAutoClips = false; setzeAnsicht("clips"); return; }
+    if (btn.dataset.act === "tc") { kopiereText(btn.dataset.tc, "Zeit kopiert: " + btn.dataset.tc + " — in der Sichtung dorthin springen"); return; }
     var art = btn.closest(".aus"); if (!art) return;
     if (btn.dataset.act === "stern") sternUmschalten(art.dataset.id, btn.dataset.k);
     else if (btn.dataset.act === "trans") ausTranskript(art.dataset.id);
@@ -1914,11 +1988,11 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
 
   if (!(window.claude && window.claude.use)) {
     showStatus("Geteilte Inhalte sind hier nicht verfügbar (Seite läuft außerhalb von claude.ai). Stand und Tabellen gelten trotzdem.");
-    renderTodos([]); renderNotes([]); renderLinks([]); renderHinweise([]); renderTree(""); renderReviews(); renderBoards(); renderTrans(); renderAus(); renderTiles();
+    renderTodos([]); renderNotes([]); renderLinks([]); renderHinweise([]); renderTree(""); renderReviews(); renderBoards(); ausLadeStatus = "keine-db"; sterneStatus = "keine-db"; renderTrans(); renderAus(); renderTiles();
     return;
   }
   claude.use("db").then(function (d) {
-    if (!d) { showStatus("Geteilte Inhalte sind in dieser Ansicht nicht verfügbar. Stand und Tabellen gelten trotzdem."); renderTodos([]); renderNotes([]); renderLinks([]); renderHinweise([]); renderTree(""); renderReviews(); renderBoards(); renderTrans(); renderAus(); renderTiles(); return; }
+    if (!d) { showStatus("Geteilte Inhalte sind in dieser Ansicht nicht verfügbar. Stand und Tabellen gelten trotzdem."); renderTodos([]); renderNotes([]); renderLinks([]); renderHinweise([]); renderTree(""); renderReviews(); renderBoards(); ausLadeStatus = "keine-db"; sterneStatus = "keine-db"; renderTrans(); renderAus(); renderTiles(); return; }
     db = d;
     if (whoModal.classList.contains("hidden")) maybeJbCard();
     // Boards/Transkripte enthalten Personen- und Ortsangaben — Reiter erst zeigen, wenn eine
@@ -1941,8 +2015,15 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     db.collection("boards").onSnapshot(function (snap) { cache.boards = snap.docs; renderBoards(); }, function () { showStatus("Live-Verbindung zu den Boards verloren — Seite neu laden."); });
     db.collectionFelder("clips", CLIP_META_FELDER).onSnapshot(function (snap) { cache.clips = snap.docs; pruefeReiterFreischaltung(snap); renderTrans(); renderAus(); }, function () { showStatus("Live-Verbindung zu den Transkripten verloren — Seite neu laden."); });
     db.collectionFelder("tonclip", TONCLIP_META_FELDER).onSnapshot(function (snap) { cache.tonclip = snap.docs; renderTrans(); renderAus(); }, function () {});
-    db.collectionFelder("aussagen", AUS_FELDER).onSnapshot(function (snap) { cache.aussagen = snap.docs; renderAus(); }, function () { showStatus("Live-Verbindung zu den Aussagen verloren — Seite neu laden."); });
-    db.collectionFelder("aussagen_sterne", ["aussage", "kuerzel", "stern"]).onSnapshot(function (snap) { baueSterne(snap.docs); renderAus(); }, function () {});
+    db.collectionFelder("aussagen", AUS_FELDER).onSnapshot(function (snap) {
+      cache.aussagen = snap.docs; ausLadeStatus = "ok";
+      /* Noch keine Aussagen in der Datenbank: die bestehende Clip-Tabelle bleibt erreichbar statt einer leeren Standardansicht
+         (nur automatisch, solange der Link keine Ansicht vorgibt und niemand umgeschaltet hat). */
+      if (!snap.docs.length && ansicht === "aus" && !ausExplizit && currentPageFromHash() === "transkripte" && !ausAutoClips) { ausAutoClips = true; setzeAnsicht("clips", true); }
+      else if (snap.docs.length && ausAutoClips && ansicht === "clips") { ausAutoClips = false; setzeAnsicht("aus", true); }
+      renderAus();
+    }, function () { ausLadeStatus = "fehler"; showStatus("Live-Verbindung zu den Aussagen verloren — Seite neu laden."); renderAus(); });
+    db.collectionFelder("aussagen_sterne", ["aussage", "kuerzel", "stern"]).onSnapshot(function (snap) { sterneStatus = "ok"; baueSterne(snap.docs); renderAus(); }, function () { sterneStatus = "fehler"; showStatus("Sterne konnten nicht geladen werden."); renderAus(); });
     db.doc("dateien/baum").onSnapshot(function (snap) {
       var v = snap.exists ? snap.data() : null; baum = (v && v.eintraege) || []; cache.baum = v; renderTiles();
       document.getElementById("treeCount").textContent = baum.length ? baum.length + " Dateien" : "";
