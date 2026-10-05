@@ -4,6 +4,7 @@
    Muss VOR dem Board-Script laufen (klassisches <script>, kein module). */
 (function () {
   "use strict";
+  if (window.LEITSTAND_DEMO) return;   /* lokale Demo (aussagen-demo.js): keine Datenbank, keine Anmeldung */
 
   /* ---- Konfiguration (Supabase → Settings → API) ---- */
   var SUPABASE_URL  = "https://yfkckqbrksivksotopfo.supabase.co";

@@ -44,3 +44,18 @@ To-do anlegen, Art „Claude-Aufgabe (Jetzt erledigen)“, dann „Jetzt erledig
 Der Listener nimmt es innerhalb von Sekunden, zeigt die Ausgabe live im Panel „Schnitt 11“,
 hakt das To-do ab und schreibt eine Team-Notiz mit der Zusammenfassung.
 Abbrechen: To-do löschen.
+
+## Aussagen (Reiter „Transkripte“, Standardansicht seit 05.10.2026)
+- Der Reiter zeigt zuerst **Aussagen** (Prio 1–10, nach Thema oder nur nach Prio, Filter, Sterne, Frame.io-Link);
+  die bisherige Clip-Tabelle ist die zweite Ansicht („Clips“, Hash `#transkripte?v=clips&…`). Alte Clip-Links
+  ohne `v=` (mit `q`, `tag`, `fach`, `extern`, `pers`, `sens` oder `sort`) öffnen weiter die Clip-Tabelle.
+- Hash der Aussagen-Ansicht: `ans=prio` (sonst nach Thema), `ab=0..10` (Standard 6, 0 = alle), `spr`, `dt`, `s`, `stern=einer|beide`.
+- Daten: Sammlung `aussagen` (ein Dokument je Aussage, vom Datenweg `260922 sichtung-nach-leitstand CL LES.mjs`,
+  Schritt `--nur aussagen`). Aussagen mit `regie` werden nicht hochgeladen und nie angezeigt. Fehlende Felder
+  (`prio`, `rubrik`, `kern`, `fio_*`) hält die Seite aus; ohne `prio` steht eine Aussage unter „noch nicht bewertet“.
+- **Sterne** liegen in der eigenen Sammlung `aussagen_sterne` (Dokument-Id `<Aussage-Id>__<Kürzel>`, Felder
+  `aussage`, `kuerzel`, `stern`), nie im Katalog-Dokument — ein erneutes Einspielen berührt sie nicht. Jeder schaltet in der
+  Oberfläche nur den eigenen Stern (angemeldetes Kürzel LES/JB). Die Sperre „nur der eigene“ ist **Oberfläche, keine
+  Datenbank-Regel**: die bestehende Policy `team_docs` erlaubt allen Team-Konten alles auf `docs`.
+- **Lokale Demo:** `index.html?demo=1` (nur auf localhost, 127.0.0.1, [::1] oder als file:) lädt `aussagen-demo.js` mit
+  erfundenen Beispieldaten; keine Datenbank, keine Anmeldung, Sterne nur im Speicher. Auf der Live-Seite wird die Datei nie geladen.
