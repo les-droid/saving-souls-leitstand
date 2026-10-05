@@ -57,6 +57,7 @@
     if (o.angef) a.angefordert = o.angef;
     if (o.fio !== false) { a.fio_url = "https://example.com/sichtung/" + (n + 1); a.fio_tc = hms(von); a.fio_sek = von; if (o.genau === false) a.fio_genau = false; else if (o.genau === true) a.fio_genau = true; }
     if (o.regie) a.regie = o.regie;
+    if (o.ohne_bild) a.ohne_bild = true;
     store.aussagen[a.tag + "__" + a.clip + "__" + a.t0 + "__" + n] = a; n++;
   }
   for (var i = 0; i < 40; i++) {
@@ -73,6 +74,8 @@
   neu({ ext: 1, von: 110, laenge: 30, prio: 8, rub: 1, kern: true, kurz: "Aussage aus Externton (Demo)", fio: false });
   neu({ ext: 2, von: 130, laenge: 20, prio: 4, rub: 2, kern: false, kurz: "Zweite Externton-Aussage (Demo)" });
   neu({ clip: 8, von: 20, laenge: 20, prio: 7, rub: 0, kern: true, kurz: "Zeit nur ungefähr (Demo)", genau: false });
+  neu({ ext: 1, von: 150, laenge: 20, prio: 6, rub: 1, kern: false, kurz: "Nur Ton, kein Bild (Demo, erfunden)", fio: false, ohne_bild: true });
+  neu({ ext: 2, von: 160, laenge: 20, prio: 4, rub: 4, kern: true, kurz: "Zweite Aussage nur mit Ton (Demo, erfunden)", ohne_bild: true });
   neu({ clip: 9, von: 40, laenge: 20, prio: 6, rub: 1, kern: false, kurz: "Zeit genau (Demo)", genau: true });
   neu({ clip: 10, von: 80, laenge: 20, prio: 5, rub: 2, kern: false, kurz: "Zweite Zeit nur ungefähr (Demo)", genau: false });
   /* ohne prio (noch nicht bewertet) */

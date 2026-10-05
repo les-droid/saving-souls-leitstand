@@ -340,6 +340,7 @@
   .auszit { margin: 0 0 6px; font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere; }
   .auszit.lang { color: var(--muted); font-size: 13px; }
   .kern { background: color-mix(in srgb, var(--signal) 30%, transparent); color: var(--ink); font-weight: 650; border-radius: 3px; padding: 0 2px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+  .ausohnebild { font-style: italic; opacity: .85; }
   .ausmeta { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; font: 500 12px var(--font-mono); color: var(--muted); }
   .aussp { font: 600 12px var(--font-ui); color: var(--ink); }
   .aussp.unsicher { color: var(--muted); font-style: italic; border-bottom: 1px dashed var(--muted); }
@@ -1649,7 +1650,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
      erneutes Einspielen des Katalogs sie nie überschreibt. Jeder schaltet nur den eigenen Stern (angemeldetes
      Kürzel), sieht aber beide. Aussagen mit regie:true erscheinen nirgends. Fehlende Felder (prio, rubrik,
      kern, fio_*) werden ausgehalten: ohne prio = "noch nicht bewertet". */
-  var AUS_FELDER = ["tag", "clip", "quelle", "tondatei", "t0", "t1", "sprecher", "sprecher_sicher", "zitat", "kurz", "stufe", "sensibel", "sperre", "angefordert", "prio", "prio_grund", "rubrik", "rubrik_nr", "kern", "regie", "fio_url", "fio_tc", "fio_sek", "fio_genau"];
+  var AUS_FELDER = ["tag", "clip", "quelle", "tondatei", "t0", "t1", "sprecher", "sprecher_sicher", "zitat", "kurz", "stufe", "sensibel", "sperre", "angefordert", "prio", "prio_grund", "rubrik", "rubrik_nr", "kern", "regie", "ohne_bild", "fio_url", "fio_tc", "fio_sek", "fio_genau"];
   var STERN_KUERZEL = ["LES", "JB"];
   var AUS_STANDARD = { ans: "thema", ab: 6, s: "", spr: "", dt: "", stern: "" };
   var ausState = { ans: "thema", ab: 6, s: "", spr: "", dt: "", stern: "" };
@@ -1794,7 +1795,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
       '<div class="ausprio ' + (p ? "p" + p : "keine") + '" title="' + (p ? "Prio " + p + " von 10" : "noch nicht bewertet") + '">' + (p || "–") + "</div>" +
       '<div class="ausmain"><h3 class="auskurz">' + hi(e.kurz || "(ohne Kurztext)", term) + "</h3>" +
       '<p class="auszit' + (lang ? " lang" : "") + '">' + markiere(e.zitat, e.kern, term) + "</p>" +
-      '<div class="ausmeta">' + sprecherHtml(e) + "<span>" + esc(e.tag) + " · " + esc(e.clip) + " · " + esc(zeit) + "</span>" + chips + "</div>" +
+      '<div class="ausmeta">' + sprecherHtml(e) + "<span>" + esc(e.tag) + " · " + esc(e.clip) + " · " + esc(zeit) + "</span>" + (e.ohne_bild === true ? '<span class="ausohnebild" title="Zu dieser Aussage gibt es kein Kamerabild, nur den Ton">nur Ton</span>' : "") + chips + "</div>" +
       (e.prio_grund ? '<p class="ausgrund">' + esc(e.prio_grund) + "</p>" : "") +
       (links ? '<div class="ausact">' + links + "</div>" : "") +
       (sternFehler[e.id] ? '<p class="ausfehler" role="alert">' + esc(sternFehler[e.id]) + "</p>" : "") + "</div>" +

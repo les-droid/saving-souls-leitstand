@@ -56,6 +56,7 @@ Abbrechen: To-do löschen.
 - Daten: Sammlung `aussagen` (ein Dokument je Aussage, vom Datenweg `260922 sichtung-nach-leitstand CL LES.mjs`,
   Schritt `--nur aussagen`). Aussagen mit `regie` (wahrheitsähnlich) werden nie angezeigt; der Datenweg überschreibt schon hochgeladene zu einem leeren Regie-Dokument. Fehlende Felder
   (`prio`, `rubrik`, `kern`, `fio_*`) hält die Seite aus; ohne `prio` steht eine Aussage unter „noch nicht bewertet“.
+  `ohne_bild: true` (Aussage ohne Kamerabild, nur Ton; der Datenweg setzt es für die Liste `aussagen_ohne_bild`) zeigt in der Zeile den Vermerk „nur Ton“.
 - **Sterne** liegen in der eigenen Sammlung `aussagen_sterne` (Dokument-Id `<Aussage-Id>__<Kürzel>`, Felder
   `aussage`, `kuerzel`, `stern`), nie im Katalog-Dokument — ein erneutes Einspielen berührt sie nicht. Jeder schaltet in der
   Oberfläche nur den eigenen Stern; das Kürzel wird aus der **Anmeldung** abgeleitet (`claude.kuerzel()` in `leitstand-db.js`:
