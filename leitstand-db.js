@@ -24,6 +24,7 @@
   var rolle = null;             /* {rolle:"admin"|"gast", kuerzel} — vom Server (meine_rolle), nie aus Angaben des Nutzers */
   var gestartet = false;        /* start() läuft nur einmal je erfolgreicher Anmeldung */
   var gastLaeuft = false;       /* Gast-Anmeldung in Arbeit: der Auth-Listener darf start() nicht vorzeitig auslösen */
+  var frischAngemeldet = false; /* true nur direkt nach einer Team-ANMELDUNG in diesem Fenster (Kürzel+Passwort oder Rückkehr von GitHub) — nicht beim bloßen Neuladen */
   var istGast = function () { return !!(rolle && rolle.rolle === "gast"); };
   var ready;                    /* Promise<db> */
   var wer = function () { try { return localStorage.getItem("ss-wer") || "?"; } catch (e) { return "?"; } };
@@ -115,6 +116,7 @@
           localStorage.setItem("ss-wer", kuerzel);
           var b = document.querySelector('#whoModalBtns button[data-w="' + kuerzel + '"]'); if (b) b.click();
         } catch (e) {}
+        frischAngemeldet = true;
         start();
       }, function (e) { errEl.textContent = "Keine Verbindung zum Server: " + (e && e.message ? e.message : e); });
     });
@@ -129,15 +131,21 @@
     });
     gastForm.addEventListener("submit", function (ev) {
       ev.preventDefault();
+      if (el.querySelector("#liveGastSend").disabled) return;   /* gesperrt: Anmeldung/Prüfung läuft noch */
       var errEl = el.querySelector("#liveLoginErr"); errEl.textContent = "";
       var k = el.querySelector("#liveGastKuerzel").value, pw = el.querySelector("#liveGastPw").value;
       if (!k.trim()) { errEl.textContent = "Bitte dein Kürzel eintragen."; return; }
       if (!KUERZEL_FORMAT.test(k.trim())) { errEl.textContent = GAST_FEHLER.kuerzel_ungueltig; return; }   /* erst prüfen, dann ein Konto anlegen */
       if (!pw) { errEl.textContent = "Bitte das Gast-Passwort eingeben."; return; }
-      var btn = el.querySelector("#liveGastSend"); btn.disabled = true;
-      gastAnmelden(k, pw).then(function (fehler) {
-        btn.disabled = false;
-        if (fehler) { errEl.textContent = fehler; el.querySelector("#liveGastPw").value = ""; }
+      gastFormularSperren(true);
+      gastAnmelden(k, pw).then(function (f) {
+        /* Erfolg (f = null): start() läuft jetzt (Rollenprüfung) — das Formular bleibt gesperrt, bis start() fertig ist
+           (pruefungEnde). Fehler: entsperren; das Passwortfeld wird nur bei FALSCHEM Passwort geleert — bei Netzfehler,
+           Sperre oder ungültigem Kürzel muss man es nicht noch einmal eintippen. */
+        if (!f) return;
+        gastFormularSperren(false);
+        errEl.textContent = f.text;
+        if (f.grund === "passwort") { var pf = el.querySelector("#liveGastPw"); if (pf) pf.value = ""; }
       });
     });
     if (gastHinweis) { el.querySelector("#liveLoginErr").textContent = gastHinweis; gastHinweis = null; }
@@ -145,6 +153,22 @@
 
   /* ---- Rolle und Gast-Anmeldung (Server-Funktionen meine_rolle / gast_anmelden) ---- */
   var gastHinweis = null;
+  /* Während start() die Rolle prüft, zeigt das Anmeldefenster „Anmeldung wird geprüft …“ und das Gast-Formular ist gesperrt
+     (sonst ließe sich ein zweiter Versuch abschicken, während der erste noch läuft). Ohne Anmeldefenster passiert nichts. */
+  var PRUEFTEXT = "Anmeldung wird geprüft …";
+  function gastFormularSperren(an) {
+    var el = document.getElementById("liveLogin"); if (!el) return;
+    Array.prototype.forEach.call(el.querySelectorAll("#liveGastForm input, #liveGastForm button"), function (c) { c.disabled = an; });
+  }
+  function pruefungAnzeigen() {
+    var el = document.getElementById("liveLogin"); if (!el) return;
+    var err = el.querySelector("#liveLoginErr"); if (err) { err.textContent = PRUEFTEXT; err.style.color = "#93A8AA"; }
+  }
+  function pruefungEnde() {
+    gastFormularSperren(false);
+    var err = document.getElementById("liveLoginErr");
+    if (err) { err.style.color = ""; if (err.textContent === PRUEFTEXT) err.textContent = ""; }
+  }
   var KUERZEL_FORMAT = /^[A-Za-z0-9ÄÖÜäöü]{2,8}$/;   /* wie der Server (nach Großschreibung) — sonst entsteht ein Konto für nichts */
   var ROLLE_VERSUCHE = 3, ROLLE_ZEIT = 8000, ROLLE_PAUSE = 700;
   /* Eine Anfrage mit Zeitgrenze: kommt nie eine Antwort, wird daraus ein Fehler statt endlosem Warten. Nie ein Reject. */
@@ -157,10 +181,12 @@
     });
   }
   /* "fehlt" = Funktion gibt es auf dem Server nicht (SQL noch nicht eingespielt); "netz" = Netz/Zeitgrenze/Serverausfall (lohnt
-     ein neuer Versuch); "abgelehnt" = der Server hat geantwortet und die Abfrage verweigert (Neuanmelden hilft nicht). */
+     ein neuer Versuch); "abgelehnt" = der Server hat geantwortet und die Abfrage verweigert (Neuanmelden hilft nicht);
+     "abgelaufen" = HTTP 401 / PGRST301 / PGRST303: das Zugangstoken ist ungültig oder abgelaufen (Neuanmelden hilft). */
   function fehlerArt(err, status) {
     var c = err.code || "";
     if (c === "PGRST202" || c === "42883") return "fehlt";
+    if (status === 401 || err.status === 401 || c === "PGRST301" || c === "PGRST303") return "abgelaufen";
     if (c === "TIMEOUT" || c === "NETZ" || status >= 500 || (!c && !status)) return "netz";
     return "abgelehnt";
   }
@@ -185,32 +211,43 @@
     nicht_eingerichtet: "Der Gast-Zugang ist noch nicht eingerichtet.", kuerzel_ungueltig: "Kürzel: 2 bis 8 Buchstaben oder Ziffern.",
     kuerzel_reserviert: "Dieses Kürzel ist dem Team vorbehalten. Bitte ein anderes wählen.", kein_gastkonto: "Dieses Konto ist kein Gast-Konto."
   };
-  /* Rückgabe: Fehlertext oder null (Erfolg; start() läuft dann los) */
+  /* Rückgabe: null (Erfolg; start() läuft dann los) oder {text, grund} (grund: "passwort", "gesperrt", "netz", … — nur
+     "passwort" leert das Passwortfeld). */
   function gastAnmelden(kuerzel, passwort) {
     gastLaeuft = true;
-    var vorhanden = session && session.user && session.user.is_anonymous;   /* bestehende anonyme Sitzung weiterverwenden: die Fehlversuchs-Grenze gilt je Sitzung */
-    var konto = vorhanden ? Promise.resolve({ data: { session: session }, error: null }) : sb.auth.signInAnonymously();
+    /* Bestehende anonyme Sitzung weiterverwenden (die Fehlversuchs-Grenze gilt je Sitzung) — maßgeblich ist die Sitzung, die der
+       Browser JETZT hat, nicht die hier gemerkte: ein zweites Fenster kann sie inzwischen verworfen oder ersetzt haben; mit der
+       gemerkten ginge der Aufruf dann ohne Sitzung hinaus und scheiterte bis zum Neuladen bei jedem Versuch. */
+    var konto = sb.auth.getSession().then(function (g) {
+      var s = g && g.data ? g.data.session : null;
+      return s && s.user && s.user.is_anonymous ? { data: { session: s }, error: null } : sb.auth.signInAnonymously();
+    });
     return konto.then(function (r) {
-      if (r.error || !r.data || !r.data.session) return "Gast-Zugang ist derzeit nicht freigeschaltet.";
+      if (r.error || !r.data || !r.data.session) {
+        /* Netzfehler/Serverausfall und Anmelde-Bremse der Plattform nicht als „nicht freigeschaltet“ ausgeben */
+        var st = r.error ? r.error.status : null;
+        if (r.error && (r.error.name === "AuthRetryableFetchError" || st === 0 || st >= 500)) return { text: "Keine Verbindung zum Server. Bitte noch einmal versuchen.", grund: "netz" };
+        if (st === 429) return { text: "Gerade zu viele Gast-Anmeldungen von diesem Anschluss. Bitte in einigen Minuten noch einmal versuchen.", grund: "limit" };
+        return { text: "Gast-Zugang ist derzeit nicht freigeschaltet.", grund: "aus" };
+      }
       session = r.data.session;
       return mitZeit(sb.rpc("gast_anmelden", { p_kuerzel: kuerzel, p_passwort: passwort }), 15000).then(function (x) {
         if (x.error) {
           var art = fehlerArt(x.error, x.status);
-          return art === "fehlt" ? "Der Gast-Zugang ist auf dem Server noch nicht eingerichtet."
+          return { grund: art, text: art === "fehlt" ? "Der Gast-Zugang ist auf dem Server noch nicht eingerichtet."
             : art === "netz" ? "Keine Verbindung zum Server. Bitte noch einmal versuchen."
-            : "Der Server hat die Gast-Anmeldung abgelehnt" + (x.error.code ? " (Code " + x.error.code + ")" : "") + ".";
+            : "Der Server hat die Gast-Anmeldung abgelehnt" + (x.error.code ? " (Code " + x.error.code + ")" : "") + "." };
         }
         var d = x.data;
         if (!d || !d.ok) {
           var t = GAST_FEHLER[d && d.grund] || "Gast-Anmeldung nicht möglich.";
           if (d && d.grund === "passwort" && typeof d.uebrig === "number") t = d.uebrig > 0 ? t + " Noch " + d.uebrig + " Versuch" + (d.uebrig === 1 ? "" : "e") + "." : "Passwort falsch. Das war der letzte Versuch dieser Sitzung.";
-          if (d && d.grund === "warten") t = "Gerade sehr viele Fehlversuche (von Fremden?). Bitte in " + (typeof d.sekunden === "number" ? d.sekunden + " Sekunden" : "einigen Sekunden") + " noch einmal versuchen.";
-          return t;
+          return { text: t, grund: d && d.grund || "unbekannt" };
         }
         try { localStorage.setItem("ss-wer", d.kuerzel); localStorage.setItem("ss-rolle", "gast"); } catch (e) {}
         gastLaeuft = false; gestartet = false; start(); return null;
       });
-    }, function (e) { return "Keine Verbindung zum Server. Bitte noch einmal versuchen."; })
+    }, function (e) { return { text: "Keine Verbindung zum Server. Bitte noch einmal versuchen.", grund: "netz" }; })
       .then(function (t) { gastLaeuft = false; return t; });
   }
   /* Gäste lesen nur. Einzige Ausnahme: der Status (done) einer Aufgabe — über die Server-Funktion, die serverseitig
@@ -224,7 +261,8 @@
     if (coll !== "todos" || keys.length !== 1 || keys[0] !== "done" || typeof patch.done !== "boolean") return gastBlock();
     return mitZeit(sb.rpc("gast_aufgabe_status", { p_id: id, p_done: patch.done }), 15000).then(function (r) {
       if (r.error) {
-        banner(fehlerArt(r.error, r.status) === "netz" ? "Keine Verbindung — der Status wurde nicht geändert." : "Der Server hat die Änderung abgelehnt.", 5000);
+        var ga = fehlerArt(r.error, r.status);
+        banner(ga === "netz" ? "Keine Verbindung — der Status wurde nicht geändert." : ga === "abgelaufen" ? "Anmeldung abgelaufen — bitte die Seite neu laden und neu anmelden." : "Der Server hat die Änderung abgelehnt.", 5000);
         throw new Error("Gast-Status: Fehler " + (r.error.code || r.error.message));
       }
       if (!r.data || !r.data.ok) {
@@ -418,12 +456,24 @@
        start() aufrufen, ausgeführt wird es nur einmal. */
     start = function () {
       if (gestartet) return; gestartet = true;
+      pruefungAnzeigen();
       /* Erst die Rolle vom Server erfragen (mit Zeitgrenze und bis zu drei Versuchen). Ohne Rolle (nicht Admin, kein
          Gast-Eintrag) kommt niemand ans Board — die Datenbank würde ohnehin nichts herausgeben; hier zeigen wir es nur
          verständlich an. Netzfehler und Ablehnung durch den Server werden getrennt benannt; eine bestehende Sitzung wird
          dabei NICHT verworfen (Neuanmelden würde nichts ändern). */
       rolleHolen().then(function (x) {
+        pruefungEnde();
         var anonym = !!(session && session.user && session.user.is_anonymous);
+        if (x.art === "abgelaufen") {
+          /* Zugangstoken ungültig/abgelaufen (HTTP 401, PGRST301/PGRST303): Neuanmelden hilft — also zurück zum Anmeldefenster
+             mit klarem Satz; die verbrauchte Sitzung wird lokal verworfen. */
+          gestartet = false; rolle = null; session = null;
+          try { localStorage.removeItem("ss-rolle"); document.documentElement.classList.remove("gast"); } catch (e) {}
+          try { (sb.auth.signOut({ scope: "local" }) || Promise.resolve()).then(function () {}, function () {}); } catch (e) {}
+          karteWeg(); overlay(true);
+          var ea = document.getElementById("liveLoginErr"); if (ea) { ea.style.color = ""; ea.textContent = "Anmeldung abgelaufen — bitte neu anmelden."; }
+          return;
+        }
         if (x.art === "fehlt") {
           /* Datenbank ohne Rollen-Umstellung (Funktion fehlt): Konto der Team-Anmeldung wie bisher als Admin behandeln —
              die Datenbank selbst entscheidet weiter über jeden Zugriff. Anonyme Konten nie. */
@@ -456,35 +506,55 @@
         }
         rolle = r; startKontoId = session && session.user ? session.user.id : null;
         karteWeg();
+        var gastMarke = false;   /* stand dieses Gerät eben noch als Gast da? Dann ist ss-wer ein Gast-Kürzel. */
+        try { gastMarke = localStorage.getItem("ss-rolle") === "gast"; } catch (e) {}
         try { if (r.rolle === "gast") localStorage.setItem("ss-rolle", "gast"); else localStorage.removeItem("ss-rolle"); } catch (e) {}
         overlay(false); startRealtime(); sitzungBeobachten();
         if (r.rolle === "gast") gastWaechter();
-        /* Kürzel: bei Gästen das angemeldete Gast-Kürzel, bei Admins nach JEDER Anmeldung das Kürzel des Kontos (ein auf dem
-           Gerät zurückgebliebenes Gast-Kürzel darf nicht als Absender weiterlaufen). */
+        /* Kürzel: bei Gästen das angemeldete Gast-Kürzel. Bei Admins nach jeder ANMELDUNG das Kürzel des Kontos (ein auf dem
+           Gerät zurückgebliebenes Gast-Kürzel darf nicht als Absender weiterlaufen) — aber NICHT bei jedem Neuladen mit
+           bestehender Sitzung: sonst wäre „Ich bin“ (TS/DS am Team-Konto) nach dem eigenen Neuladen sofort wieder
+           überschrieben und der Einführungs-Dialog käme bei jedem Seitenaufruf. Ohne Anmeldung nur, wenn noch kein Kürzel
+           gewählt ist (wie vor der Rollen-Umstellung) oder das Gerät eben noch als Gast markiert war. */
         try {
           var k = r.rolle === "admin" ? (kontoKuerzel() || r.kuerzel) : null;
           if (r.rolle === "gast") localStorage.setItem("ss-wer", r.kuerzel);
-          else if (k) {
+          else if (k && (frischAngemeldet || gastMarke || !localStorage.getItem("ss-wer"))) {
             localStorage.setItem("ss-wer", k);
             var b = document.querySelector('#whoModalBtns button[data-w="' + k + '"]'); if (b) b.click();
           }
         } catch (e) {}
+        frischAngemeldet = false;
         if (r.rolle === "gast") { resolve(db); return; }   /* Gäste: kein Startbestand schreiben */
         seed().then(function () { resolve(db); }, function () { resolve(db); });
       });
     };
-    var sessionHolen = oauth
-      ? sb.auth.setSession({ access_token: oauth.access_token, refresh_token: oauth.refresh_token })
-      : sb.auth.getSession();
-    sessionHolen.then(function (r) {
-      session = r && r.data ? r.data.session : null;
-      if (r && r.error && !oauthFehler) oauthFehler = r.error.message;
-      oauth = null;
-      if (session) { start(); return; }
-      overlay(true);
-      /* Anonyme (Gast-)Sitzungen starten das Board nie von selbst: erst gast_anmelden macht aus ihnen einen Gast. */
-      var sub = sb.auth.onAuthStateChange(function (_e, s) { if (s && !gastLaeuft && !(s.user && s.user.is_anonymous)) { session = s; sub.data.subscription.unsubscribe(); start(); } });
-    });
+    /* Gespeicherte Sitzung holen (bzw. Rückkehr von GitHub: Tokens aus der URL setzen). Ein wiederholbarer Fehler
+       (Netz weg, Serverausfall, Zeitgrenze) heißt NICHT „nicht angemeldet“: dann die Karte „Keine Verbindung“ mit
+       „Erneut versuchen“ — ein Anmeldefenster würde jemanden mit gültiger Sitzung zum Neuanmelden schicken, obwohl nur
+       das Netz fehlt. Nur ohne Sitzung und ohne wiederholbaren Fehler kommt das Anmeldefenster. */
+    var wiederholbar = function (err) { return !!err && (err.name === "AuthRetryableFetchError" || err.code === "TIMEOUT" || err.code === "NETZ" || err.status === 0 || err.status >= 500); };
+    var sitzungLaden = function () {
+      var holen = oauth
+        ? sb.auth.setSession({ access_token: oauth.access_token, refresh_token: oauth.refresh_token })
+        : sb.auth.getSession();
+      mitZeit(holen, 15000).then(function (r) {
+        if (r && r.error && wiederholbar(r.error) && !(r.data && r.data.session)) {
+          karte("Keine Verbindung zum Server", "Die gespeicherte Anmeldung konnte nicht geprüft werden. Deine Anmeldung bleibt bestehen. Bitte die Verbindung prüfen und noch einmal versuchen.",
+            [{ t: "Erneut versuchen", fn: function () { karteWeg(); sitzungLaden(); } }]);
+          return;
+        }
+        session = r && r.data ? r.data.session : null;
+        if (r && r.error && !oauthFehler) oauthFehler = r.error.message;
+        if (oauth && session) frischAngemeldet = true;   /* Rückkehr von der GitHub-Anmeldung */
+        oauth = null;
+        if (session) { start(); return; }
+        overlay(true);
+        /* Anonyme (Gast-)Sitzungen starten das Board nie von selbst: erst gast_anmelden macht aus ihnen einen Gast. */
+        var sub = sb.auth.onAuthStateChange(function (_e, s) { if (s && !gastLaeuft && !(s.user && s.user.is_anonymous)) { session = s; sub.data.subscription.unsubscribe(); start(); } });
+      });
+    };
+    sitzungLaden();
   });
 
   function abmelden() {

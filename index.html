@@ -419,7 +419,7 @@
   /* ===== Gast-Ansicht (html.gast, nur wenn der Server die Rolle „gast“ meldet): nur lesen, Aufgaben abhaken ===== */
   html.gast #todoForm, html.gast #noteForm, html.gast #linkForm, html.gast #revForm, html.gast #zeitTimerCard, html.gast #zeitForm,
   html.gast #briefingCard, html.gast #jbCard, html.gast #page-claude, html.gast #nav a[data-page="claude"], html.gast .s11bedienung,
-  html.gast #privCard,
+  html.gast #privCard, html.gast #navZeit,
   html.gast .ident, html.gast .tclaude button, html.gast .tantwort, html.gast .revform, html.gast .revlink-edit,
   html.gast .revlinks button[data-act="setlink"], html.gast .hin .undo,
   html.gast #todoList .del, html.gast #doneList .del, html.gast #noteList .del, html.gast #linkList .del, html.gast #revList .del, html.gast #zeitList .del { display: none !important; }
@@ -910,6 +910,8 @@ if (/[?&]demo=gast(&|$)/.test(location.search) && (location.protocol === "file:"
   var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
   var me = "LES";
   try { me = localStorage.getItem("ss-wer") || "LES"; } catch (e) {}
+  // Vermerk „abgehakt von …“ für jede Stelle, die bei einer Aufgabe done setzt (Häkchen, Zurückholen, Antwort auf eine Rückfrage, Karte). Gäste: setzt die Server-Funktion.
+  function statusVermerk() { return { geaendert_von: me, geaendert_am: new Date().toISOString(), geaendert_rolle: "admin" }; }
 
   /* ---- Seiten (Hash-Routing) ---- */
   // Die Transkripte-Seite trägt zusätzlich Filter/Sortierung als Querystring im Hash
@@ -1048,7 +1050,7 @@ if (/[?&]demo=gast(&|$)/.test(location.search) && (location.protocol === "file:"
   document.getElementById("jbForm").addEventListener("submit", function (ev) {
     ev.preventDefault(); var inp = document.getElementById("jbInput"); var t = inp.value.trim(); if (!t || !db) return;
     db.collection("notes").add({ text: "Antwort Backup-App (JB): " + t, wer: "JB", created: new Date().toISOString() })
-      .then(function () { return db.doc("todos/seed-09").update({ done: true }); })
+      .then(function () { return db.doc("todos/seed-09").update(Object.assign({ done: true }, statusVermerk())); })
       .then(function () { jbCard.innerHTML = '<h2>Danke, Jonathan!</h2><p style="margin:0;font-size:14px;">Deine Antwort liegt in den Team-Notizen — Claude liest sie beim nächsten Lauf.</p>'; })
       .catch(function () { showStatus("Senden fehlgeschlagen — kurz warten und noch einmal versuchen."); });
   });
@@ -1179,7 +1181,7 @@ if (/[?&]demo=gast(&|$)/.test(location.search) && (location.protocol === "file:"
       if (!db) return; var li = ev.target.closest("li[data-id]"); if (!li) return;
       var ref = db.collection(coll).doc(li.dataset.id);
       // Wer zuletzt abgehakt/zurückgeholt hat, steht an der Aufgabe (Gäste: setzt die Server-Funktion; Editoren: hier mit)
-      var stat = function (done) { var p = { done: done }; if (!istGast && coll === "todos") { p.geaendert_von = me; p.geaendert_am = new Date().toISOString(); p.geaendert_rolle = "admin"; } return p; };
+      var stat = function (done) { var p = { done: done }; if (!istGast && coll === "todos") Object.assign(p, statusVermerk()); return p; };
       if (ev.target.dataset.act === "undo") { ref.update(stat(false)).catch(function () {}); return; }
       if (ev.target.classList.contains("del")) {
         ref.get().then(function (snap) { var alt = snap.exists ? snap.data() : null; return ref.delete().then(function (res) { if (alt && !(res && res.geloescht === 0)) toastUndo("Eintrag gelöscht.", function () { ref.set(alt).catch(function () {}); }); }); }).catch(function () {});
@@ -1198,7 +1200,7 @@ if (/[?&]demo=gast(&|$)/.test(location.search) && (location.protocol === "file:"
       var f = ev.target.closest("form[data-act='antwort']"); if (!f) return; ev.preventDefault();
       if (!db) return; var li = f.closest("li[data-id]"); var inp = f.querySelector("input"); var t = inp.value.trim(); if (!t) return;
       var titel = li.querySelector(".ttext") ? li.querySelector(".ttext").textContent : "";
-      db.collection("todos").doc(li.dataset.id).update({ antwort: t, antwortVon: me, antwortAm: new Date().toISOString(), done: true })
+      db.collection("todos").doc(li.dataset.id).update(Object.assign({ antwort: t, antwortVon: me, antwortAm: new Date().toISOString(), done: true }, statusVermerk()))
         .then(function () { return db.collection("notes").add({ text: "Antwort auf „" + titel + "“: " + t, wer: me, created: new Date().toISOString() }); })
         .catch(function () { showStatus("Antwort konnte nicht gespeichert werden — kurz warten und noch einmal versuchen."); });
     });

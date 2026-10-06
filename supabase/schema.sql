@@ -76,11 +76,11 @@ alter function public.nur_team() set search_path = public;
 revoke execute on function public.s11_claim(text, text) from public, anon, authenticated;   -- nur service_role (Listener Schnitt 11)
 revoke execute on function public.nur_team() from public, anon, authenticated;        -- nur Trigger
 
--- 8) Rollen und Gast-Zugang (seit 06.10.2026, nachgebessert nach zwei Prüfungen) — Gesamtbild; eingespielt wird NICHT
+-- 8) Rollen und Gast-Zugang (seit 06.10.2026, nachgebessert nach drei Prüfungen) — Gesamtbild; eingespielt wird NICHT
 --    dieser Abschnitt, sondern `261006 rollen-gast.sql` (Zurück: `261006 rollen-gast-rueckbau.sql` = Teil 1, optional
 --    `…-teil2.sql`). Auf einer neuen Datenbank: Abschnitte 1–7, dann die vier Konten anlegen, dann `261006 rollen-gast.sql`,
 --    dann das Gast-Passwort setzen. Das Einspiel-Skript prüft seine Annahmen selbst und bricht mit einer Liste ab:
---    Rechte des ausführenden Nutzers, fremde Regeln in public/storage, öffentliche Buckets, ungeschützte Tabellen/
+--    Rechte des ausführenden Nutzers (als Probe in einem zurückgerollten Unterblock, nicht als Eigentümer-Frage), fremde Regeln in public/storage, öffentliche Buckets, ungeschützte Tabellen/
 --    Sichten, unbekannte Funktionen, Kontenbestand (laut auth.identities genau 2x GitHub, 2x E-Mail).
 --    Stand danach:
 --    * Schema leitstand_intern (nicht über die API ausgeliefert; nicht unter „Exposed schemas“ eintragen!):
@@ -88,22 +88,30 @@ revoke execute on function public.nur_team() from public, anon, authenticated;  
 --        Gast-Kürzel), gast_zugang (bcrypt-Hash), gast_versuche (Fehlversuche), sicherung (pgcrypto-Vermerk für den
 --        Rückbau). Alle: RLS an, keine Policies, keine Rechte für anon/authenticated.
 --        Funktionen: ist_admin(), ist_gast() (für die Policies), gast_passwort_setzen(text) (nur Eigentümer, im SQL-Editor;
---        mindestens 16 Zeichen, mindestens 8 verschiedene).
+--        mindestens 20 Zeichen aus mindestens drei Klassen (klein, groß, Ziffer, Sonderzeichen), mindestens 8 verschiedene,
+--        nicht der Platzhalter „HIER-…“; ob es zufällig ist, prüft der Server nicht. Nimmt dieselbe Sperre wie gast_anmelden, damit ein Passwortwechsel keine laufende Anmeldung überholt).
 --    * public.docs: Policy team_docs entfällt. docs_admin = alles für Admins (Prüfung über die Konto-ID, nie über
 --      user_metadata/E-Mail zur Laufzeit); docs_gast_lesen = nur Lesen für eingetragene Gäste.
 --    * public.meine_rolle()                        → {"rolle":"admin"|"gast"|"keine","kuerzel":…}
 --      public.gast_anmelden(kuerzel, passwort)     → nur anonyme Konten; bcrypt-Prüfung; je Sitzung 5 Fehlversuche je 15 Minuten
---                                                    (danach „gesperrt“), gesamt ab 300 Fehlversuchen eine wachsende Wartezeit
---                                                    („warten“, höchstens 10 Minuten) statt harter Sperre; Team-Kürzel, feste Wörter
---                                                    und beides mit angehängten Ziffern gesperrt (TS und DS sind als Gast-Kürzel erlaubt)
+--                                                    (danach „gesperrt“); KEINE Gesamtbremse über alle Sitzungen (sie ließ Fremde echte Gäste
+--                                                    hinhalten); gast_versuche bleibt als Protokoll (Zeilen älter als ein Tag werden entfernt);
+--                                                    Team-Kürzel, feste Wörter und beides mit angehängten Ziffern gesperrt (TS und DS sind
+--                                                    als Gast-Kürzel erlaubt)
 --      public.gast_aufgabe_status(id, done)        → setzt NUR done/erledigtAm (+ geaendert_von/geaendert_am/geaendert_rolle,
 --                                                    updated_by = gast:<KÜRZEL>) an einer AUFGABE der Sammlung todos (Feld text);
 --                                                    nie bei Claude-Aufgaben (Befehlen) und nie bei Rückfragen (typ frage)
 --      (alle drei: nur für angemeldete Konten ausführbar, nicht für anon; feste search_path)
---    * public.nur_team() (beim Anlegen): lässt zusätzlich anonyme Konten zu und weist Konten ohne E-Mail nicht mehr durch
---      (NULL-Lücke). public.nur_team_aenderung() (beim Ändern): ein anonymes Konto darf nicht nachträglich zu einem festen
---      werden (E-Mail, Telefon, is_anonymous). Beide Trigger auf auth.users.
+--    * public.nur_team() (beim Anlegen): an den ANBIETER gebunden (raw_app_meta_data->>'provider', vom Anmeldedienst gesetzt):
+--      GitHub-Name nur bei Anbieter github, die zwei Kürzel-Adressen nur bei Anbieter email, anonyme Konten (Gast) zusätzlich
+--      zugelassen; Konten ohne Treffer (auch ohne E-Mail) werden abgewiesen. Ein E-Mail-Konto mit selbst gesetztem user_name
+--      eines Admins kommt nicht mehr durch (reine Verbesserung gegenüber dem Stand oben in Abschnitt 6).
+--      public.nur_team_aenderung() (beim Ändern): ein anonymes Konto darf nicht nachträglich zu einem festen werden (E-Mail,
+--      Telefon, is_anonymous) — auch nicht auf eine Team-Adresse. Beide Trigger auf auth.users.
 --    * Dienstschlüssel (service_role) umgeht die Regeln wie bisher; s11_claim bleibt ihm vorbehalten.
 --    * Rückbau Teil 1: anonyme Konten gelöscht, team_docs nur noch für feste, existierende Konten (anonyme Token lesen
---      auch bis zum Ablauf nichts), Schema und neue Funktionen entfernt; übrig bleibt public.team_konto_ok(). Teil 2 (optional):
---      alter Wortlaut samt bekannter Lücke.
+--      auch bis zum Ablauf nichts), Schema und neue Funktionen entfernt; übrig bleibt public.team_konto_ok() (mit dem
+--      Zeitstempel des Rückbaus als Kommentar). Teil 2 (optional): alter Wortlaut der Regel team_docs — frühestens nach
+--      Ablauf der Token-Laufzeit seit Teil 1 (das Skript erzwingt eine Wartezeit, Voreinstellung 7 Tage), weil der alte
+--      Wortlaut auch noch gültigen anonymen Token gelöschter Konten alles erlaubt. Beide Rückbau-Teile stellen nur_team()
+--      in der anbietergebundenen Fassung ohne anonyme Konten her, nicht den alten Wortlaut von Abschnitt 6.

@@ -65,11 +65,13 @@ Abbrechen: To-do löschen.
 - **Lokale Demo:** `index.html?demo=1` (nur auf localhost, 127.0.0.1, [::1] oder als file:) lädt `aussagen-demo.js` mit
   erfundenen Beispieldaten; keine Datenbank, keine Anmeldung, Sterne nur im Speicher. Auf der Live-Seite wird die Datei nie geladen.
 
-## Rollen und Gast-Zugang (seit 06.10.2026, nachgebessert nach zwei Prüfungen)
+## Rollen und Gast-Zugang (seit 06.10.2026, nachgebessert nach drei Prüfungen)
 - **Admin** = die vier Team-Konten (GitHub und Kürzel-Konto von LES und JB): Vollzugriff wie bisher. Die Seite ist für sie
-  unverändert, bis auf drei Dinge: (1) nach jeder Anmeldung wird „Ich bin“ auf das Kürzel des Kontos gesetzt (ein auf dem Gerät
-  zurückgebliebenes Gast-Kürzel läuft nicht weiter); (2) Abhaken/Zurückholen einer Aufgabe schreibt zusätzlich `geaendert_von`,
-  `geaendert_am`, `geaendert_rolle: "admin"` mit; (3) bei Netzfehlern wird die Rollenabfrage wiederholt (siehe „Fehlerwege“).
+  unverändert, bis auf drei Dinge: (1) nach jeder Anmeldung (Kürzel + Passwort oder Rückkehr von GitHub) wird „Ich bin“ auf das
+  Kürzel des Kontos gesetzt (ein auf dem Gerät zurückgebliebenes Gast-Kürzel läuft nicht weiter) — **nicht** beim bloßen Neuladen
+  mit bestehender Sitzung: die Wahl unter „Ich bin“ (z. B. TS/DS an einem Team-Konto) bleibt bis zur nächsten Anmeldung, und der
+  Einführungs-Dialog erscheint nur nach einer Anmeldung, nicht bei jedem Seitenaufruf; (2) Abhaken/Zurückholen einer Aufgabe schreibt zusätzlich `geaendert_von`,
+  `geaendert_am`, `geaendert_rolle: "admin"` mit (auch beim Beantworten einer Rückfrage und bei der JB-Karte); (3) bei Netzfehlern wird die Rollenabfrage wiederholt (siehe „Fehlerwege“).
 - **Gast** = weitere Kollegen und Praktikanten: Knopf „Als Gast anmelden“ im Anmeldefenster, Kürzel (2–8 Buchstaben/Ziffern; das
   Format prüft schon der Browser, bevor ein Konto entsteht) und das gemeinsame Gast-Passwort. TS und DS dürfen als Gast-Kürzel
   benutzt werden; LES, JB, CL, CLAUDE, SYSTEM, SEED, ADMIN, GAST (auch mit angehängten Ziffern, z. B. LES1) nicht.
@@ -81,48 +83,85 @@ Abbrechen: To-do löschen.
   Sperren gilt: `typ` = claude **oder** frage · `wer` = Claude · `quelle` = chat · `angefordert` = true · `s11status` gesetzt.
   Rückfragen (`typ: frage`) können Gäste weder beantworten noch abhaken. Entscheiden tut immer der Server; die Oberfläche
   deaktiviert nur dasselbe Häkchen, setzt es nach einer Ablehnung zurück und nennt den Grund als Hinweistext.
-- **Wer hat zuletzt abgehakt:** an jeder Aufgabe steht „abgehakt von TS (Gast), 06.10. 11:34“ (bzw. „zurückgeholt von …“). Gäste
+- **Wer hat zuletzt abgehakt:** an jeder Aufgabe, die seit der Umstellung abgehakt oder zurückgeholt wurde, steht
+  „abgehakt von TS (Gast), 06.10., 11:34“ (bzw. „zurückgeholt von …“). Gäste
   setzen das serverseitig (`geaendert_von` = Kürzel aus der Gast-Tabelle, `geaendert_am`, `geaendert_rolle: "gast"`, außerdem
-  `updated_by = gast:KÜRZEL`); Editoren schreiben es beim Abhaken in der Oberfläche mit. Ändert ein Hintergrunddienst `done`,
-  ohne das mitzuschreiben, kann der Vermerk veraltet sein — Zeitpunkt lesen.
+  `updated_by = gast:KÜRZEL`); Editoren schreiben es in der Oberfläche überall mit, wo sie `done` setzen (Häkchen, Zurückholen,
+  Antwort auf eine Rückfrage, JB-Karte). Ändert der Hintergrunddienst `done` (Claude-Aufgaben), steht dort kein Vermerk
+  oder ein älterer — Zeitpunkt lesen.
 - **Was Gäste lesend sehen:** alle Seiten, die Statuszeile an Befehlen („Angefordert von …, läuft …“) und das Panel „Schnitt 11“
   (Status und Ergebnisse, ohne Bedienhinweis), Sterne (grau; Tipp „Sterne setzen nur die Editoren“), Zeiteinträge und Auswertung.
   **Nicht** sichtbar: Reiter „Claude“ (die Chat-Fernsteuerung mit Verlauf bräuchte einen Umbau — bewusst nicht gemacht),
   Briefing/JB-Karte, „Ich bin“, „Mein Zettel“ (privat im Browserspeicher des Geräts: Gäste sehen und löschen ihn nicht),
-  die Stoppuhr-Karte (zeigt sonst die laufende Uhr einer anderen Person auf demselben Gerät).
+  die Stoppuhr-Karte samt Lauf-Punkt am Reiter „Zeit“ (zeigt sonst die laufende Uhr einer anderen Person auf demselben Gerät).
 - **Durchgesetzt wird es in der Datenbank**, nicht im Browser: Policies `docs_admin` / `docs_gast_lesen`, Funktionen
   `meine_rolle`, `gast_anmelden`, `gast_aufgabe_status` (siehe `supabase/schema.sql`, Abschnitt 8). Admin ist, wessen Konto-ID in
   `leitstand_intern.admins` steht — beim **ersten** Einspielen aus den Anmelde-Identitäten (`auth.identities`) gefüllt, danach nie
   wieder neu; das Skript bricht ab, wenn die Einträge nicht mehr genau den vier Konten entsprechen. Nie zählt, was ein Nutzer sich
-  selbst in `user_metadata` schreibt. Ein Gast-Konto kann nicht nachträglich zu einem festen Konto gemacht werden (Trigger auf `auth.users`).
-- **Gast-Passwort**: ein Passwort für alle Gäste; im Server als bcrypt-Hash, nie im Code. Der Server verlangt mindestens 16 Zeichen und
-  mindestens 8 verschiedene; vorgesehen ist ein zufälliges mit 20+ Zeichen aus dem Passwortmanager. Fehlversuche: je Sitzung 5 in 15
-  Minuten; gesamt ab 300 in 15 Minuten eine **wachsende Wartezeit** (2 s, verdoppelt je 20 weitere, höchstens 10 Minuten) statt harter
-  Sperre — so kann ein Fremder mit ein paar neuen Sitzungen echte Gäste nicht aussperren. Admins sind davon nie betroffen. Neu setzen
+  selbst in `user_metadata` schreibt. Ein Gast-Konto kann nicht nachträglich zu einem festen Konto gemacht werden (Trigger auf `auth.users`),
+  auch nicht zu einem der beiden Kürzel-Konten.
+- **Anmeldung neuer Konten (`nur_team`, Trigger beim Anlegen):** hängt am **Anbieter**, den der Anmeldedienst serverseitig setzt
+  (`raw_app_meta_data->>'provider'`), nicht an Angaben des Nutzers: GitHub-Name nur bei Anbieter `github`, die zwei Kürzel-Adressen nur bei
+  Anbieter `email`, anonyme Konten (Gast) wie bisher. Ein E-Mail-Konto mit selbst gesetztem `user_name` eines Admins wird abgewiesen —
+  die alte Prüfung ließ es durch. Das ist eine reine Verbesserung gegenüber dem Stand vor der Umstellung; auch der Rückbau stellt
+  `nur_team()` in dieser Fassung (ohne anonyme Konten) her, nicht den alten Wortlaut.
+- **Gast-Passwort**: ein Passwort für alle Gäste; im Server als bcrypt-Hash, nie im Code. Der Server verlangt **mindestens 20 Zeichen**
+  aus **mindestens drei Klassen** (Kleinbuchstaben, Großbuchstaben, Ziffern, Sonderzeichen) und mindestens 8 verschiedene Zeichen
+  und weist den Platzhalter „HIER-…“ ab; vorgesehen ist ein zufälliges aus dem Passwortmanager (ob es zufällig ist, kann der Server nicht
+  prüfen). Fehlversuche: je Sitzung 5 in 15 Minuten, danach „gesperrt“ für diese Sitzung; parallele Aufrufe laufen nacheinander; neue
+  anonyme Sitzungen bremst das Rate-Limit der Plattform. Eine **Gesamtbremse über alle Sitzungen gibt es nicht mehr**: Sie ließ Fremde, die
+  nur falsch rieten, echte Gäste hinhalten, und schützt bei einem zufälligen 20-Zeichen-Passwort nichts. Die Tabelle
+  `leitstand_intern.gast_versuche` bleibt als Protokoll der Fehlversuche (Zeilen älter als ein Tag werden bei der nächsten Anmeldung
+  entfernt) — Abfrage dazu in der Anleitung („woran man Rateversuche erkennt“). Admins sind davon nie betroffen. Neu setzen
   (wirft alle Gäste hinaus): `select leitstand_intern.gast_passwort_setzen('…');` im SQL-Editor — danach den Verlauf des Editors löschen.
   Alle Gäste sofort aussperren: `delete from leitstand_intern.gaeste;` (offene Gast-Fenster merken es spätestens nach einer Minute und
   zeigen „Dein Gast-Zugang wurde beendet“).
 - **Weiteres Admin-Konto:** nicht vorgesehen ohne Eingriff, mit Absicht (so kann sich niemand einschleichen). Weg: Main passt
   `nur_team()` (neue Adresse/GitHub-Name) und die erwartete Konten-Zahl und -Liste im Einspiel-Skript an; dann Rückbau Teil 1, Konto
-  anlegen, Skript neu einspielen. Ein von Hand in `leitstand_intern.admins` eingetragenes Konto wird beim nächsten Einspielen als
-  Abweichung erkannt und führt zum Abbruch.
+  anlegen, Skript neu einspielen.
+- **Eines der vier Admin-Konten musste neu angelegt werden (neue Konto-ID)?** Das neue Konto hat bis dahin **keinen Zugriff** (Rolle
+  „keine“), das Einspiel-Skript und der Rückbau brechen ab und nennen denselben Handweg: (1) Authentication → Users: die Konto-ID (UUID)
+  des **neuen** Kontos kopieren und prüfen, dass es das richtige ist (E-Mail bzw. GitHub-Name); (2) im SQL-Editor, mit eingesetzter ID und
+  dem Kürzel `LES` oder `JB`:
+  `insert into leitstand_intern.admins (user_id, kuerzel) values ('<ID>', '<LES oder JB>') on conflict (user_id) do nothing;`
+  (die Zeile des gelöschten Kontos ist durch das Löschen von selbst weg); (3) das Skript bzw. den Rückbau erneut starten. Ein auf
+  anderem Weg eingetragenes Konto erkennt das Skript als Abweichung und bricht ab.
 - **Einspielen / Zurück:** `supabase/261006 rollen-gast.sql` — prüft vorab selbst (Rechte des SQL-Editors, fremde Regeln in `public` und
   `storage`, öffentliche Buckets, ungeschützte Tabellen/Sichten, unbekannte Funktionen, Kontenbestand) und bricht mit einer Liste ab.
+  Die Rechte des ausführenden Nutzers werden nicht erfragt („Eigentümer?“), sondern **ausprobiert**: das Skript legt probeweise Trigger,
+  Schema, Tabelle mit Verweis auf `auth.users`, Regel und Funktion an und löscht eine Zeile in `auth.users` — alles in einem Unterblock,
+  der zurückgerollt wird; scheitert ein Schritt, bricht es mit dem Schritt ab. Der Rückbau probt entsprechend das Entfernen von Triggern.
   Rückbau: `supabase/261006 rollen-gast-rueckbau.sql` (Teil 1: löscht alle anonymen Konten, schließt die Zugangsregel für anonyme
-  Token auch bis zu deren Ablauf; Admins arbeiten unverändert) und optional `…-teil2.sql` (alter Wortlaut samt bekannter Lücke).
+  Token auch bis zu deren Ablauf; Admins arbeiten unverändert) und optional `…-teil2.sql` (alter Wortlaut der Regel `team_docs` —
+  **frühestens 7 Tage nach Teil 1**, das Skript erzwingt die Wartezeit, weil bereits ausgestellte Token gelöschter anonymer Konten
+  bis zu ihrem Ablauf gültig bleiben; `nur_team()` bleibt dabei in der besseren Fassung).
   Reihenfolge der Inbetriebnahme: SQL, Gast-Passwort setzen, erst dann der Schalter „Anonymous Sign-Ins“, zuletzt die Seite.
   Schritt für Schritt: `post/bau-261006-leitstand-rollen/261006 Einspielen und Testen CL LES.md` im privaten Gedächtnis-Repo.
-- **Fehlerwege der Oberfläche:** Die Rolle wird mit Zeitgrenze (8 s) und bis zu drei Versuchen erfragt. Netz/Zeitüberschreitung/Serverausfall →
-  Karte „Keine Verbindung zum Server“ mit „Erneut versuchen“ (Anmeldung bleibt bestehen). Ablehnung durch den Server (z. B. Code 42501) →
-  Karte „Der Server hat die Prüfung abgelehnt“ mit Code, ohne Wiederholen; Neuanmelden würde nichts ändern. Fehlt die Funktion
+- **Fehlerwege der Oberfläche:** Auch das Holen der gespeicherten Sitzung beim Seitenaufruf: ein wiederholbarer Fehler (Netz weg,
+  Serverausfall, Zeitgrenze) zeigt die Karte „Keine Verbindung zum Server“ mit „Erneut versuchen“ statt des Anmeldefensters (die
+  Sitzung bleibt gespeichert). Die Rolle wird mit Zeitgrenze (8 s) und bis zu drei Versuchen erfragt. Netz/Zeitüberschreitung/Serverausfall →
+  Karte „Keine Verbindung zum Server“ mit „Erneut versuchen“ (Anmeldung bleibt bestehen). **HTTP 401 / PGRST301 / PGRST303** (Zugangstoken
+  ungültig oder abgelaufen) → Anmeldefenster mit „Anmeldung abgelaufen — bitte neu anmelden.“, die verbrauchte Sitzung wird lokal
+  verworfen. Während die Rolle nach der Anmeldung geprüft wird, steht im Anmeldefenster „Anmeldung wird geprüft …“ und das Gast-Formular
+  ist gesperrt; das Passwortfeld der Gast-Anmeldung wird nur bei falschem Passwort geleert. Ablehnung durch den Server (z. B. Code 42501) →
+  Karte „Der Server hat die Prüfung abgelehnt“ mit Code, ohne selbsttätiges Wiederholen (der Knopf „Erneut versuchen“ steht auch
+  dort, daneben „Abmelden“); Neuanmelden würde nichts ändern. Fehlt die Funktion
   (SQL noch nicht eingespielt) gilt weiter: Team-Konto = Admin, anonyme Sitzung = nichts. Sitzungswechsel in einem anderen Fenster
-  (Abmelden, anderes Konto) lädt dieses Fenster neu. Eine Restsitzung ohne Gast-Eintrag wird verworfen; ein Hinweis erscheint nur,
-  wenn das Gerät schon einmal als Gast angemeldet war.
+  (Abmelden, anderes Konto) lädt dieses Fenster neu. Ein Fenster, das noch am Anmeldefenster steht, startet nach einer
+  Team-Anmeldung im anderen Fenster von selbst, nach einer Gast-Anmeldung dort **nicht** (neu laden oder hier ebenfalls als Gast
+  anmelden — dabei wird die vorhandene Gast-Sitzung des Browsers weiterverwendet, kein zweites Konto angelegt; es gilt das zuletzt
+  eingegebene Kürzel). Eine Restsitzung ohne Gast-Eintrag wird verworfen; ein Hinweis erscheint nur,
+  wenn das Gerät schon einmal als Gast angemeldet war. Gast-Anmeldung: „Keine Verbindung“ (Netz/Serverausfall), „zu viele
+  Gast-Anmeldungen von diesem Anschluss“ (Bremse der Plattform, HTTP 429) und „nicht freigeschaltet“ (Schalter aus) werden
+  getrennt gemeldet.
 - **Was geprüft ist:** Datenbank-Seite mit der Test-Kette (Nachbau von Supabase in PGlite, `test-rollen.mjs` im privaten Repo),
   Zugriffsschicht und Fehlerwege mit `test-oberflaeche-db.html` und einer Prüfkopie mit Supabase-Attrappe. Die **Gast-Demo
   (`?demo=gast`) umgeht `leitstand-db.js`**: sie zeigt nur die Gast-Oberfläche, nicht Anmeldung, Rollenabfrage oder Fehlerwege.
-  Nur an der echten Plattform prüfbar bleiben: Token-Laufzeit, die Dashboard-Schalter, echte Antwortzeiten, Verhalten von Realtime
-  bei Löschungen (Blicktest: Gast-Eintrag löschen, im Gast-Fenster innerhalb einer Minute die Karte „Gast-Zugang beendet“ sehen).
+  Nur an der echten Plattform prüfbar bleiben: Token-Laufzeit, die Dashboard-Schalter, echte Antwortzeiten, ob der SQL-Editor-Nutzer
+  die Proben des Skripts besteht (das Skript meldet es selbst), ob der Anmeldedienst den Anbieter schon beim Anlegen eines neuen Kontos
+  in `raw_app_meta_data` setzt (Abfrage in der Anleitung), und das Verhalten von Realtime bei Löschungen — **bekannte Grenze:** bei
+  Löschungen sieht jeder Abonnent, auch ein anonymes Konto ohne Gast-Passwort, Sammlung und Kennung des gelöschten Dokuments (nie
+  Inhalte); Blicktest in der Anleitung (Gast-Eintrag löschen, im Gast-Fenster innerhalb einer Minute die Karte „Gast-Zugang beendet“ sehen).
 - **Lokale Demo der Gast-Sicht:** `index.html?demo=gast` (nur auf localhost, 127.0.0.1, [::1] oder als file:) — `gast-demo.js`,
   erfundene Daten (auch Fälle, die der Server sperrt: Chat-Aufgabe, Aufgabe mit Lauf-Status, Aufgabe von Claude, Rückfrage,
   Dokument ohne Aufgaben-Merkmale); die Server-Funktion für den Statuswechsel ist nachgebildet, alles andere Schreiben wird
