@@ -5,6 +5,9 @@
 (function () {
   "use strict";
   if (window.LEITSTAND_DEMO) return;   /* lokale Demo (aussagen-demo.js): keine Datenbank, keine Anmeldung */
+  /* Nur Darstellung, damit Gäste beim Laden keine Bearbeiten-Knöpfe aufblitzen sehen. Die Rolle entscheidet der
+     SERVER (meine_rolle); das Gedächtnis hier ist nur ein Hinweis und wird nach der Anmeldung überschrieben. */
+  try { if (localStorage.getItem("ss-rolle") === "gast") document.documentElement.classList.add("gast"); } catch (e) {}
 
   /* ---- Konfiguration (Supabase → Settings → API) ---- */
   var SUPABASE_URL  = "https://yfkckqbrksivksotopfo.supabase.co";
@@ -18,6 +21,10 @@
 
   var TABELLE = "docs";
   var sb = null, session = null, start;
+  var rolle = null;             /* {rolle:"admin"|"gast", kuerzel} — vom Server (meine_rolle), nie aus Angaben des Nutzers */
+  var gestartet = false;        /* start() läuft nur einmal je erfolgreicher Anmeldung */
+  var gastLaeuft = false;       /* Gast-Anmeldung in Arbeit: der Auth-Listener darf start() nicht vorzeitig auslösen */
+  var istGast = function () { return !!(rolle && rolle.rolle === "gast"); };
   var ready;                    /* Promise<db> */
   var wer = function () { try { return localStorage.getItem("ss-wer") || "?"; } catch (e) { return "?"; } };
 
@@ -73,6 +80,13 @@
       "</form>" +
       '<div id="liveLoginErr" style="font-size:12px;color:#E87A46;margin-top:10px;min-height:14px"></div>' +
       '<button type="button" id="liveGithubBtn" style="margin-top:16px;font:600 12px -apple-system,system-ui,sans-serif;background:none;border:0;color:#93A8AA;text-decoration:underline;cursor:pointer">Mit GitHub anmelden</button>' +
+      '<div style="margin-top:6px"><button type="button" id="liveGastBtn" style="font:600 12px -apple-system,system-ui,sans-serif;background:none;border:0;color:#93A8AA;text-decoration:underline;cursor:pointer">Als Gast anmelden</button></div>' +
+      '<form id="liveGastForm" style="display:none;margin-top:12px;text-align:left;border-top:1px solid rgba(255,255,255,.1);padding-top:12px">' +
+        '<div style="font-size:12px;color:#93A8AA;margin-bottom:8px">Gast: alles ansehen, Aufgaben abhaken. Bearbeiten und Befehle nur für das Team.</div>' +
+        '<input id="liveGastKuerzel" type="text" autocomplete="off" autocapitalize="characters" maxlength="8" placeholder="Dein Kürzel (2–8 Zeichen)" style="font:inherit;width:100%;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:#0E181B;color:#E4ECEA;margin-bottom:10px">' +
+        '<input id="liveGastPw" type="password" autocomplete="off" placeholder="Gast-Passwort" style="font:inherit;width:100%;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:#0E181B;color:#E4ECEA;margin-bottom:10px">' +
+        '<button type="submit" id="liveGastSend" style="font:inherit;font-weight:600;padding:12px 18px;border:0;border-radius:12px;background:#56ABB5;color:#0E181B;cursor:pointer;width:100%">Als Gast anmelden</button>' +
+      "</form>" +
       "</div>";
     document.body.appendChild(el);
     if (oauthFehler) { el.querySelector("#liveLoginErr").textContent = /Kein Team-Mitglied/.test(oauthFehler) ? "Dieses GitHub-Konto ist nicht in der Team-Liste. Bitte LES den GitHub-Namen schicken." : oauthFehler; oauthFehler = null; }
@@ -107,6 +121,80 @@
     el.querySelector("#liveGithubBtn").addEventListener("click", function () {
       sb.auth.signInWithOAuth({ provider: "github", options: { redirectTo: LOGIN_SITE } })
         .then(function (r) { if (r.error) el.querySelector("#liveLoginErr").textContent = r.error.message; });
+    });
+    var gastForm = el.querySelector("#liveGastForm");
+    el.querySelector("#liveGastBtn").addEventListener("click", function () {
+      gastForm.style.display = gastForm.style.display === "none" ? "block" : "none";
+      if (gastForm.style.display === "block") { try { el.querySelector("#liveGastKuerzel").focus(); } catch (e) {} }
+    });
+    gastForm.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var errEl = el.querySelector("#liveLoginErr"); errEl.textContent = "";
+      var k = el.querySelector("#liveGastKuerzel").value, pw = el.querySelector("#liveGastPw").value;
+      if (!k.trim()) { errEl.textContent = "Bitte dein Kürzel eintragen."; return; }
+      if (!pw) { errEl.textContent = "Bitte das Gast-Passwort eingeben."; return; }
+      var btn = el.querySelector("#liveGastSend"); btn.disabled = true;
+      gastAnmelden(k, pw).then(function (fehler) {
+        btn.disabled = false;
+        if (fehler) { errEl.textContent = fehler; el.querySelector("#liveGastPw").value = ""; }
+      });
+    });
+    if (gastHinweis) { el.querySelector("#liveLoginErr").textContent = gastHinweis; gastHinweis = null; }
+  }
+
+  /* ---- Rolle und Gast-Anmeldung (Server-Funktionen meine_rolle / gast_anmelden) ---- */
+  var gastHinweis = null;
+  function rolleHolen() {
+    return sb.rpc("meine_rolle").then(function (r) {
+      if (r.error) {
+        /* Datenbank ohne Rollen-Umstellung (Funktion fehlt): Konto der Team-Anmeldung wie bisher als Admin behandeln —
+           die Datenbank selbst entscheidet weiter über jeden Zugriff. Anonyme Konten nie. */
+        var fehlt = r.error.code === "PGRST202" || r.error.code === "42883" || /could not find the function|does not exist/i.test(r.error.message || "");
+        var u = session && session.user;
+        return fehlt && u && !u.is_anonymous ? { rolle: "admin", kuerzel: null } : null;
+      }
+      return r.data && r.data.rolle ? r.data : null;
+    }, function () { return null; });
+  }
+  var GAST_FEHLER = {
+    passwort: "Passwort falsch.", gesperrt: "Zu viele Fehlversuche. Bitte in etwa 15 Minuten noch einmal versuchen.",
+    nicht_eingerichtet: "Der Gast-Zugang ist noch nicht eingerichtet.", kuerzel_ungueltig: "Kürzel: 2 bis 8 Buchstaben oder Ziffern.",
+    kuerzel_reserviert: "Dieses Kürzel ist dem Team vorbehalten. Bitte ein anderes wählen.", kein_gastkonto: "Dieses Konto ist kein Gast-Konto."
+  };
+  /* Rückgabe: Fehlertext oder null (Erfolg; start() läuft dann los) */
+  function gastAnmelden(kuerzel, passwort) {
+    gastLaeuft = true;
+    var vorhanden = session && session.user && session.user.is_anonymous;   /* bestehende anonyme Sitzung weiterverwenden: die Fehlversuchs-Grenze gilt je Sitzung */
+    var konto = vorhanden ? Promise.resolve({ data: { session: session }, error: null }) : sb.auth.signInAnonymously();
+    return konto.then(function (r) {
+      if (r.error || !r.data || !r.data.session) return "Gast-Zugang ist derzeit nicht freigeschaltet.";
+      session = r.data.session;
+      return sb.rpc("gast_anmelden", { p_kuerzel: kuerzel, p_passwort: passwort }).then(function (x) {
+        if (x.error) return "Gast-Anmeldung nicht möglich (" + (x.error.message || "Fehler") + ").";
+        var d = x.data;
+        if (!d || !d.ok) {
+          var t = GAST_FEHLER[d && d.grund] || "Gast-Anmeldung nicht möglich.";
+          if (d && d.grund === "passwort" && typeof d.uebrig === "number") t += " Noch " + d.uebrig + " Versuch" + (d.uebrig === 1 ? "" : "e") + ".";
+          return t;
+        }
+        try { localStorage.setItem("ss-wer", d.kuerzel); localStorage.setItem("ss-rolle", "gast"); } catch (e) {}
+        gastLaeuft = false; gestartet = false; start(); return null;
+      });
+    }, function (e) { return "Keine Verbindung zum Server: " + (e && e.message ? e.message : e); })
+      .then(function (t) { gastLaeuft = false; return t; });
+  }
+  /* Gäste lesen nur. Einzige Ausnahme: der Status (done) einer Aufgabe — über die Server-Funktion, die serverseitig
+     alles andere ablehnt. Alles andere wird hier gar nicht erst abgeschickt (die Datenbank würde es ohnehin ablehnen). */
+  function gastBlock() {
+    banner("Als Gast kannst du nur lesen und Aufgaben abhaken.", 4000);
+    return Promise.reject(new Error("Gast: nur lesen"));
+  }
+  function gastStatus(coll, id, patch) {
+    var keys = Object.keys(patch || {});
+    if (coll !== "todos" || keys.length !== 1 || keys[0] !== "done" || typeof patch.done !== "boolean") return gastBlock();
+    return sb.rpc("gast_aufgabe_status", { p_id: id, p_done: patch.done }).then(function (r) {
+      if (r.error) throw r.error;
+      if (!r.data || !r.data.ok) { banner(r.data && r.data.grund === "gesperrt" ? "Befehle an Claude ändern nur Admins." : "Status konnte nicht geändert werden.", 5000); throw new Error("Gast-Status abgelehnt: " + (r.data && r.data.grund)); }
     });
   }
 
@@ -170,6 +258,7 @@
         return on(name, function () { laden(); });   /* einfach + robust: bei jeder Änderung neu laden */
       },
       add: function (data) {
+        if (istGast()) return gastBlock();
         var id = uid();
         return sb.from(TABELLE).insert({ collection: name, id: id, data: data, updated_by: wer() }).then(function (r) { if (r.error) throw r.error; return { id: id }; });
       },
@@ -194,13 +283,15 @@
       get: lade,
       onSnapshot: function (cb, err) { lade().then(cb).catch(err || function () {}); return on(coll, function (row) { if (row.id === id) lade().then(cb).catch(err || function () {}); }); },
       set: function (data, opt) {
+        if (istGast()) return gastBlock();
         if (opt && opt.merge) return this.update(data);
         return sb.from(TABELLE).upsert({ collection: coll, id: id, data: data, updated_by: wer(), updated_at: new Date().toISOString() }).then(function (r) { if (r.error) throw r.error; });
       },
       update: function (patch) {
+        if (istGast()) return gastStatus(coll, id, patch);
         return sb.rpc("docs_patch", { p_collection: coll, p_id: id, p_patch: patch, p_by: wer() }).then(function (r) { if (r.error) throw r.error; });
       },
-      delete: function () { return sb.from(TABELLE).delete().eq("collection", coll).eq("id", id).then(function (r) { if (r.error) throw r.error; }); }
+      delete: function () { if (istGast()) return gastBlock(); return sb.from(TABELLE).delete().eq("collection", coll).eq("id", id).then(function (r) { if (r.error) throw r.error; }); }
     };
   }
   var db = { collection: function (n) { return sammlung(n); }, collectionFelder: sammlungFelder, doc: dokument };
@@ -237,24 +328,43 @@
     if (!window.supabase) { console.error("supabase-js nicht geladen"); resolve(null); return; }
     /* detectSessionInUrl aus: die Tokens haben wir oben selbst gesichert (siehe oauth) */
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: "implicit" } });
-    var gestartet = false;
     /* Idempotent: der Kürzel+Passwort-Login ruft das hier direkt nach Erfolg auf, gleichzeitig
        feuert dieselbe Anmeldung den onAuthStateChange-Listener weiter unten — beide dürfen
        start() aufrufen, ausgeführt wird es nur einmal. */
     start = function () {
       if (gestartet) return; gestartet = true;
-      overlay(false); startRealtime();
-      /* Kürzel aus dem GitHub-Login ableiten, falls auf diesem Gerät noch keins gewählt ist
-         (beim Kürzel+Passwort-Login ist ss-wer an dieser Stelle schon gesetzt). */
-      try {
-        var gh = session && session.user && session.user.user_metadata ? session.user.user_metadata.user_name : null;
-        var k = gh && GITHUB_KUERZEL[gh];
-        if (k && !localStorage.getItem("ss-wer")) {
-          localStorage.setItem("ss-wer", k);
-          var b = document.querySelector('#whoModalBtns button[data-w="' + k + '"]'); if (b) b.click();
+      /* Erst die Rolle vom Server erfragen. Ohne Rolle (nicht Admin, kein Gast-Eintrag) kommt niemand ans Board —
+         die Datenbank würde ohnehin nichts herausgeben; hier zeigen wir es nur verständlich an. */
+      rolleHolen().then(function (r) {
+        if (!r || r.rolle === "keine") {
+          gestartet = false; rolle = null;
+          try { localStorage.removeItem("ss-rolle"); document.documentElement.classList.remove("gast"); } catch (e) {}
+          var war = session && session.user && session.user.is_anonymous;
+          gastHinweis = !r ? "Die Berechtigung konnte nicht geprüft werden (Verbindung?). Bitte neu anmelden."
+            : war ? "Gast-Zugang abgelaufen oder nicht eingetragen. Bitte als Gast neu anmelden."
+            : "Dieses Konto hat keinen Zugriff auf den Leitstand.";
+          overlay(true);
+          var el = document.getElementById("liveLoginErr"); if (el && gastHinweis) { el.textContent = gastHinweis; gastHinweis = null; }
+          return;
         }
-      } catch (e) {}
-      seed().then(function () { resolve(db); }, function () { resolve(db); });
+        rolle = r;
+        try { if (r.rolle === "gast") localStorage.setItem("ss-rolle", "gast"); else localStorage.removeItem("ss-rolle"); } catch (e) {}
+        overlay(false); startRealtime();
+        /* Kürzel aus dem GitHub-Login ableiten, falls auf diesem Gerät noch keins (oder nur ein Gast-Kürzel) gewählt ist
+           (beim Kürzel+Passwort-Login ist ss-wer an dieser Stelle schon gesetzt). */
+        try {
+          var gh = session && session.user && session.user.user_metadata ? session.user.user_metadata.user_name : null;
+          var k = gh && GITHUB_KUERZEL[gh];
+          var cur = localStorage.getItem("ss-wer");
+          if (r.rolle === "gast") localStorage.setItem("ss-wer", r.kuerzel);
+          else if (k && (!cur || ["LES", "JB", "TS", "DS"].indexOf(cur) === -1)) {
+            localStorage.setItem("ss-wer", k);
+            var b = document.querySelector('#whoModalBtns button[data-w="' + k + '"]'); if (b) b.click();
+          }
+        } catch (e) {}
+        if (r.rolle === "gast") { resolve(db); return; }   /* Gäste: kein Startbestand schreiben */
+        seed().then(function () { resolve(db); }, function () { resolve(db); });
+      });
     };
     var sessionHolen = oauth
       ? sb.auth.setSession({ access_token: oauth.access_token, refresh_token: oauth.refresh_token })
@@ -265,21 +375,25 @@
       oauth = null;
       if (session) { start(); return; }
       overlay(true);
-      var sub = sb.auth.onAuthStateChange(function (_e, s) { if (s) { session = s; sub.data.subscription.unsubscribe(); start(); } });
+      /* Anonyme (Gast-)Sitzungen starten das Board nie von selbst: erst gast_anmelden macht aus ihnen einen Gast. */
+      var sub = sb.auth.onAuthStateChange(function (_e, s) { if (s && !gastLaeuft && !(s.user && s.user.is_anonymous)) { session = s; sub.data.subscription.unsubscribe(); start(); } });
     });
   });
 
   function abmelden() {
-    try { localStorage.removeItem("ss-wer"); } catch (e) {}
+    try { localStorage.removeItem("ss-wer"); localStorage.removeItem("ss-rolle"); } catch (e) {}
     var fertig = function () { location.replace(LOGIN_SITE); };
     return (sb ? sb.auth.signOut() : Promise.resolve()).then(fertig, fertig);
   }
   window.claude = { use: function (was) { return was === "db" ? ready : Promise.resolve(null); }, live: true,
     logout: abmelden,
-    user: function () { return session && session.user ? (session.user.user_metadata.user_name || session.user.email) : null; },
+    user: function () { return session && session.user ? ((session.user.user_metadata && session.user.user_metadata.user_name) || session.user.email || (rolle && rolle.kuerzel) || null) : null; },
+    /* Rolle laut Server: {rolle:"admin"|"gast", kuerzel} oder null (noch nicht angemeldet) */
+    rolle: function () { return rolle ? { rolle: rolle.rolle, kuerzel: rolle.kuerzel || null } : null; },
+    istGast: istGast,
     /* Kürzel aus der ANMELDUNG (GitHub-Name oder Kürzel-Konto), nie aus dem frei wählbaren "Ich bin"; ohne eindeutige Zuordnung null. */
     kuerzel: function () {
-      var u = session && session.user; if (!u) return null;
+      var u = session && session.user; if (!u || istGast()) return null;
       var gh = u.user_metadata && u.user_metadata.user_name; if (gh && GITHUB_KUERZEL[gh]) return GITHUB_KUERZEL[gh];
       var mail = String(u.email || "").toLowerCase();
       for (var k in KUERZEL_KONTEN) if (KUERZEL_KONTEN[k] === mail) return k;

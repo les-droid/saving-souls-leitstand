@@ -416,6 +416,14 @@
     body::before { display: none; }
   }
   @media (prefers-contrast: more) { section.card, .fact, .modalcard, #tourCard { border: 2px solid var(--ink); background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+  /* ===== Gast-Ansicht (html.gast, nur wenn der Server die Rolle „gast“ meldet): nur lesen, Aufgaben abhaken ===== */
+  html.gast #todoForm, html.gast #noteForm, html.gast #linkForm, html.gast #revForm, html.gast #zeitTimerForm, html.gast #zeitForm,
+  html.gast #briefingCard, html.gast #jbCard, html.gast #page-claude, html.gast #nav a[data-page="claude"], html.gast #schnitt11,
+  html.gast .ident, html.gast .tclaude, html.gast .tantwort, html.gast .revform, html.gast .revlink-edit,
+  html.gast .revlinks button[data-act="setlink"], html.gast .hin .undo,
+  html.gast #todoList .del, html.gast #doneList .del, html.gast #noteList .del, html.gast #linkList .del, html.gast #revList .del, html.gast #zeitList .del { display: none !important; }
+  html.gast .hin input[type=checkbox], html.gast .revkom input[type=checkbox] { pointer-events: none; opacity: 0.45; }
+  .gastvermerk { margin-left: auto; font: 600 12px var(--font-mono); letter-spacing: 0.04em; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); }
 </style>
 <link rel="stylesheet" href="claude-chat.css?v=260923a">
 
@@ -885,13 +893,16 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 // Nur lokal: ?demo=1 lädt erfundene Beispieldaten (aussagen-demo.js) statt der Datenbank — auf der Live-Seite wird die Datei nie geladen.
-if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname))) document.write('<script src="aussagen-demo.js"><\/script>');
+if (/[?&]demo=(1|gast)(&|$)/.test(location.search) && (location.protocol === "file:" || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname))) document.write('<script src="aussagen-demo.js"><\/script>');
+// ?demo=gast: dieselbe Demo in der Gast-Sicht (gast-demo.js, erfundene Daten, Server-Funktion nur simuliert) — ebenfalls nur lokal.
+if (/[?&]demo=gast(&|$)/.test(location.search) && (location.protocol === "file:" || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname))) document.write('<script src="gast-demo.js"><\/script>');
 </script>
-<script src="leitstand-db.js?v=261005a"></script>
+<script src="leitstand-db.js?v=261006a"></script>
 <script>
 (function () {
   "use strict";
   var db = null;
+  var istGast = false;   // Rolle laut Server (claude.rolle()); gesetzt, sobald die Datenbank bereit ist — Gäste: nur lesen + Aufgaben abhaken
   var WER = ["LES", "JB", "TS", "DS"];
   var PRIO_TXT = { 1: "hoch", 2: "mittel", 3: "niedrig" };
   var REPO = "https://github.com/les-droid/saving-souls-gedaechtnis/blob/main/";
@@ -906,6 +917,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
   function currentPageFromHash() { var h = location.hash.replace("#", ""); var qi = h.indexOf("?"); return qi >= 0 ? h.slice(0, qi) : h; }
   function showPage(p) {
     if (PAGES.indexOf(p) === -1) p = "start";
+    if (p === "claude" && istGast) p = "start";   // Claude-Aufträge: nur Admins
     PAGES.forEach(function (x) { document.getElementById("page-" + x).classList.toggle("on", x === p); });
     document.querySelectorAll("nav.seg a").forEach(function (a) { a.classList.toggle("on", a.dataset.page === p); });
     if (currentPageFromHash() !== p) history.replaceState(null, "", "#" + p);
@@ -931,6 +943,24 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     renderWho(); whoModal.classList.add("hidden");
     document.getElementById("introOffer").classList.remove("hidden");
   });
+
+  /* ---- Gast-Ansicht ----
+     Die Rolle kommt vom Server (claude.rolle(), aus meine_rolle) — nicht aus dem Browser. Gäste sehen alles, können
+     aber nichts bearbeiten: Anlege-, Lösch-, Antwort- und Befehls-Elemente sind ausgeblendet (CSS html.gast, s. o.),
+     die Datenbank lehnt Schreibzugriffe ohnehin ab; einzige Ausnahme ist der Status einer Aufgabe (Server-Funktion). */
+  function gastAnsicht() {
+    var rl = window.claude && window.claude.rolle ? window.claude.rolle() : null;
+    istGast = !!(rl && rl.rolle === "gast");
+    document.documentElement.classList.toggle("gast", istGast);
+    var alt = document.getElementById("gastVermerk"); if (alt) alt.remove();
+    if (!istGast) return;
+    me = rl.kuerzel || "?";
+    whoModal.classList.add("hidden");
+    var v = document.createElement("span"); v.id = "gastVermerk"; v.className = "gastvermerk";
+    v.innerHTML = "Gast · " + esc(rl.kuerzel) + " · nur lesen";
+    var row = document.querySelector(".toprow"); if (row) row.appendChild(v);
+    if (currentPageFromHash() === "claude") showPage("start");
+  }
 
   /* ---- Tour ---- */
   var TOUR = [
@@ -990,7 +1020,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     schliesse(); return out.join("");
   }
   function maybeBriefing() {
-    if (!me || !db) { briefingCard.style.display = "none"; return; }
+    if (!me || !db || istGast) { briefingCard.style.display = "none"; return; }
     db.doc("briefings/" + me).get().then(function (snap) {
       var v = snap.exists ? snap.data() : null;
       if (!v || v.gelesen || !v.text) { briefingCard.style.display = "none"; return; }
@@ -1007,7 +1037,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
   });
   function maybeJbCard() {
     maybeBriefing();
-    if (me !== "JB" || !db) { jbCard.style.display = "none"; return; }
+    if (me !== "JB" || !db || istGast) { jbCard.style.display = "none"; return; }
     db.doc("todos/seed-09").get().then(function (snap) { var v = snap.exists ? snap.data() : null; jbCard.style.display = (v && !v.done) ? "" : "none"; }).catch(function () {});
   }
   document.getElementById("jbForm").addEventListener("submit", function (ev) {
@@ -1044,9 +1074,10 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
         ? '<div class="tclaude"><span class="warte">Angefordert' + (v.angefordertVon ? " von " + esc(v.angefordertVon) : "") + '</span><span>' + lauf + '</span></div>'
         : '<div class="tclaude"><button type="button" data-act="jetzt">Jetzt erledigen</button><span>' + (nurS11 ? "startet auf Schnitt 11" : "startet sofort auf Schnitt 11 oder dem VPS") + '</span></div>';
     }
+    var gSperre = istGast && typ === "claude";   // Gast: Befehle an Claude nicht abhakbar (der Server lehnt es ohnehin ab)
     return '<li class="' + (v.done ? "done" : "") + '" data-id="' + esc(item.id) + '"><span class="prio p' + p + '" title="Priorität: ' + PRIO_TXT[p] + '"></span>' +
-      '<input type="checkbox"' + (v.done ? " checked" : "") + ' aria-label="erledigt"><span class="tbody"><span class="ttext">' + esc(v.text) + "</span>" + det + extra + "</span>" +
-      '<span class="chip ' + esc(v.wer || "alle") + '">' + esc(v.wer || "alle") + '</span>' + (v.done ? '<button type="button" class="undo" data-act="undo">Zurückholen</button>' : "") + '<button class="del" title="Löschen" aria-label="Löschen">×</button></li>';
+      '<input type="checkbox"' + (v.done ? " checked" : "") + (gSperre ? ' disabled title="Befehle an Claude ändern nur Admins"' : "") + ' aria-label="erledigt"><span class="tbody"><span class="ttext">' + esc(v.text) + "</span>" + det + extra + "</span>" +
+      '<span class="chip ' + esc(v.wer || "alle") + '">' + esc(v.wer || "alle") + '</span>' + (v.done && !gSperre ? '<button type="button" class="undo" data-act="undo">Zurückholen</button>' : "") + '<button class="del" title="Löschen" aria-label="Löschen">×</button></li>';
   }
   function renderTodos(docs) {
     var open = [], done = [];
@@ -1999,6 +2030,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
   claude.use("db").then(function (d) {
     if (!d) { showStatus("Geteilte Inhalte sind in dieser Ansicht nicht verfügbar. Stand und Tabellen gelten trotzdem."); renderTodos([]); renderNotes([]); renderLinks([]); renderHinweise([]); renderTree(""); renderReviews(); renderBoards(); ausLadeStatus = "keine-db"; sterneStatus = "keine-db"; renderTrans(); renderAus(); renderTiles(); return; }
     db = d;
+    gastAnsicht();
     if (whoModal.classList.contains("hidden")) maybeJbCard();
     // Boards/Transkripte enthalten Personen- und Ortsangaben — Reiter erst zeigen, wenn eine
     // echte Session steht: erst wenn die Live-Abfrage der Sammlung "clips" tatsächlich

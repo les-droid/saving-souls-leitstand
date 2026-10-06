@@ -44,6 +44,7 @@ end $$;
 revoke execute on function public.s11_claim(text, text) from public, anon, authenticated;
 
 -- 4) Zugriff: nur eingeloggte Team-Mitglieder (GitHub-Login), volle Rechte
+--    (seit 06.10.2026 abgelöst durch Abschnitt 8: Rollen Admin/Gast; team_docs gibt es dann nicht mehr)
 alter table public.docs enable row level security;
 drop policy if exists team_docs on public.docs;
 create policy team_docs on public.docs for all to authenticated using (true) with check (true);
@@ -70,7 +71,27 @@ create trigger nur_team_trg before insert on auth.users for each row execute fun
 
 -- 7) Härtung (Supabase Security Advisor): feste search_path, SECURITY-DEFINER-Funktionen nicht über die API aufrufbar
 alter function public.docs_patch(text, text, jsonb, text) set search_path = public;
-alter function public.s11_claim(text) set search_path = public;
+alter function public.s11_claim(text, text) set search_path = public;
 alter function public.nur_team() set search_path = public;
-revoke execute on function public.s11_claim(text) from public, anon, authenticated;   -- nur service_role (Listener Schnitt 11)
+revoke execute on function public.s11_claim(text, text) from public, anon, authenticated;   -- nur service_role (Listener Schnitt 11)
 revoke execute on function public.nur_team() from public, anon, authenticated;        -- nur Trigger
+
+-- 8) Rollen und Gast-Zugang (seit 06.10.2026) — Gesamtbild; eingespielt wird NICHT dieser Abschnitt, sondern
+--    `261006 rollen-gast.sql` (Zurück: `261006 rollen-gast-rueckbau.sql`). Auf einer neuen Datenbank: Abschnitte 1–7,
+--    dann die vier Konten anlegen, dann `261006 rollen-gast.sql`, dann das Gast-Passwort setzen.
+--    Stand danach:
+--    * Schema leitstand_intern (nicht über die API ausgeliefert; nicht unter „Exposed schemas“ eintragen!):
+--        admins (Konto-IDs der vier Admin-Konten), gaeste (anonyme Konten mit Gast-Kürzel), gast_zugang (bcrypt-Hash),
+--        gast_versuche (Fehlversuche), sicherung (Altzustand für den Rückbau). Alle: RLS an, keine Policies, keine Rechte.
+--        Funktionen: ist_admin(), ist_gast() (für die Policies), gast_passwort_setzen(text) (nur Eigentümer, im SQL-Editor).
+--    * public.docs: Policy team_docs entfällt. docs_admin = alles für Admins (Prüfung über die Konto-ID, nie über
+--      user_metadata/E-Mail zur Laufzeit); docs_gast_lesen = nur Lesen für eingetragene Gäste.
+--    * public.meine_rolle()                        → {"rolle":"admin"|"gast"|"keine","kuerzel":…}
+--      public.gast_anmelden(kuerzel, passwort)     → nur anonyme Konten; bcrypt-Prüfung; 5 Fehlversuche je Sitzung bzw. 20 insgesamt
+--                                                    je 15 Minuten, danach auch das richtige Passwort abgelehnt; Admin-Kürzel gesperrt
+--      public.gast_aufgabe_status(id, done)        → setzt NUR done/erledigtAm (+ geaendert_von/geaendert_am, Kürzel aus der
+--                                                    Gast-Tabelle) an einer Aufgabe der Sammlung todos; nie bei Claude-Aufgaben
+--      (alle drei: nur für angemeldete Konten ausführbar, nicht für anon; feste search_path)
+--    * public.nur_team(): lässt zusätzlich anonyme Konten zu und weist Konten ohne E-Mail nicht mehr durch (NULL-Lücke).
+--    * Dienstschlüssel (service_role) umgeht die Regeln wie bisher; s11_claim bleibt ihm vorbehalten.
+

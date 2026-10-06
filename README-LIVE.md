@@ -64,3 +64,25 @@ Abbrechen: To-do löschen.
   Datenbank-Regel**: die bestehende Policy `team_docs` erlaubt allen Team-Konten alles auf `docs`.
 - **Lokale Demo:** `index.html?demo=1` (nur auf localhost, 127.0.0.1, [::1] oder als file:) lädt `aussagen-demo.js` mit
   erfundenen Beispieldaten; keine Datenbank, keine Anmeldung, Sterne nur im Speicher. Auf der Live-Seite wird die Datei nie geladen.
+
+## Rollen und Gast-Zugang (seit 06.10.2026)
+- **Admin** = die vier Team-Konten (GitHub und Kürzel-Konto von LES und JB): Vollzugriff wie bisher, Seite unverändert.
+- **Gast** = weitere Kollegen und Praktikanten: Knopf „Als Gast anmelden“ im Anmeldefenster, Kürzel (2–8 Zeichen) und das
+  gemeinsame Gast-Passwort. Gäste sehen **alles**, können aber nur den **Status einer Aufgabe** (abhaken/zurückholen) ändern;
+  Anlegen, Ändern, Löschen, Antworten, Zeiten, Reviews/Kommentare, Sterne, der Reiter „Claude“ und alle Befehle sind ausgeblendet
+  und serverseitig gesperrt. Oben rechts steht „Gast · KÜRZEL · nur lesen“. Jeder Statuswechsel speichert `geaendert_von`
+  (Kürzel aus der Gast-Tabelle, nicht aus dem Browser) und `geaendert_am` an der Aufgabe.
+- **Durchgesetzt wird es in der Datenbank**, nicht im Browser: Policies `docs_admin` / `docs_gast_lesen`, Funktionen
+  `meine_rolle`, `gast_anmelden`, `gast_aufgabe_status` (siehe `supabase/schema.sql`, Abschnitt 8). Admin ist, wessen Konto-ID in
+  `leitstand_intern.admins` steht (vom Einspiel-Skript einmal gefüllt) — nie jemand, der sich irgendwelche Angaben selbst setzt.
+  Die Oberfläche fragt die Rolle beim Server (`claude.rolle()` in `leitstand-db.js`) und blendet danach nur noch aus.
+- **Gast-Passwort**: ein Passwort für alle Gäste; im Server als bcrypt-Hash, nie im Code. Fehlversuche sind begrenzt (je Sitzung 5,
+  insgesamt 20 je 15 Minuten); Admins sind davon nie betroffen. Neu setzen (wirft alle Gäste hinaus):
+  `select leitstand_intern.gast_passwort_setzen('…');` im SQL-Editor. Alle Gäste sofort aussperren: `delete from leitstand_intern.gaeste;`
+- **Einspielen / Zurück:** `supabase/261006 rollen-gast.sql` (wiederholbar, bricht ab, wenn nicht genau die vier Konten da sind) und
+  `supabase/261006 rollen-gast-rueckbau.sql`. Reihenfolge der Inbetriebnahme: erst die Datenbank (SQL), dann den Schalter
+  „Anonymous Sign-Ins“, zuletzt die Seite.
+- **Lokale Demo der Gast-Sicht:** `index.html?demo=gast` (nur auf localhost, 127.0.0.1, [::1] oder als file:) — `gast-demo.js`,
+  erfundene Daten; die Server-Funktion für den Statuswechsel ist nachgebildet, alles andere Schreiben wird abgelehnt. Unten rechts
+  steht, was passiert ist.
+

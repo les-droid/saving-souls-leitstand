@@ -1,11 +1,11 @@
 /* Lokale Demo der Ansicht „Aussagen“ — ausschließlich mit ERFUNDENEN, neutralen Beispieldaten.
-   Läuft nur auf localhost / 127.0.0.1 / [::1] / file: und nur mit ?demo=1. Keine Datenbank, keine Anmeldung;
+   Läuft nur auf localhost / 127.0.0.1 / [::1] / file: und nur mit ?demo=1 (oder ?demo=gast, Gast-Sicht: gast-demo.js). Keine Datenbank, keine Anmeldung;
    Sterne und alles andere leben nur im Speicher dieser Seite. Enthält keine echten Namen, Zitate oder Projektdaten. */
 (function () {
   "use strict";
   var h = location.hostname;
   var lokal = location.protocol === "file:" || h === "localhost" || h === "127.0.0.1" || h === "[::1]";
-  if (!lokal || !/[?&]demo=1(&|$)/.test(location.search)) return;
+  if (!lokal || !/[?&]demo=(1|gast)(&|$)/.test(location.search)) return;
   window.LEITSTAND_DEMO = true;
   try { if (!localStorage.getItem("ss-wer")) localStorage.setItem("ss-wer", "LES"); } catch (e) {}   /* Demo: kein Kürzel-Dialog */
 
