@@ -5,7 +5,7 @@
 -- Was das Skript tut (alles in EINER Transaktion; bricht eine Zeile ab, bleibt alles wie vorher):
 --   0) Prüft vorab, ohne etwas zu ändern, und bricht mit einer lesbaren Liste ab, wenn eine Annahme nicht stimmt:
 --        - Rechte des ausführenden Nutzers: keine Frage nach „Eigentümer“, sondern eine PROBE in einem Unterblock, der am Ende
---          zurückgerollt wird (Trigger auf auth.users anlegen, eine Zeile in auth.users löschen, Tabelle mit Verweis darauf und
+--          zurückgerollt wird (Trigger auf auth.users anlegen und wieder entfernen, eine Zeile in auth.users löschen, Tabelle mit Verweis darauf und
 --          Schema anlegen, Regel auf docs und nur_team() ändern). Scheitert ein Schritt, bricht das Skript mit diesem Schritt ab.
 --        - keine fremde Regel in `public` oder `storage`, die der Rolle authenticated/anon/public etwas erlaubt;
 --          kein öffentlicher Speicher-Bucket,
@@ -59,9 +59,10 @@ begin
   -- Rechte des ausführenden Nutzers. Der SQL-Editor läuft NICHT als Superuser. Statt zu fragen, ob er „Eigentümer“ von
   -- auth.users ist (das sagt nichts darüber, was die Plattform ihm erlaubt), wird das, was dieses Skript später tun muss,
   -- einmal ausprobiert — in einem Unterblock, der am Ende absichtlich scheitert und damit ALLES zurückrollt (nichts bleibt:
-  -- keine Funktion, kein Trigger, kein Schema, keine Regel, keine gelöschte Zeile). „Wieder entfernen“ ist hier das
-  -- Zurückrollen, nicht DROP: Das Skript selbst legt auf auth.users nur Trigger an und entfernt dort nichts (DROP TRIGGER
-  -- bräuchte Eigentum; der Rückbau braucht es und prüft es selbst). Vor allem anderen, damit die Liste lesbar ist (sonst
+  -- keine Funktion, kein Trigger, kein Schema, keine Regel, keine gelöschte Zeile). Auch das ENTFERNEN
+  -- eines Triggers auf auth.users wird geprobt: Das Skript selbst braucht es nicht, der Rückbau aber schon. Dürfte der
+  -- Nutzer Trigger anlegen, aber nicht entfernen, liefe das Einspielen durch und der Rückbau scheiterte im Ernstfall —
+  -- deshalb bricht das Einspielen dann ab. Vor allem anderen, damit die Liste lesbar ist (sonst
   -- bräche schon das Lesen von auth.identities mit einer Rohmeldung ab).
   foreach v_t in array array['auth.users', 'auth.identities'] loop
     if not has_table_privilege(current_user, v_t, 'SELECT') then
@@ -73,6 +74,8 @@ begin
     create function public.leitstand_probe_fn() returns trigger language plpgsql as $p$ begin return new; end $p$;
     v_schritt := 'Trigger auf auth.users anlegen';
     create trigger leitstand_probe_trg before insert on auth.users for each row execute function public.leitstand_probe_fn();
+    v_schritt := 'Trigger auf auth.users entfernen';
+    drop trigger leitstand_probe_trg on auth.users;
     v_schritt := 'eine Zeile in auth.users löschen (wird zurückgerollt)';
     delete from auth.users where id = (select id from auth.users order by coalesce(is_anonymous, false) desc, created_at desc limit 1);
     v_schritt := 'Schema anlegen';
@@ -104,7 +107,7 @@ begin
     end;
   end loop;
   if cardinality(v_r) > 0 then
-    raise exception E'Abbruch, nichts geändert. Rechte des ausführenden Nutzers reichen nicht (%):\n - %', cardinality(v_r), array_to_string(v_r, E'\n - ');
+    raise exception E'Abbruch, nichts geändert. Probe fehlgeschlagen (Rechte, Verweis oder Sperre) — gescheiterter Schritt und Meldung der Datenbank stehen je Zeile (%):\n - %', cardinality(v_r), array_to_string(v_r, E'\n - ');
   end if;
 end $grund$;
 
@@ -249,7 +252,7 @@ begin
     execute 'select count(*) from leitstand_intern.admins a join _konten k on k.user_id = a.user_id' into n_admins_ok;
   end if;
   if not v_erst and not (n_admins = 4 and n_admins_ok = 4) then
-    v_f := array_append(v_f, 'Admin-Tabelle: die eingetragenen Konto-IDs entsprechen nicht mehr genau den vier festen Konten (Konto neu angelegt oder gelöscht?). Es wurde nichts verändert. HANDWEG, wenn eines der vier Konten neu angelegt werden musste (neue Konto-ID; das neue Konto hat bis dahin KEINEN Zugriff): 1) Authentication → Users: die Konto-ID (UUID) des NEUEN Kontos kopieren und prüfen, dass es das richtige ist (E-Mail bzw. GitHub-Name). 2) Im SQL-Editor, mit eingesetzter ID und dem Kürzel LES oder JB: insert into leitstand_intern.admins (user_id, kuerzel) values (''<ID>'', ''<LES oder JB>'') on conflict (user_id) do nothing;  (Die Zeile des gelöschten Kontos ist von selbst weg.) 3) Dieses Skript erneut starten. Alternativ: erst den Rückbau (Teil 1) — er bricht bei einem neuen Konto ebenfalls ab, solange es nicht eingetragen ist.'::text);
+    v_f := array_append(v_f, 'Admin-Tabelle: die eingetragenen Konto-IDs entsprechen nicht mehr genau den vier festen Konten (Konto neu angelegt oder gelöscht?). Es wurde nichts verändert. HANDWEG, wenn eines der vier Konten neu angelegt werden musste (neue Konto-ID; das neue Konto hat bis dahin KEINEN Zugriff): 1) Authentication → Users: die Konto-ID (UUID) des NEUEN Kontos kopieren und prüfen, dass es das richtige ist (E-Mail bzw. GitHub-Name). 2) Im SQL-Editor, mit eingesetzter ID und dem Kürzel LES oder JB: insert into leitstand_intern.admins (user_id, kuerzel) select u.id, ''<LES oder JB>'' from auth.users u where u.id = ''<ID>'' and not coalesce(u.is_anonymous, false) on conflict (user_id) do nothing;  (Die Zeile des gelöschten Kontos ist von selbst weg.) Danach die Zahl der eingefügten Zeilen prüfen: erwartet 1 (bei 0 stimmt die ID nicht, oder das Konto ist anonym oder schon eingetragen — dann nichts weiter tun, Liste an Main). 3) Dieses Skript erneut starten. Alternativ: erst den Rückbau (Teil 1) — er bricht bei einem neuen Konto ebenfalls ab, solange es nicht eingetragen ist.'::text);
   end if;
 
   if cardinality(v_f) > 0 then

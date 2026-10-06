@@ -80,7 +80,7 @@ revoke execute on function public.nur_team() from public, anon, authenticated;  
 --    dieser Abschnitt, sondern `261006 rollen-gast.sql` (Zurück: `261006 rollen-gast-rueckbau.sql` = Teil 1, optional
 --    `…-teil2.sql`). Auf einer neuen Datenbank: Abschnitte 1–7, dann die vier Konten anlegen, dann `261006 rollen-gast.sql`,
 --    dann das Gast-Passwort setzen. Das Einspiel-Skript prüft seine Annahmen selbst und bricht mit einer Liste ab:
---    Rechte des ausführenden Nutzers (als Probe in einem zurückgerollten Unterblock, nicht als Eigentümer-Frage), fremde Regeln in public/storage, öffentliche Buckets, ungeschützte Tabellen/
+--    Rechte des ausführenden Nutzers (als Probe in einem zurückgerollten Unterblock, nicht als Eigentümer-Frage; geprobt wird auch das Entfernen eines Triggers auf auth.users, das der Rückbau braucht), fremde Regeln in public/storage, öffentliche Buckets, ungeschützte Tabellen/
 --    Sichten, unbekannte Funktionen, Kontenbestand (laut auth.identities genau 2x GitHub, 2x E-Mail).
 --    Stand danach:
 --    * Schema leitstand_intern (nicht über die API ausgeliefert; nicht unter „Exposed schemas“ eintragen!):

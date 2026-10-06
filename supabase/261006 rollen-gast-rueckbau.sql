@@ -73,7 +73,7 @@ begin
                  from auth.users u
                 where not coalesce(u.is_anonymous, false) and u.id not in (select user_id from leitstand_intern.admins)$q$ into v_liste;
     if v_liste is not null then
-      raise exception E'Abbruch, nichts geändert: es gibt feste Konten außer den vier Admin-Konten (nachträglich umgewandelt oder angelegt?). Liste an Main:\n - %\nWar eines der vier Admin-Konten neu anzulegen (neue Konto-ID, steht hier in der Liste)? Dann Handweg: Konto-ID prüfen (Authentication → Users) und im SQL-Editor eintragen: insert into leitstand_intern.admins (user_id, kuerzel) values (''<ID>'', ''<LES oder JB>'') on conflict (user_id) do nothing;  — danach diesen Rückbau erneut starten.', v_liste;
+      raise exception E'Abbruch, nichts geändert: es gibt feste Konten außer den vier Admin-Konten (nachträglich umgewandelt oder angelegt?). Liste an Main:\n - %\nWar eines der vier Admin-Konten neu anzulegen (neue Konto-ID, steht hier in der Liste)? Dann Handweg: Konto-ID prüfen (Authentication → Users) und im SQL-Editor eintragen: insert into leitstand_intern.admins (user_id, kuerzel) select u.id, ''<LES oder JB>'' from auth.users u where u.id = ''<ID>'' and not coalesce(u.is_anonymous, false) on conflict (user_id) do nothing;  — danach die Zahl der eingefügten Zeilen prüfen (erwartet 1; bei 0 stimmt die ID nicht oder das Konto ist anonym oder schon eingetragen: Liste an Main) und diesen Rückbau erneut starten.', v_liste;
     end if;
   end if;
 end $vorab$;

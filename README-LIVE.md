@@ -123,14 +123,17 @@ Abbrechen: To-do löschen.
   „keine“), das Einspiel-Skript und der Rückbau brechen ab und nennen denselben Handweg: (1) Authentication → Users: die Konto-ID (UUID)
   des **neuen** Kontos kopieren und prüfen, dass es das richtige ist (E-Mail bzw. GitHub-Name); (2) im SQL-Editor, mit eingesetzter ID und
   dem Kürzel `LES` oder `JB`:
-  `insert into leitstand_intern.admins (user_id, kuerzel) values ('<ID>', '<LES oder JB>') on conflict (user_id) do nothing;`
-  (die Zeile des gelöschten Kontos ist durch das Löschen von selbst weg); (3) das Skript bzw. den Rückbau erneut starten. Ein auf
+  `insert into leitstand_intern.admins (user_id, kuerzel) select u.id, '<LES oder JB>' from auth.users u where u.id = '<ID>' and not coalesce(u.is_anonymous, false) on conflict (user_id) do nothing;`
+  (trägt nur ein vorhandenes, nicht anonymes Konto ein; die Zeile des gelöschten Kontos ist durch das Löschen von selbst weg);
+  danach die Zahl der eingefügten Zeilen prüfen — **erwartet 1** (bei 0 stimmt die ID nicht, oder das Konto ist anonym oder schon eingetragen); (3) das Skript bzw. den Rückbau erneut starten. Ein auf
   anderem Weg eingetragenes Konto erkennt das Skript als Abweichung und bricht ab.
 - **Einspielen / Zurück:** `supabase/261006 rollen-gast.sql` — prüft vorab selbst (Rechte des SQL-Editors, fremde Regeln in `public` und
   `storage`, öffentliche Buckets, ungeschützte Tabellen/Sichten, unbekannte Funktionen, Kontenbestand) und bricht mit einer Liste ab.
-  Die Rechte des ausführenden Nutzers werden nicht erfragt („Eigentümer?“), sondern **ausprobiert**: das Skript legt probeweise Trigger,
-  Schema, Tabelle mit Verweis auf `auth.users`, Regel und Funktion an und löscht eine Zeile in `auth.users` — alles in einem Unterblock,
-  der zurückgerollt wird; scheitert ein Schritt, bricht es mit dem Schritt ab. Der Rückbau probt entsprechend das Entfernen von Triggern.
+  Die Rechte des ausführenden Nutzers werden nicht erfragt („Eigentümer?“), sondern **ausprobiert**: das Skript legt probeweise Trigger an
+  **und entfernt ihn wieder** (der Rückbau braucht das Entfernen; darf der Nutzer es nicht, bricht schon das Einspielen ab), dazu Schema,
+  Tabelle mit Verweis auf `auth.users`, Regel und Funktion, und löscht eine Zeile in `auth.users` — alles in einem Unterblock, der
+  zurückgerollt wird; scheitert ein Schritt, bricht es mit der Überschrift „Probe fehlgeschlagen (Rechte, Verweis oder Sperre)“, dem
+  Schritt und der Meldung der Datenbank ab. Der Rückbau probt dasselbe noch einmal vor seinem Eingriff.
   Rückbau: `supabase/261006 rollen-gast-rueckbau.sql` (Teil 1: löscht alle anonymen Konten, schließt die Zugangsregel für anonyme
   Token auch bis zu deren Ablauf; Admins arbeiten unverändert) und optional `…-teil2.sql` (alter Wortlaut der Regel `team_docs` —
   **frühestens 7 Tage nach Teil 1**, das Skript erzwingt die Wartezeit, weil bereits ausgestellte Token gelöschter anonymer Konten
