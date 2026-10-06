@@ -61,28 +61,69 @@ Abbrechen: To-do löschen.
   `aussage`, `kuerzel`, `stern`), nie im Katalog-Dokument — ein erneutes Einspielen berührt sie nicht. Jeder schaltet in der
   Oberfläche nur den eigenen Stern; das Kürzel wird aus der **Anmeldung** abgeleitet (`claude.kuerzel()` in `leitstand-db.js`:
   GitHub-Name oder Kürzel-Konto), nicht aus „Ich bin“. Ohne eindeutige Zuordnung sind beide Sterne gesperrt. Die Sperre „nur der eigene“ ist **Oberfläche, keine
-  Datenbank-Regel**: die bestehende Policy `team_docs` erlaubt allen Team-Konten alles auf `docs`.
+  Datenbank-Regel**: die Admin-Policy `docs_admin` erlaubt beiden Editoren alles auf `docs` (Gäste dürfen nur lesen, Sterne setzen sie nie).
 - **Lokale Demo:** `index.html?demo=1` (nur auf localhost, 127.0.0.1, [::1] oder als file:) lädt `aussagen-demo.js` mit
   erfundenen Beispieldaten; keine Datenbank, keine Anmeldung, Sterne nur im Speicher. Auf der Live-Seite wird die Datei nie geladen.
 
-## Rollen und Gast-Zugang (seit 06.10.2026)
-- **Admin** = die vier Team-Konten (GitHub und Kürzel-Konto von LES und JB): Vollzugriff wie bisher, Seite unverändert.
-- **Gast** = weitere Kollegen und Praktikanten: Knopf „Als Gast anmelden“ im Anmeldefenster, Kürzel (2–8 Zeichen) und das
-  gemeinsame Gast-Passwort. Gäste sehen **alles**, können aber nur den **Status einer Aufgabe** (abhaken/zurückholen) ändern;
-  Anlegen, Ändern, Löschen, Antworten, Zeiten, Reviews/Kommentare, Sterne, der Reiter „Claude“ und alle Befehle sind ausgeblendet
-  und serverseitig gesperrt. Oben rechts steht „Gast · KÜRZEL · nur lesen“. Jeder Statuswechsel speichert `geaendert_von`
-  (Kürzel aus der Gast-Tabelle, nicht aus dem Browser) und `geaendert_am` an der Aufgabe.
+## Rollen und Gast-Zugang (seit 06.10.2026, nachgebessert nach zwei Prüfungen)
+- **Admin** = die vier Team-Konten (GitHub und Kürzel-Konto von LES und JB): Vollzugriff wie bisher. Die Seite ist für sie
+  unverändert, bis auf drei Dinge: (1) nach jeder Anmeldung wird „Ich bin“ auf das Kürzel des Kontos gesetzt (ein auf dem Gerät
+  zurückgebliebenes Gast-Kürzel läuft nicht weiter); (2) Abhaken/Zurückholen einer Aufgabe schreibt zusätzlich `geaendert_von`,
+  `geaendert_am`, `geaendert_rolle: "admin"` mit; (3) bei Netzfehlern wird die Rollenabfrage wiederholt (siehe „Fehlerwege“).
+- **Gast** = weitere Kollegen und Praktikanten: Knopf „Als Gast anmelden“ im Anmeldefenster, Kürzel (2–8 Buchstaben/Ziffern; das
+  Format prüft schon der Browser, bevor ein Konto entsteht) und das gemeinsame Gast-Passwort. TS und DS dürfen als Gast-Kürzel
+  benutzt werden; LES, JB, CL, CLAUDE, SYSTEM, SEED, ADMIN, GAST (auch mit angehängten Ziffern, z. B. LES1) nicht.
+- **Was Gäste dürfen:** alles lesen; den Status einer Aufgabe ändern (abhaken/zurückholen) — sonst nichts. Anlegen, Ändern, Löschen,
+  Antworten, Zeiten, Reviews/Kommentare, Hinweise und Kommentare abhaken, Sterne, Befehle, der Reiter „Claude“ sind ausgeblendet
+  bzw. deaktiviert und serverseitig gesperrt.
+- **Gemeinsame Beschreibung „Gast darf abhaken“** (Server `gast_aufgabe_status`, Oberfläche `todoLi` in `index.html`, Demo
+  `gast-demo.js` — alle drei gleich): ein Dokument der Sammlung `todos` mit Feld `text` (also eine Aufgabe), bei dem **keine** der
+  Sperren gilt: `typ` = claude **oder** frage · `wer` = Claude · `quelle` = chat · `angefordert` = true · `s11status` gesetzt.
+  Rückfragen (`typ: frage`) können Gäste weder beantworten noch abhaken. Entscheiden tut immer der Server; die Oberfläche
+  deaktiviert nur dasselbe Häkchen, setzt es nach einer Ablehnung zurück und nennt den Grund als Hinweistext.
+- **Wer hat zuletzt abgehakt:** an jeder Aufgabe steht „abgehakt von TS (Gast), 06.10. 11:34“ (bzw. „zurückgeholt von …“). Gäste
+  setzen das serverseitig (`geaendert_von` = Kürzel aus der Gast-Tabelle, `geaendert_am`, `geaendert_rolle: "gast"`, außerdem
+  `updated_by = gast:KÜRZEL`); Editoren schreiben es beim Abhaken in der Oberfläche mit. Ändert ein Hintergrunddienst `done`,
+  ohne das mitzuschreiben, kann der Vermerk veraltet sein — Zeitpunkt lesen.
+- **Was Gäste lesend sehen:** alle Seiten, die Statuszeile an Befehlen („Angefordert von …, läuft …“) und das Panel „Schnitt 11“
+  (Status und Ergebnisse, ohne Bedienhinweis), Sterne (grau; Tipp „Sterne setzen nur die Editoren“), Zeiteinträge und Auswertung.
+  **Nicht** sichtbar: Reiter „Claude“ (die Chat-Fernsteuerung mit Verlauf bräuchte einen Umbau — bewusst nicht gemacht),
+  Briefing/JB-Karte, „Ich bin“, „Mein Zettel“ (privat im Browserspeicher des Geräts: Gäste sehen und löschen ihn nicht),
+  die Stoppuhr-Karte (zeigt sonst die laufende Uhr einer anderen Person auf demselben Gerät).
 - **Durchgesetzt wird es in der Datenbank**, nicht im Browser: Policies `docs_admin` / `docs_gast_lesen`, Funktionen
   `meine_rolle`, `gast_anmelden`, `gast_aufgabe_status` (siehe `supabase/schema.sql`, Abschnitt 8). Admin ist, wessen Konto-ID in
-  `leitstand_intern.admins` steht (vom Einspiel-Skript einmal gefüllt) — nie jemand, der sich irgendwelche Angaben selbst setzt.
-  Die Oberfläche fragt die Rolle beim Server (`claude.rolle()` in `leitstand-db.js`) und blendet danach nur noch aus.
-- **Gast-Passwort**: ein Passwort für alle Gäste; im Server als bcrypt-Hash, nie im Code. Fehlversuche sind begrenzt (je Sitzung 5,
-  insgesamt 20 je 15 Minuten); Admins sind davon nie betroffen. Neu setzen (wirft alle Gäste hinaus):
-  `select leitstand_intern.gast_passwort_setzen('…');` im SQL-Editor. Alle Gäste sofort aussperren: `delete from leitstand_intern.gaeste;`
-- **Einspielen / Zurück:** `supabase/261006 rollen-gast.sql` (wiederholbar, bricht ab, wenn nicht genau die vier Konten da sind) und
-  `supabase/261006 rollen-gast-rueckbau.sql`. Reihenfolge der Inbetriebnahme: erst die Datenbank (SQL), dann den Schalter
-  „Anonymous Sign-Ins“, zuletzt die Seite.
+  `leitstand_intern.admins` steht — beim **ersten** Einspielen aus den Anmelde-Identitäten (`auth.identities`) gefüllt, danach nie
+  wieder neu; das Skript bricht ab, wenn die Einträge nicht mehr genau den vier Konten entsprechen. Nie zählt, was ein Nutzer sich
+  selbst in `user_metadata` schreibt. Ein Gast-Konto kann nicht nachträglich zu einem festen Konto gemacht werden (Trigger auf `auth.users`).
+- **Gast-Passwort**: ein Passwort für alle Gäste; im Server als bcrypt-Hash, nie im Code. Der Server verlangt mindestens 16 Zeichen und
+  mindestens 8 verschiedene; vorgesehen ist ein zufälliges mit 20+ Zeichen aus dem Passwortmanager. Fehlversuche: je Sitzung 5 in 15
+  Minuten; gesamt ab 300 in 15 Minuten eine **wachsende Wartezeit** (2 s, verdoppelt je 20 weitere, höchstens 10 Minuten) statt harter
+  Sperre — so kann ein Fremder mit ein paar neuen Sitzungen echte Gäste nicht aussperren. Admins sind davon nie betroffen. Neu setzen
+  (wirft alle Gäste hinaus): `select leitstand_intern.gast_passwort_setzen('…');` im SQL-Editor — danach den Verlauf des Editors löschen.
+  Alle Gäste sofort aussperren: `delete from leitstand_intern.gaeste;` (offene Gast-Fenster merken es spätestens nach einer Minute und
+  zeigen „Dein Gast-Zugang wurde beendet“).
+- **Weiteres Admin-Konto:** nicht vorgesehen ohne Eingriff, mit Absicht (so kann sich niemand einschleichen). Weg: Main passt
+  `nur_team()` (neue Adresse/GitHub-Name) und die erwartete Konten-Zahl und -Liste im Einspiel-Skript an; dann Rückbau Teil 1, Konto
+  anlegen, Skript neu einspielen. Ein von Hand in `leitstand_intern.admins` eingetragenes Konto wird beim nächsten Einspielen als
+  Abweichung erkannt und führt zum Abbruch.
+- **Einspielen / Zurück:** `supabase/261006 rollen-gast.sql` — prüft vorab selbst (Rechte des SQL-Editors, fremde Regeln in `public` und
+  `storage`, öffentliche Buckets, ungeschützte Tabellen/Sichten, unbekannte Funktionen, Kontenbestand) und bricht mit einer Liste ab.
+  Rückbau: `supabase/261006 rollen-gast-rueckbau.sql` (Teil 1: löscht alle anonymen Konten, schließt die Zugangsregel für anonyme
+  Token auch bis zu deren Ablauf; Admins arbeiten unverändert) und optional `…-teil2.sql` (alter Wortlaut samt bekannter Lücke).
+  Reihenfolge der Inbetriebnahme: SQL, Gast-Passwort setzen, erst dann der Schalter „Anonymous Sign-Ins“, zuletzt die Seite.
+  Schritt für Schritt: `post/bau-261006-leitstand-rollen/261006 Einspielen und Testen CL LES.md` im privaten Gedächtnis-Repo.
+- **Fehlerwege der Oberfläche:** Die Rolle wird mit Zeitgrenze (8 s) und bis zu drei Versuchen erfragt. Netz/Zeitüberschreitung/Serverausfall →
+  Karte „Keine Verbindung zum Server“ mit „Erneut versuchen“ (Anmeldung bleibt bestehen). Ablehnung durch den Server (z. B. Code 42501) →
+  Karte „Der Server hat die Prüfung abgelehnt“ mit Code, ohne Wiederholen; Neuanmelden würde nichts ändern. Fehlt die Funktion
+  (SQL noch nicht eingespielt) gilt weiter: Team-Konto = Admin, anonyme Sitzung = nichts. Sitzungswechsel in einem anderen Fenster
+  (Abmelden, anderes Konto) lädt dieses Fenster neu. Eine Restsitzung ohne Gast-Eintrag wird verworfen; ein Hinweis erscheint nur,
+  wenn das Gerät schon einmal als Gast angemeldet war.
+- **Was geprüft ist:** Datenbank-Seite mit der Test-Kette (Nachbau von Supabase in PGlite, `test-rollen.mjs` im privaten Repo),
+  Zugriffsschicht und Fehlerwege mit `test-oberflaeche-db.html` und einer Prüfkopie mit Supabase-Attrappe. Die **Gast-Demo
+  (`?demo=gast`) umgeht `leitstand-db.js`**: sie zeigt nur die Gast-Oberfläche, nicht Anmeldung, Rollenabfrage oder Fehlerwege.
+  Nur an der echten Plattform prüfbar bleiben: Token-Laufzeit, die Dashboard-Schalter, echte Antwortzeiten, Verhalten von Realtime
+  bei Löschungen (Blicktest: Gast-Eintrag löschen, im Gast-Fenster innerhalb einer Minute die Karte „Gast-Zugang beendet“ sehen).
 - **Lokale Demo der Gast-Sicht:** `index.html?demo=gast` (nur auf localhost, 127.0.0.1, [::1] oder als file:) — `gast-demo.js`,
-  erfundene Daten; die Server-Funktion für den Statuswechsel ist nachgebildet, alles andere Schreiben wird abgelehnt. Unten rechts
-  steht, was passiert ist.
-
+  erfundene Daten (auch Fälle, die der Server sperrt: Chat-Aufgabe, Aufgabe mit Lauf-Status, Aufgabe von Claude, Rückfrage,
+  Dokument ohne Aufgaben-Merkmale); die Server-Funktion für den Statuswechsel ist nachgebildet, alles andere Schreiben wird
+  abgelehnt. Unten rechts steht, was passiert ist.

@@ -2,7 +2,8 @@
    Läuft nur auf localhost / 127.0.0.1 / [::1] / file: und setzt aussagen-demo.js voraus (lädt davor). Keine Datenbank,
    keine Anmeldung: die Rolle „gast“ ist hier fest eingestellt, und die Server-Funktion gast_aufgabe_status wird
    NACHGEBILDET (gleiche Regeln wie in supabase/261006 rollen-gast.sql). Alles andere Schreiben wird wie von der
-   Datenbank abgelehnt. Was geschehen ist, steht unten rechts und in window.LEITSTAND_DEMO_LOG. */
+   Datenbank abgelehnt. WICHTIG: Diese Demo umgeht leitstand-db.js (Anmeldung, Rollenabfrage, Fehlerwege) — sie zeigt nur die
+   Gast-OBERFLÄCHE; die Zugriffsschicht wird mit der Prüfkopie samt Supabase-Attrappe geprüft (README-LIVE.md, „Was geprüft ist“). Was geschehen ist, steht unten rechts und in window.LEITSTAND_DEMO_LOG. */
 (function () {
   "use strict";
   var h = location.hostname;
@@ -21,7 +22,14 @@
     d3: { text: "Beispiel-Rückfrage", typ: "frage", wer: "alle", prio: 2, done: false, created: jetzt },
     d4: { text: "Beispiel-Aufgabe, schon erledigt", typ: "aufgabe", wer: "JB", prio: 3, done: true, created: jetzt },
     d5: { text: "Beispiel-Befehl an Claude (Gast darf nicht abhaken)", typ: "claude", wer: "Claude", prio: 2, done: false, created: jetzt, angefordert: true, angefordertVon: "LES", angefordertAm: jetzt, s11status: "wartet" },
-    d6: { text: "Beispiel-Befehl, noch nicht angefordert", typ: "claude", wer: "Claude", prio: 2, done: false, created: jetzt, ziel: "egal" }
+    d6: { text: "Beispiel-Befehl, noch nicht angefordert", typ: "claude", wer: "Claude", prio: 2, done: false, created: jetzt, ziel: "egal" },
+    // Fälle, in denen die Oberfläche früher enger war als der Server (Häkchen sah aktiv aus, der Server sagte „gesperrt“):
+    d7: { text: "Beispiel-Aufgabe aus dem Chat (Herkunft chat, kein Befehl-Typ)", typ: "aufgabe", wer: "JB", quelle: "chat", prio: 2, done: false, created: jetzt },
+    d8: { text: "Beispiel-Aufgabe mit Lauf-Status von Claude (s11status)", typ: "aufgabe", wer: "LES", prio: 2, done: false, created: jetzt, s11status: "laeuft", s11fortschritt: "Erfundener Fortschritt …" },
+    d9: { text: "Beispiel-Aufgabe von Claude (wer Claude, ohne Typ)", wer: "Claude", prio: 3, done: false, created: jetzt },
+    d10: { text: "Beispiel-Aufgabe, von einem Gast abgehakt", typ: "aufgabe", wer: "alle", prio: 2, done: true, created: jetzt, geaendert_von: "TS", geaendert_rolle: "gast", geaendert_am: jetzt },
+    d11: { text: "Beispiel-Aufgabe, von einem Editor abgehakt", typ: "aufgabe", wer: "alle", prio: 2, done: true, created: jetzt, geaendert_von: "LES", geaendert_rolle: "admin", geaendert_am: jetzt },
+    meta: { version: 3, hinweis: "Dokument der Sammlung todos, das keine Aufgabe ist (kein Feld text)" }
   };
   store.notes = { n1: { text: "Erfundene Beispiel-Notiz ans Team.", wer: "LES", created: jetzt } };
   store.links = { l1: { name: "Beispiel-Link", url: "https://example.org/", wer: "LES", created: jetzt } };
@@ -36,7 +44,8 @@
     if (!box) { box = document.createElement("div"); box.id = "gastDemoLog"; box.style.cssText = "position:fixed;right:12px;bottom:12px;z-index:90;max-width:340px;background:#162327;color:#E4ECEA;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:8px 12px;font:12px/1.4 -apple-system,system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.35)"; document.body.appendChild(box); }
     box.textContent = "Gast-Demo: " + t;
   }
-  function claudeAufgabe(v) { return v.typ === "claude" || v.wer === "Claude" || v.quelle === "chat" || v.angefordert === true || v.s11status != null; }
+  // gleiche Bedingungen wie gast_aufgabe_status in supabase/261006 rollen-gast.sql (Aufgabe = hat ein Feld text; nicht claude/frage …)
+  function claudeAufgabe(v) { return v.typ === "claude" || v.typ === "frage" || v.wer === "Claude" || v.quelle === "chat" || v.angefordert === true || v.s11status != null || !("text" in v); }
 
   function wrapDok(d, coll, id) {
     return {
@@ -49,10 +58,10 @@
         return d.get().then(function (snap) {   /* Nachbildung von gast_aufgabe_status(p_id, p_done) */
           var v = snap.exists ? snap.data() : null;
           if (!v) { zeige("rpc gast_aufgabe_status(" + id + "): nicht_gefunden"); return Promise.reject(new Error("nicht_gefunden")); }
-          if (claudeAufgabe(v)) { zeige("rpc gast_aufgabe_status(" + id + "): gesperrt (Befehl an Claude)"); return Promise.reject(new Error("gesperrt")); }
-          var ts = new Date().toISOString(), neu = { done: patch.done, geaendert_von: KUERZEL, geaendert_am: ts };
+          if (claudeAufgabe(v)) { zeige("rpc gast_aufgabe_status(" + id + "): gesperrt (Befehl, Rückfrage oder keine Aufgabe)"); return Promise.reject(new Error("gesperrt")); }
+          var ts = new Date().toISOString(), neu = { done: patch.done, geaendert_von: KUERZEL, geaendert_rolle: "gast", geaendert_am: ts };
           if (patch.done) neu.erledigtAm = ts; else neu.erledigtAm = undefined;
-          zeige("rpc gast_aufgabe_status(" + id + ", " + patch.done + "): ok, geaendert_von=" + KUERZEL);
+          zeige("rpc gast_aufgabe_status(" + id + ", " + patch.done + "): ok, geaendert_von=" + KUERZEL + " (Gast)");
           return d.update(neu);
         });
       }

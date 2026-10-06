@@ -66,11 +66,11 @@
     if (!zeige) { if (el) el.remove(); return; }
     if (el) return;
     el = document.createElement("div"); el.id = "liveLogin";
-    el.style.cssText = "position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(14,24,27,.82);backdrop-filter:blur(8px)";
+    el.style.cssText = "position:fixed;inset:0;z-index:9999;display:flex;overflow:auto;padding:16px 0;box-sizing:border-box;background:rgba(14,24,27,.82);backdrop-filter:blur(8px)";
     var kuerzelBtns = Object.keys(KUERZEL_KONTEN).map(function (k) {
       return '<button type="button" class="liveLoginKuerzel" data-k="' + k + '" style="flex:1;font:700 16px -apple-system,system-ui,sans-serif;padding:12px 0;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:#0E181B;color:#E4ECEA;cursor:pointer">' + k + "</button>";
     }).join("");
-    el.innerHTML = '<div style="background:#162327;color:#E4ECEA;border:1px solid rgba(255,255,255,.1);padding:28px 30px;border-radius:18px;max-width:340px;width:calc(100% - 40px);text-align:center;font:15px -apple-system,system-ui,sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.4)">' +
+    el.innerHTML = '<div style="background:#162327;color:#E4ECEA;border:1px solid rgba(255,255,255,.1);padding:28px 30px;border-radius:18px;max-width:340px;width:calc(100% - 40px);margin:auto;text-align:center;font:15px -apple-system,system-ui,sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.4)">' +
       '<div style="font-size:20px;font-weight:600;margin-bottom:6px">Saving Souls Leitstand</div>' +
       '<div style="font-size:13px;color:#93A8AA;margin-bottom:16px">Kürzel wählen, Passwort eingeben. Danach sind To-dos, Notizen und Befehle live für alle.</div>' +
       '<div style="display:flex;gap:10px;margin-bottom:14px">' + kuerzelBtns + "</div>" +
@@ -132,6 +132,7 @@
       var errEl = el.querySelector("#liveLoginErr"); errEl.textContent = "";
       var k = el.querySelector("#liveGastKuerzel").value, pw = el.querySelector("#liveGastPw").value;
       if (!k.trim()) { errEl.textContent = "Bitte dein Kürzel eintragen."; return; }
+      if (!KUERZEL_FORMAT.test(k.trim())) { errEl.textContent = GAST_FEHLER.kuerzel_ungueltig; return; }   /* erst prüfen, dann ein Konto anlegen */
       if (!pw) { errEl.textContent = "Bitte das Gast-Passwort eingeben."; return; }
       var btn = el.querySelector("#liveGastSend"); btn.disabled = true;
       gastAnmelden(k, pw).then(function (fehler) {
@@ -144,20 +145,43 @@
 
   /* ---- Rolle und Gast-Anmeldung (Server-Funktionen meine_rolle / gast_anmelden) ---- */
   var gastHinweis = null;
+  var KUERZEL_FORMAT = /^[A-Za-z0-9ÄÖÜäöü]{2,8}$/;   /* wie der Server (nach Großschreibung) — sonst entsteht ein Konto für nichts */
+  var ROLLE_VERSUCHE = 3, ROLLE_ZEIT = 8000, ROLLE_PAUSE = 700;
+  /* Eine Anfrage mit Zeitgrenze: kommt nie eine Antwort, wird daraus ein Fehler statt endlosem Warten. Nie ein Reject. */
+  function mitZeit(p, ms) {
+    return new Promise(function (resolve) {
+      var fertig = false;
+      var t = setTimeout(function () { if (!fertig) { fertig = true; resolve({ error: { code: "TIMEOUT", message: "Zeitüberschreitung" } }); } }, ms);
+      Promise.resolve(p).then(function (r) { if (!fertig) { fertig = true; clearTimeout(t); resolve(r || { error: { code: "NETZ", message: "leere Antwort" } }); } },
+        function (e) { if (!fertig) { fertig = true; clearTimeout(t); resolve({ error: { code: "NETZ", message: String(e && e.message || e) } }); } });
+    });
+  }
+  /* "fehlt" = Funktion gibt es auf dem Server nicht (SQL noch nicht eingespielt); "netz" = Netz/Zeitgrenze/Serverausfall (lohnt
+     ein neuer Versuch); "abgelehnt" = der Server hat geantwortet und die Abfrage verweigert (Neuanmelden hilft nicht). */
+  function fehlerArt(err, status) {
+    var c = err.code || "";
+    if (c === "PGRST202" || c === "42883") return "fehlt";
+    if (c === "TIMEOUT" || c === "NETZ" || status >= 500 || (!c && !status)) return "netz";
+    return "abgelehnt";
+  }
   function rolleHolen() {
-    return sb.rpc("meine_rolle").then(function (r) {
-      if (r.error) {
-        /* Datenbank ohne Rollen-Umstellung (Funktion fehlt): Konto der Team-Anmeldung wie bisher als Admin behandeln —
-           die Datenbank selbst entscheidet weiter über jeden Zugriff. Anonyme Konten nie. */
-        var fehlt = r.error.code === "PGRST202" || r.error.code === "42883" || /could not find the function|does not exist/i.test(r.error.message || "");
-        var u = session && session.user;
-        return fehlt && u && !u.is_anonymous ? { rolle: "admin", kuerzel: null } : null;
-      }
-      return r.data && r.data.rolle ? r.data : null;
-    }, function () { return null; });
+    var n = 0;
+    function los() {
+      n++;
+      return mitZeit(sb.rpc("meine_rolle"), ROLLE_ZEIT).then(function (r) {
+        if (!r.error) return r.data && r.data.rolle ? { art: "ok", r: r.data } : { art: "abgelehnt", code: "leer", text: "keine Rolle in der Antwort" };
+        var art = fehlerArt(r.error, r.status);
+        if (art === "netz" && n < ROLLE_VERSUCHE) {
+          banner("Verbindung wird geprüft … (Versuch " + (n + 1) + " von " + ROLLE_VERSUCHE + ")", ROLLE_ZEIT);
+          return new Promise(function (res) { setTimeout(res, ROLLE_PAUSE * n); }).then(los);
+        }
+        return { art: art, code: r.error.code || "", text: r.error.message || "" };
+      });
+    }
+    return los();
   }
   var GAST_FEHLER = {
-    passwort: "Passwort falsch.", gesperrt: "Zu viele Fehlversuche. Bitte in etwa 15 Minuten noch einmal versuchen.",
+    passwort: "Passwort falsch.", gesperrt: "Zu viele Fehlversuche in dieser Sitzung. Bitte in etwa 15 Minuten noch einmal versuchen.",
     nicht_eingerichtet: "Der Gast-Zugang ist noch nicht eingerichtet.", kuerzel_ungueltig: "Kürzel: 2 bis 8 Buchstaben oder Ziffern.",
     kuerzel_reserviert: "Dieses Kürzel ist dem Team vorbehalten. Bitte ein anderes wählen.", kein_gastkonto: "Dieses Konto ist kein Gast-Konto."
   };
@@ -169,18 +193,24 @@
     return konto.then(function (r) {
       if (r.error || !r.data || !r.data.session) return "Gast-Zugang ist derzeit nicht freigeschaltet.";
       session = r.data.session;
-      return sb.rpc("gast_anmelden", { p_kuerzel: kuerzel, p_passwort: passwort }).then(function (x) {
-        if (x.error) return "Gast-Anmeldung nicht möglich (" + (x.error.message || "Fehler") + ").";
+      return mitZeit(sb.rpc("gast_anmelden", { p_kuerzel: kuerzel, p_passwort: passwort }), 15000).then(function (x) {
+        if (x.error) {
+          var art = fehlerArt(x.error, x.status);
+          return art === "fehlt" ? "Der Gast-Zugang ist auf dem Server noch nicht eingerichtet."
+            : art === "netz" ? "Keine Verbindung zum Server. Bitte noch einmal versuchen."
+            : "Der Server hat die Gast-Anmeldung abgelehnt" + (x.error.code ? " (Code " + x.error.code + ")" : "") + ".";
+        }
         var d = x.data;
         if (!d || !d.ok) {
           var t = GAST_FEHLER[d && d.grund] || "Gast-Anmeldung nicht möglich.";
-          if (d && d.grund === "passwort" && typeof d.uebrig === "number") t += " Noch " + d.uebrig + " Versuch" + (d.uebrig === 1 ? "" : "e") + ".";
+          if (d && d.grund === "passwort" && typeof d.uebrig === "number") t = d.uebrig > 0 ? t + " Noch " + d.uebrig + " Versuch" + (d.uebrig === 1 ? "" : "e") + "." : "Passwort falsch. Das war der letzte Versuch dieser Sitzung.";
+          if (d && d.grund === "warten") t = "Gerade sehr viele Fehlversuche (von Fremden?). Bitte in " + (typeof d.sekunden === "number" ? d.sekunden + " Sekunden" : "einigen Sekunden") + " noch einmal versuchen.";
           return t;
         }
         try { localStorage.setItem("ss-wer", d.kuerzel); localStorage.setItem("ss-rolle", "gast"); } catch (e) {}
         gastLaeuft = false; gestartet = false; start(); return null;
       });
-    }, function (e) { return "Keine Verbindung zum Server: " + (e && e.message ? e.message : e); })
+    }, function (e) { return "Keine Verbindung zum Server. Bitte noch einmal versuchen."; })
       .then(function (t) { gastLaeuft = false; return t; });
   }
   /* Gäste lesen nur. Einzige Ausnahme: der Status (done) einer Aufgabe — über die Server-Funktion, die serverseitig
@@ -192,10 +222,64 @@
   function gastStatus(coll, id, patch) {
     var keys = Object.keys(patch || {});
     if (coll !== "todos" || keys.length !== 1 || keys[0] !== "done" || typeof patch.done !== "boolean") return gastBlock();
-    return sb.rpc("gast_aufgabe_status", { p_id: id, p_done: patch.done }).then(function (r) {
-      if (r.error) throw r.error;
-      if (!r.data || !r.data.ok) { banner(r.data && r.data.grund === "gesperrt" ? "Befehle an Claude ändern nur Admins." : "Status konnte nicht geändert werden.", 5000); throw new Error("Gast-Status abgelehnt: " + (r.data && r.data.grund)); }
+    return mitZeit(sb.rpc("gast_aufgabe_status", { p_id: id, p_done: patch.done }), 15000).then(function (r) {
+      if (r.error) {
+        banner(fehlerArt(r.error, r.status) === "netz" ? "Keine Verbindung — der Status wurde nicht geändert." : "Der Server hat die Änderung abgelehnt.", 5000);
+        throw new Error("Gast-Status: Fehler " + (r.error.code || r.error.message));
+      }
+      if (!r.data || !r.data.ok) {
+        if (r.data && r.data.grund === "kein_gast") { pruefeGast(); }
+        banner(r.data && r.data.grund === "gesperrt" ? "Befehle an Claude und Rückfragen ändern nur die Editoren." : r.data && r.data.grund === "kein_gast" ? "Dein Gast-Zugang ist nicht mehr eingetragen." : "Status konnte nicht geändert werden.", 5000);
+        throw new Error("Gast-Status abgelehnt: " + (r.data && r.data.grund));
+      }
     });
+  }
+
+  /* ---- Hinweiskarte (Verbindung / Berechtigung / Gast-Zugang beendet): kein Anmeldefenster, ein klarer Satz und ein Knopf ---- */
+  function karteWeg() { var k = document.getElementById("liveKarte"); if (k) k.remove(); }
+  function karte(titel, text, knoepfe) {
+    karteWeg(); overlay(false);
+    var el = document.createElement("div"); el.id = "liveKarte";
+    el.style.cssText = "position:fixed;inset:0;z-index:9999;display:flex;overflow:auto;padding:16px 0;box-sizing:border-box;background:rgba(14,24,27,.82);backdrop-filter:blur(8px)";
+    el.innerHTML = '<div style="background:#162327;color:#E4ECEA;border:1px solid rgba(255,255,255,.1);padding:28px 30px;border-radius:18px;max-width:340px;width:calc(100% - 40px);margin:auto;text-align:center;font:15px -apple-system,system-ui,sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.4)">' +
+      '<div style="font-size:18px;font-weight:600;margin-bottom:8px">' + esc(titel) + '</div><div style="font-size:13px;color:#93A8AA;margin-bottom:16px">' + esc(text) + "</div>" +
+      knoepfe.map(function (b, i) { return '<button type="button" data-i="' + i + '" style="display:block;width:100%;margin-top:8px;font:inherit;font-weight:600;padding:12px 18px;border:0;border-radius:12px;cursor:pointer;' + (i === 0 ? "background:#56ABB5;color:#0E181B" : "background:none;color:#93A8AA;text-decoration:underline;font-size:12px") + '">' + esc(b.t) + "</button>"; }).join("") + "</div>";
+    document.body.appendChild(el);
+    Array.prototype.forEach.call(el.querySelectorAll("button"), function (b) { b.addEventListener("click", function () { knoepfe[+b.dataset.i].fn(); }); });
+  }
+  /* Gast-Zugang serverseitig beendet (Passwort neu gesetzt, Eintrag gelöscht)? Dann sieht die Seite sonst nur leere Listen. */
+  var gastTimer = null;
+  function pruefeGast() {
+    if (!istGast() || !sb) return;
+    mitZeit(sb.rpc("meine_rolle"), ROLLE_ZEIT).then(function (r) {
+      if (r.error || !r.data || !r.data.rolle || r.data.rolle === "gast") return;   /* Netzfehler: nichts annehmen */
+      try { localStorage.removeItem("ss-rolle"); } catch (e) {}
+      var neu = function () { (sb.auth.signOut({ scope: "local" }) || Promise.resolve()).then(function () { location.reload(); }, function () { location.reload(); }); };
+      karte("Dein Gast-Zugang wurde beendet", "Das Gast-Passwort wurde geändert oder der Zugang entzogen. Bitte neu als Gast anmelden.", [{ t: "Neu anmelden", fn: neu }]);
+    });
+  }
+  function gastWaechter() {
+    if (gastTimer) return;
+    gastTimer = setInterval(pruefeGast, 60000);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) pruefeGast(); });
+  }
+  /* Zwei Fenster / Abmeldung anderswo: wechselt die Sitzung, wird neu geladen (die Rolle gilt nur für die Sitzung des Starts). */
+  var beobachter = false, startKontoId = null;
+  function sitzungBeobachten() {
+    if (beobachter) return; beobachter = true;
+    sb.auth.onAuthStateChange(function (ev, s) {
+      if (!gestartet || !rolle) return;
+      var neu = s && s.user ? s.user.id : null;
+      if (ev === "SIGNED_OUT" || (neu && startKontoId && neu !== startKontoId)) location.reload();
+    });
+  }
+  /* Kürzel aus der ANMELDUNG (GitHub-Name oder Kürzel-Konto), nie aus dem frei wählbaren "Ich bin"; ohne eindeutige Zuordnung null. */
+  function kontoKuerzel() {
+    var u = session && session.user; if (!u || istGast()) return null;
+    var gh = u.user_metadata && u.user_metadata.user_name; if (gh && GITHUB_KUERZEL[gh]) return GITHUB_KUERZEL[gh];
+    var mail = String(u.email || "").toLowerCase();
+    for (var k in KUERZEL_KONTEN) if (KUERZEL_KONTEN[k] === mail) return k;
+    return null;
   }
 
   /* ---- Realtime: ein Kanal, Verteiler nach Collection ---- */
@@ -291,7 +375,8 @@
         if (istGast()) return gastStatus(coll, id, patch);
         return sb.rpc("docs_patch", { p_collection: coll, p_id: id, p_patch: patch, p_by: wer() }).then(function (r) { if (r.error) throw r.error; });
       },
-      delete: function () { if (istGast()) return gastBlock(); return sb.from(TABELLE).delete().eq("collection", coll).eq("id", id).then(function (r) { if (r.error) throw r.error; }); }
+      /* Antwort: { geloescht: n } — n = 0, wenn die Datenbank nichts gelöscht hat (z. B. Recht entzogen); Aufrufer mit "Rückgängig"-Hinweis zeigen ihn nur bei n > 0 */
+      delete: function () { if (istGast()) return gastBlock(); return sb.from(TABELLE).delete().eq("collection", coll).eq("id", id).select("id").then(function (r) { if (r.error) throw r.error; return { geloescht: r.data ? r.data.length : 0 }; }); }
     };
   }
   var db = { collection: function (n) { return sammlung(n); }, collectionFelder: sammlungFelder, doc: dokument };
@@ -333,31 +418,53 @@
        start() aufrufen, ausgeführt wird es nur einmal. */
     start = function () {
       if (gestartet) return; gestartet = true;
-      /* Erst die Rolle vom Server erfragen. Ohne Rolle (nicht Admin, kein Gast-Eintrag) kommt niemand ans Board —
-         die Datenbank würde ohnehin nichts herausgeben; hier zeigen wir es nur verständlich an. */
-      rolleHolen().then(function (r) {
+      /* Erst die Rolle vom Server erfragen (mit Zeitgrenze und bis zu drei Versuchen). Ohne Rolle (nicht Admin, kein
+         Gast-Eintrag) kommt niemand ans Board — die Datenbank würde ohnehin nichts herausgeben; hier zeigen wir es nur
+         verständlich an. Netzfehler und Ablehnung durch den Server werden getrennt benannt; eine bestehende Sitzung wird
+         dabei NICHT verworfen (Neuanmelden würde nichts ändern). */
+      rolleHolen().then(function (x) {
+        var anonym = !!(session && session.user && session.user.is_anonymous);
+        if (x.art === "fehlt") {
+          /* Datenbank ohne Rollen-Umstellung (Funktion fehlt): Konto der Team-Anmeldung wie bisher als Admin behandeln —
+             die Datenbank selbst entscheidet weiter über jeden Zugriff. Anonyme Konten nie. */
+          x = session && session.user && !anonym ? { art: "ok", r: { rolle: "admin", kuerzel: null } } : { art: "ok", r: { rolle: "keine" }, ohneFunktion: true };
+        }
+        if (x.art === "netz" || x.art === "abgelehnt") {
+          gestartet = false; rolle = null;
+          var nochmal = function () { karteWeg(); start(); };
+          karte(x.art === "netz" ? "Keine Verbindung zum Server" : "Der Server hat die Prüfung abgelehnt",
+            x.art === "netz" ? "Die Berechtigung konnte nach " + ROLLE_VERSUCHE + " Versuchen nicht geprüft werden. Deine Anmeldung bleibt bestehen. Bitte die Verbindung prüfen und noch einmal versuchen."
+              : "Die Antwort des Servers war eine Ablehnung" + (x.code ? " (Code " + x.code + ")" : "") + ". Neu anmelden hilft dabei nicht — bitte LES oder Main Bescheid geben.",
+            [{ t: "Erneut versuchen", fn: nochmal }, { t: "Abmelden", fn: abmelden }]);
+          return;
+        }
+        var r = x.r;
         if (!r || r.rolle === "keine") {
           gestartet = false; rolle = null;
-          try { localStorage.removeItem("ss-rolle"); document.documentElement.classList.remove("gast"); } catch (e) {}
-          var war = session && session.user && session.user.is_anonymous;
-          gastHinweis = !r ? "Die Berechtigung konnte nicht geprüft werden (Verbindung?). Bitte neu anmelden."
-            : war ? "Gast-Zugang abgelaufen oder nicht eingetragen. Bitte als Gast neu anmelden."
-            : "Dieses Konto hat keinen Zugriff auf den Leitstand.";
-          overlay(true);
+          var warGast = false;
+          try { warGast = localStorage.getItem("ss-rolle") === "gast"; localStorage.removeItem("ss-rolle"); document.documentElement.classList.remove("gast"); } catch (e) {}
+          if (anonym) {
+            /* Restsitzung ohne Gast-Eintrag verwerfen; Hinweis nur, wenn dieses Gerät schon einmal als Gast drin war */
+            gastHinweis = x.ohneFunktion ? "Der Gast-Zugang ist auf dem Server noch nicht eingerichtet."
+              : warGast ? "Dein Gast-Zugang ist nicht mehr eingetragen (Passwort geändert oder Zugang entzogen). Bitte als Gast neu anmelden." : null;
+            session = null;
+            try { (sb.auth.signOut({ scope: "local" }) || Promise.resolve()).then(function () {}, function () {}); } catch (e) {}
+          } else gastHinweis = "Dieses Konto hat keinen Zugriff auf den Leitstand.";
+          karteWeg(); overlay(true);
           var el = document.getElementById("liveLoginErr"); if (el && gastHinweis) { el.textContent = gastHinweis; gastHinweis = null; }
           return;
         }
-        rolle = r;
+        rolle = r; startKontoId = session && session.user ? session.user.id : null;
+        karteWeg();
         try { if (r.rolle === "gast") localStorage.setItem("ss-rolle", "gast"); else localStorage.removeItem("ss-rolle"); } catch (e) {}
-        overlay(false); startRealtime();
-        /* Kürzel aus dem GitHub-Login ableiten, falls auf diesem Gerät noch keins (oder nur ein Gast-Kürzel) gewählt ist
-           (beim Kürzel+Passwort-Login ist ss-wer an dieser Stelle schon gesetzt). */
+        overlay(false); startRealtime(); sitzungBeobachten();
+        if (r.rolle === "gast") gastWaechter();
+        /* Kürzel: bei Gästen das angemeldete Gast-Kürzel, bei Admins nach JEDER Anmeldung das Kürzel des Kontos (ein auf dem
+           Gerät zurückgebliebenes Gast-Kürzel darf nicht als Absender weiterlaufen). */
         try {
-          var gh = session && session.user && session.user.user_metadata ? session.user.user_metadata.user_name : null;
-          var k = gh && GITHUB_KUERZEL[gh];
-          var cur = localStorage.getItem("ss-wer");
+          var k = r.rolle === "admin" ? (kontoKuerzel() || r.kuerzel) : null;
           if (r.rolle === "gast") localStorage.setItem("ss-wer", r.kuerzel);
-          else if (k && (!cur || ["LES", "JB", "TS", "DS"].indexOf(cur) === -1)) {
+          else if (k) {
             localStorage.setItem("ss-wer", k);
             var b = document.querySelector('#whoModalBtns button[data-w="' + k + '"]'); if (b) b.click();
           }
@@ -391,14 +498,7 @@
     /* Rolle laut Server: {rolle:"admin"|"gast", kuerzel} oder null (noch nicht angemeldet) */
     rolle: function () { return rolle ? { rolle: rolle.rolle, kuerzel: rolle.kuerzel || null } : null; },
     istGast: istGast,
-    /* Kürzel aus der ANMELDUNG (GitHub-Name oder Kürzel-Konto), nie aus dem frei wählbaren "Ich bin"; ohne eindeutige Zuordnung null. */
-    kuerzel: function () {
-      var u = session && session.user; if (!u || istGast()) return null;
-      var gh = u.user_metadata && u.user_metadata.user_name; if (gh && GITHUB_KUERZEL[gh]) return GITHUB_KUERZEL[gh];
-      var mail = String(u.email || "").toLowerCase();
-      for (var k in KUERZEL_KONTEN) if (KUERZEL_KONTEN[k] === mail) return k;
-      return null;
-    } };
+    kuerzel: kontoKuerzel };
 
   /* ---- Nach dem Laden: Statuszeile, Projektdatei-Links, Schnitt-11-Panel ---- */
   document.addEventListener("DOMContentLoaded", function () {
@@ -407,7 +507,7 @@
       var s = document.createElement("span"); s.style.cssText = "color:#56ABB5"; s.textContent = " · live"; p.appendChild(s);
       var a = document.createElement("a"); a.href = "#"; a.textContent = "Abmelden"; a.title = "GitHub-Konto und Kürzel auf diesem Gerät wechseln";
       a.style.cssText = "margin-left:10px;color:var(--muted,#93A8AA);text-decoration:underline;font-size:12px";
-      a.addEventListener("click", function (ev) { ev.preventDefault(); if (confirm("Abmelden? Danach kann man sich mit einem anderen GitHub-Konto anmelden und das Kürzel neu wählen.")) abmelden(); });
+      a.addEventListener("click", function (ev) { ev.preventDefault(); if (confirm(istGast() ? "Abmelden? Danach musst du dich wieder als Gast anmelden (Kürzel und Gast-Passwort)." : "Abmelden? Danach kann man sich mit einem anderen GitHub-Konto anmelden und das Kürzel neu wählen.")) abmelden(); });
       p.appendChild(a);
     }
 
@@ -422,7 +522,7 @@
     if (!host) return;
     var sec = document.createElement("section"); sec.className = "card"; sec.id = "schnitt11";
     sec.innerHTML = '<h2>Schnitt 11 <span class="hint">Claude-Aufgaben · läuft live auf dem Schnittrechner</span></h2>' +
-      '<p class="muted" style="margin:0 0 10px;font-size:13px;color:var(--muted)">To-do mit Art „Claude-Aufgabe“ anlegen und auf „Jetzt erledigen“ tippen. Claude Code auf Schnitt 11 nimmt es in Sekunden auf; Ausgabe erscheint hier.</p>' +
+      '<p class="muted s11bedienung" style="margin:0 0 10px;font-size:13px;color:var(--muted)">To-do mit Art „Claude-Aufgabe“ anlegen und auf „Jetzt erledigen“ tippen. Claude Code auf Schnitt 11 nimmt es in Sekunden auf; Ausgabe erscheint hier.</p>' +
       '<ul class="todos" id="s11List"><li class="empty">Keine laufenden oder kürzlich erledigten Claude-Aufgaben.</li></ul>' +
       '<style>#schnitt11 .s11st{font-size:12px;font-weight:600}#schnitt11 .s11st[data-s="offen"]{color:var(--muted)}#schnitt11 .s11st[data-s="wartet"]{color:var(--muted)}#schnitt11 .s11st[data-s="laeuft"]{color:var(--signal)}#schnitt11 .s11st[data-s="fertig"]{color:var(--ok)}#schnitt11 .s11st[data-s="fehler"]{color:#E87A46}#schnitt11 pre{margin:6px 0 0;max-height:220px;overflow:auto;font:12px var(--font-mono);background:#0E181B;color:#E4ECEA;padding:8px 10px;border-radius:8px;white-space:pre-wrap;border:1px solid var(--line)}#schnitt11 details summary{cursor:pointer;font-size:12px;color:var(--muted)}#schnitt11 li{list-style:none;padding:10px 0;border-top:1px solid var(--line)}#schnitt11 li:first-child{border-top:0}</style>';
     host.insertBefore(sec, host.firstChild.nextSibling);

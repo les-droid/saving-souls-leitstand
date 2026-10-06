@@ -417,12 +417,13 @@
   }
   @media (prefers-contrast: more) { section.card, .fact, .modalcard, #tourCard { border: 2px solid var(--ink); background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; } }
   /* ===== Gast-Ansicht (html.gast, nur wenn der Server die Rolle „gast“ meldet): nur lesen, Aufgaben abhaken ===== */
-  html.gast #todoForm, html.gast #noteForm, html.gast #linkForm, html.gast #revForm, html.gast #zeitTimerForm, html.gast #zeitForm,
-  html.gast #briefingCard, html.gast #jbCard, html.gast #page-claude, html.gast #nav a[data-page="claude"], html.gast #schnitt11,
-  html.gast .ident, html.gast .tclaude, html.gast .tantwort, html.gast .revform, html.gast .revlink-edit,
+  html.gast #todoForm, html.gast #noteForm, html.gast #linkForm, html.gast #revForm, html.gast #zeitTimerCard, html.gast #zeitForm,
+  html.gast #briefingCard, html.gast #jbCard, html.gast #page-claude, html.gast #nav a[data-page="claude"], html.gast .s11bedienung,
+  html.gast #privCard,
+  html.gast .ident, html.gast .tclaude button, html.gast .tantwort, html.gast .revform, html.gast .revlink-edit,
   html.gast .revlinks button[data-act="setlink"], html.gast .hin .undo,
   html.gast #todoList .del, html.gast #doneList .del, html.gast #noteList .del, html.gast #linkList .del, html.gast #revList .del, html.gast #zeitList .del { display: none !important; }
-  html.gast .hin input[type=checkbox], html.gast .revkom input[type=checkbox] { pointer-events: none; opacity: 0.45; }
+  .tvon { display: block; margin-top: 3px; font: 11px var(--font-mono); color: var(--muted); }
   .gastvermerk { margin-left: auto; font: 600 12px var(--font-mono); letter-spacing: 0.04em; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); }
 </style>
 <link rel="stylesheet" href="claude-chat.css?v=260923a">
@@ -545,7 +546,7 @@
             <li><span class="pill open">offen</span><span>Rohschnitt Hauptfilm <span class="pdetail">Teaser/Trailer existieren (Juli)</span></span></li>
           </ul>
         </section>
-        <section class="card">
+        <section class="card" id="privCard">
           <h2>Mein Zettel <span class="hint">privat — nur auf diesem Gerät</span></h2>
           <form class="add" id="privForm">
             <textarea id="privInput" placeholder="Eigene Notiz — sieht nur, wer an diesem Gerät sitzt …" maxlength="2000"></textarea>
@@ -897,7 +898,7 @@ if (/[?&]demo=(1|gast)(&|$)/.test(location.search) && (location.protocol === "fi
 // ?demo=gast: dieselbe Demo in der Gast-Sicht (gast-demo.js, erfundene Daten, Server-Funktion nur simuliert) — ebenfalls nur lokal.
 if (/[?&]demo=gast(&|$)/.test(location.search) && (location.protocol === "file:" || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname))) document.write('<script src="gast-demo.js"><\/script>');
 </script>
-<script src="leitstand-db.js?v=261006a"></script>
+<script src="leitstand-db.js?v=261006b"></script>
 <script>
 (function () {
   "use strict";
@@ -953,6 +954,10 @@ if (/[?&]demo=gast(&|$)/.test(location.search) && (location.protocol === "file:"
     istGast = !!(rl && rl.rolle === "gast");
     document.documentElement.classList.toggle("gast", istGast);
     var alt = document.getElementById("gastVermerk"); if (alt) alt.remove();
+    // Karte „Zeit eintragen“: für Gäste bleibt nur die Liste — die Überschrift sagt dann, was sie ist
+    var zh = document.querySelector("#zeitForm") && document.querySelector("#zeitForm").closest("section") ? document.querySelector("#zeitForm").closest("section").querySelector("h2") : null;
+    if (zh) { if (istGast && !zh.dataset.orig) { zh.dataset.orig = zh.innerHTML; zh.textContent = "Zeiteinträge"; } else if (!istGast && zh.dataset.orig) { zh.innerHTML = zh.dataset.orig; delete zh.dataset.orig; } }
+    if (typeof renderPriv === "function") renderPriv();
     if (!istGast) return;
     me = rl.kuerzel || "?";
     whoModal.classList.add("hidden");
@@ -1072,11 +1077,16 @@ if (/[?&]demo=gast(&|$)/.test(location.search) && (location.protocol === "file:"
         : "— Schnitt 11 oder der VPS nehmen es in Sekunden (VPS läuft rund um die Uhr)";
       extra = v.angefordert
         ? '<div class="tclaude"><span class="warte">Angefordert' + (v.angefordertVon ? " von " + esc(v.angefordertVon) : "") + '</span><span>' + lauf + '</span></div>'
-        : '<div class="tclaude"><button type="button" data-act="jetzt">Jetzt erledigen</button><span>' + (nurS11 ? "startet auf Schnitt 11" : "startet sofort auf Schnitt 11 oder dem VPS") + '</span></div>';
+        : istGast ? "" : '<div class="tclaude"><button type="button" data-act="jetzt">Jetzt erledigen</button><span>' + (nurS11 ? "startet auf Schnitt 11" : "startet sofort auf Schnitt 11 oder dem VPS") + '</span></div>';
     }
-    var gSperre = istGast && typ === "claude";   // Gast: Befehle an Claude nicht abhakbar (der Server lehnt es ohnehin ab)
+    // Gast: dieselben Bedingungen wie gast_aufgabe_status auf dem Server (Befehl/Rückfrage/Claude-Aufgabe/Chat/angefordert/Status laeuft/keine Aufgabe)
+    // — dort lautet die Antwort sonst „gesperrt“ und das Häkchen bliebe zu Unrecht gesetzt. Gemeinsame Beschreibung: README, „Gäste und Abhaken“.
+    var gGrund = !istGast ? "" : (typ === "claude" || v.wer === "Claude" || v.quelle === "chat" || v.angefordert === true || v.s11status != null) ? "Befehle an Claude ändern nur die Editoren"
+      : (typ === "frage") ? "Rückfragen beantworten und abhaken nur die Editoren" : !("text" in v) ? "Kein Aufgaben-Eintrag" : "";
+    var gSperre = !!gGrund;
+    var von = v.geaendert_von ? '<span class="tvon">' + (v.done ? "abgehakt" : "zurückgeholt") + " von " + esc(v.geaendert_von) + (v.geaendert_rolle === "gast" ? " (Gast)" : "") + (v.geaendert_am ? ", " + new Date(v.geaendert_am).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "") + "</span>" : "";
     return '<li class="' + (v.done ? "done" : "") + '" data-id="' + esc(item.id) + '"><span class="prio p' + p + '" title="Priorität: ' + PRIO_TXT[p] + '"></span>' +
-      '<input type="checkbox"' + (v.done ? " checked" : "") + (gSperre ? ' disabled title="Befehle an Claude ändern nur Admins"' : "") + ' aria-label="erledigt"><span class="tbody"><span class="ttext">' + esc(v.text) + "</span>" + det + extra + "</span>" +
+      '<input type="checkbox"' + (v.done ? " checked" : "") + (gSperre ? ' disabled title="' + esc(gGrund) + '"' : "") + ' aria-label="erledigt"><span class="tbody"><span class="ttext">' + esc(v.text) + "</span>" + det + extra + von + "</span>" +
       '<span class="chip ' + esc(v.wer || "alle") + '">' + esc(v.wer || "alle") + '</span>' + (v.done && !gSperre ? '<button type="button" class="undo" data-act="undo">Zurückholen</button>' : "") + '<button class="del" title="Löschen" aria-label="Löschen">×</button></li>';
   }
   function renderTodos(docs) {
@@ -1142,7 +1152,7 @@ if (/[?&]demo=gast(&|$)/.test(location.search) && (location.protocol === "file:"
   var hinweisList = document.getElementById("hinweisList"), hinweisDoneList = document.getElementById("hinweisDoneList");
   function hinweisLi(d) {
     var v = d.data(); if (!v) return ""; var k = String(v.kategorie || "HINWEIS").toUpperCase();
-    return '<li class="hin' + (v.erledigt ? " done" : "") + '" data-id="' + esc(d.id) + '"><input type="checkbox"' + (v.erledigt ? " checked" : "") + ' aria-label="gelesen/erledigt">' +
+    return '<li class="hin' + (v.erledigt ? " done" : "") + '" data-id="' + esc(d.id) + '"><input type="checkbox"' + (v.erledigt ? " checked" : "") + (istGast ? " disabled" : "") + ' aria-label="gelesen/erledigt">' +
       '<span class="hbody"><div class="nmeta"><span class="hk ' + esc(k) + '">' + esc(k) + "</span><span>" + fmtDate(v.created) + "</span>" + (v.bezug ? "<span>· " + esc(v.bezug) + "</span>" : "") + "</div>" +
       '<div class="htitel">' + esc(v.titel || "") + '</div><div class="ntext">' + esc(v.text || "") + "</div></span>" + (v.erledigt ? '<button type="button" class="undo" data-act="undo">Zurückholen</button>' : "") + "</li>";
   }
@@ -1168,11 +1178,13 @@ if (/[?&]demo=gast(&|$)/.test(location.search) && (location.protocol === "file:"
     listEl.addEventListener("click", function (ev) {
       if (!db) return; var li = ev.target.closest("li[data-id]"); if (!li) return;
       var ref = db.collection(coll).doc(li.dataset.id);
-      if (ev.target.dataset.act === "undo") { ref.update({ done: false }).catch(function () {}); return; }
+      // Wer zuletzt abgehakt/zurückgeholt hat, steht an der Aufgabe (Gäste: setzt die Server-Funktion; Editoren: hier mit)
+      var stat = function (done) { var p = { done: done }; if (!istGast && coll === "todos") { p.geaendert_von = me; p.geaendert_am = new Date().toISOString(); p.geaendert_rolle = "admin"; } return p; };
+      if (ev.target.dataset.act === "undo") { ref.update(stat(false)).catch(function () {}); return; }
       if (ev.target.classList.contains("del")) {
-        ref.get().then(function (snap) { var alt = snap.exists ? snap.data() : null; return ref.delete().then(function () { if (alt) toastUndo("Eintrag gelöscht.", function () { ref.set(alt).catch(function () {}); }); }); }).catch(function () {});
+        ref.get().then(function (snap) { var alt = snap.exists ? snap.data() : null; return ref.delete().then(function (res) { if (alt && !(res && res.geloescht === 0)) toastUndo("Eintrag gelöscht.", function () { ref.set(alt).catch(function () {}); }); }); }).catch(function () {});
       }
-      else if (ev.target.type === "checkbox") { var neu = ev.target.checked; ref.update({ done: neu }).then(function () { if (neu && coll === "todos") toastUndo("To-do als erledigt markiert.", function () { ref.update({ done: false }).catch(function () {}); }); }).catch(function () {}); }
+      else if (ev.target.type === "checkbox") { var neu = ev.target.checked; ref.update(stat(neu)).then(function () { if (neu && coll === "todos") toastUndo("To-do als erledigt markiert.", function () { ref.update(stat(false)).catch(function () {}); }); }).catch(function () { if (istGast) ev.target.checked = !neu; /* abgelehnt: Häkchen zurück auf den echten Stand */ }); }
     });
   }
   wireList(todoList, "todos"); wireList(doneList, "todos");
@@ -1214,14 +1226,15 @@ if (/[?&]demo=gast(&|$)/.test(location.search) && (location.protocol === "file:"
   function privLoad() { try { return JSON.parse(localStorage.getItem("ss-privat") || "[]"); } catch (e) { return []; } }
   function privSave(items) { try { localStorage.setItem("ss-privat", JSON.stringify(items)); } catch (e) {} }
   function renderPriv() {
+    if (istGast) { privList.innerHTML = ""; return; }   // Gäste: der Zettel (Browserspeicher des Geräts) bleibt unsichtbar und unlöschbar
     var items = privLoad();
     privList.innerHTML = items.length ? items.map(function (it) { return '<li data-pid="' + esc(it.id) + '"><span class="ntext">' + esc(it.text) + '</span><button class="del" title="Löschen" aria-label="Löschen">×</button></li>'; }).join("") : '<li class="empty">Leerer Zettel.</li>';
   }
   document.getElementById("privForm").addEventListener("submit", function (ev) {
-    ev.preventDefault(); var inp = document.getElementById("privInput"); var t = inp.value.trim(); if (!t) return;
+    ev.preventDefault(); var inp = document.getElementById("privInput"); var t = inp.value.trim(); if (!t || istGast) return;
     var items = privLoad(); items.unshift({ id: String(Date.now()) + Math.random().toString(36).slice(2, 7), text: t }); privSave(items); inp.value = ""; renderPriv();
   });
-  privList.addEventListener("click", function (ev) { if (!ev.target.classList.contains("del")) return; var li = ev.target.closest("li[data-pid]"); if (!li) return; privSave(privLoad().filter(function (it) { return it.id !== li.dataset.pid; })); renderPriv(); });
+  privList.addEventListener("click", function (ev) { if (istGast || !ev.target.classList.contains("del")) return; var li = ev.target.closest("li[data-pid]"); if (!li) return; privSave(privLoad().filter(function (it) { return it.id !== li.dataset.pid; })); renderPriv(); });
   renderPriv();
 
   document.getElementById("copyLink").addEventListener("click", function (ev) {
@@ -1244,7 +1257,7 @@ if (/[?&]demo=gast(&|$)/.test(location.search) && (location.protocol === "file:"
       var links = (v.link ? '<a href="' + esc(v.link) + '" target="_blank" rel="noopener noreferrer">Ansehen</a><button type="button" data-act="share">Link kopieren</button>' : '<button type="button" data-act="setlink">Link setzen</button>');
       return '<li class="rev" data-id="' + esc(d.id) + '"><div class="revkopf"><span class="rtitel">' + esc(v.titel) + '</span><span class="rmeta">' + meta + (offeneK ? ' · <strong>' + offeneK + ' offen</strong>' : "") + '</span><span class="revlinks">' + links + '<button class="del" title="Eintrag löschen" aria-label="Löschen">×</button></span></div>' +
         '<form class="revlink-edit" data-act="linkform" style="display:none"><input type="text" placeholder="https://… (Frame.io, VPS, Vimeo …)" maxlength="500"><button type="submit" class="primary" style="padding:6px 12px;font-size:12px;">Speichern</button></form>' +
-        '<ul class="revkom">' + ks.map(function (k) { return '<li class="' + (k.v.erledigt ? "done" : "") + '" data-kid="' + esc(k.id) + '"><input type="checkbox"' + (k.v.erledigt ? " checked" : "") + ' aria-label="erledigt"><span class="tc">' + esc(tcNorm(k.v.tc)) + '</span><span class="ktext">' + esc(k.v.text) + '</span><span class="kwer">' + esc(k.v.wer || "") + ' · ' + fmtDate(k.v.created) + '</span></li>'; }).join("") + '</ul>' +
+        '<ul class="revkom">' + ks.map(function (k) { return '<li class="' + (k.v.erledigt ? "done" : "") + '" data-kid="' + esc(k.id) + '"><input type="checkbox"' + (k.v.erledigt ? " checked" : "") + (istGast ? " disabled" : "") + ' aria-label="erledigt"><span class="tc">' + esc(tcNorm(k.v.tc)) + '</span><span class="ktext">' + esc(k.v.text) + '</span><span class="kwer">' + esc(k.v.wer || "") + ' · ' + fmtDate(k.v.created) + '</span></li>'; }).join("") + '</ul>' +
         '<form class="revform" data-act="komform"><input class="tc" type="text" placeholder="00:01:23" maxlength="8" autocomplete="off"><input class="txt" type="text" placeholder="Kommentar zu dieser Stelle …" maxlength="1000"><button type="submit">Kommentieren</button></form></li>';
     }).join("") : '<li class="empty">Noch keine Reviews.</li>';
     document.getElementById("revCount").textContent = revDocs.length ? revDocs.length + " Exporte" : "";
@@ -1798,7 +1811,7 @@ if (/[?&]demo=gast(&|$)/.test(location.search) && (location.protocol === "file:"
     return '<div class="aussterne">' + STERN_KUERZEL.map(function (k) {
       var an = !!st[k], eigen = k === ich && bereit;
       var tip = !bereit ? (sterneStatus === "fehler" ? "Sterne konnten nicht geladen werden" : sterneStatus === "keine-db" ? "Sterne gibt es nur mit Datenbank-Verbindung" : "Sterne laden …")
-        : eigen ? "Dein Stern (" + k + ")" : ich ? "Stern von " + k + " — nur " + k + " kann ihn ändern" : "Deine Anmeldung ist keinem Stern-Konto (LES/JB) zugeordnet";
+        : eigen ? "Dein Stern (" + k + ")" : istGast ? "Stern von " + k + " — Sterne setzen nur die Editoren" : ich ? "Stern von " + k + " — nur " + k + " kann ihn ändern" : "Deine Anmeldung ist keinem Stern-Konto (LES/JB) zugeordnet";
       return '<button type="button" class="ausstern' + (an ? " an" : "") + (eigen ? " eigen" : "") + '" data-act="stern" data-k="' + k + '" aria-pressed="' + an + '"' +
         (eigen ? "" : " disabled") + ' aria-label="Stern ' + k + (an ? " gesetzt" : " nicht gesetzt") + '" title="' + esc(tip) + '">' + (an ? "★" : "☆") + "<span>" + k + "</span></button>";
     }).join("") + "</div>";
@@ -1863,7 +1876,7 @@ if (/[?&]demo=gast(&|$)/.test(location.search) && (location.protocol === "file:"
     ausSteuerung(alle, sync);
     var meld = [];
     if (sterneStatus === "fehler") meld.push("Sterne konnten nicht geladen werden — sie sind gesperrt und der Filter „mit Stern“ ist unzuverlässig. Seite neu laden.");
-    else if (sterneStatus === "ok" && !eigenesKuerzel() && db) meld.push("Deine Anmeldung ist keinem Stern-Konto (LES/JB) zugeordnet — Sterne sind nur lesbar.");
+    else if (sterneStatus === "ok" && !eigenesKuerzel() && db) meld.push(istGast ? "Sterne setzen nur die Editoren — hier sind sie nur lesbar." : "Deine Anmeldung ist keinem Stern-Konto (LES/JB) zugeordnet — Sterne sind nur lesbar.");
     document.getElementById("ausMeldung").textContent = meld.join(" ");
     var liste = ausFiltern(alle), term = ausState.s.trim().toLowerCase(), gr = ausGruppen(liste);
     var versteckt = alle.filter(function (e) { return e.prio != null && e.prio < ausState.ab; }).length;
