@@ -1,12 +1,18 @@
-/* Lokale Demo der Ansicht „Aussagen“ — ausschließlich mit ERFUNDENEN, neutralen Beispieldaten.
-   Läuft nur auf localhost / 127.0.0.1 / [::1] / file: und nur mit ?demo=1 (oder ?demo=gast, Gast-Sicht: gast-demo.js). Keine Datenbank, keine Anmeldung;
-   Sterne und alles andere leben nur im Speicher dieser Seite. Enthält keine echten Namen, Zitate oder Projektdaten. */
+/* Lokale Demo des Leitstands — ausschließlich mit ERFUNDENEN, neutralen Beispieldaten.
+   Läuft nur auf localhost / 127.0.0.1 / [::1] / file: und nur mit ?demo=1 (Editor) oder ?demo=gast (Gast-Sicht: gast-demo.js). Keine Datenbank, keine Anmeldung;
+   Sterne und alles andere leben nur im Speicher dieser Seite. Enthält keine echten Namen, Zitate oder Projektdaten.
+   Diese Datei: Clips, Tonaufnahmen, Aussagen, Sterne und die Mini-Datenbank mit der Schnittstelle von leitstand-db.js. Sie lädt danach
+   demo-daten.js (Eintrag stand/projekt mit umschaltbaren Fällen &fall=…, übrige Sammlungen, Vermerke, Archiv) — die Liste der Fälle steht dort oben.
+   Protokolle für Prüfungen: window.LEITSTAND_DEMO_LOG (Ereignisse: abgelehnte Schreibversuche, gesperrte Abfragen, Notizen) und
+   window.LEITSTAND_DEMO_ABFRAGEN (jede Leseabfrage der Seite: Sammlungsname bzw. Pfad eines Eintrags). */
 (function () {
   "use strict";
   var h = location.hostname;
   var lokal = location.protocol === "file:" || h === "localhost" || h === "127.0.0.1" || h === "[::1]";
   if (!lokal || !/[?&]demo=(1|gast)(&|$)/.test(location.search)) return;
   window.LEITSTAND_DEMO = true;
+  var LOG = window.LEITSTAND_DEMO_LOG = window.LEITSTAND_DEMO_LOG || [];
+  var ABFRAGEN = window.LEITSTAND_DEMO_ABFRAGEN = [];
   try { if (!localStorage.getItem("ss-wer")) localStorage.setItem("ss-wer", "LES"); } catch (e) {}   /* Demo: kein Kürzel-Dialog */
 
   var seed = 7;
@@ -91,41 +97,125 @@
   function stern(id, k) { store.aussagen_sterne[id + "__" + k] = { aussage: id, kuerzel: k, stern: true }; }
   stern(ids[9], "LES"); stern(ids[9], "JB"); stern(ids[19], "LES"); stern(ids[29], "JB"); stern(ids[39], "LES"); stern(ids[39], "JB");
 
-  /* Mini-Datenbank mit der Schnittstelle von leitstand-db.js */
-  function snapDoc(id, d) { return { id: id, exists: !!d, data: function () { return d ? JSON.parse(JSON.stringify(d)) : undefined; } }; }
+  /* Vermerke (Schritt V): Fälle für die Umrechnung nach Vertrag V4 in demo-daten.js — Text „nein“ bzw. nur Leerraum ergibt
+     das Kennzeichen false; der Altbestand behält seinen Text im alten Feld (Admins sehen ihn, Gäste nie). */
+  neu({ clip: 11, von: 90, laenge: 20, prio: 5, rub: 3, kern: false, angef: "nein", sens: "   ", kurz: "Angefordert „nein“, sensibel nur Leerraum (Demo)" });
+  neu({ clip: 12, von: 120, laenge: 20, prio: 6, rub: 1, kern: false, sperre: true, sens: "Altbestand: Begründung noch im alten Feld (erfunden)", kurz: "Altbestand mit Text im alten Feld (Demo)" });
+  var ALTBESTAND = ["aussagen/" + Object.keys(store.aussagen).pop()];
+  store.aussagen[ALTBESTAND[0].split("/")[1]].sperre = "Altbestand: Sperrgrund noch im alten Feld (erfunden)";
+  /* eine Tonaufnahme mit Vermerk; ein Clip als Altbestand (Begründung noch im lesbaren Eintrag) */
+  store.tonclip[TAGE_D[0] + "__DEMO_TON_01"].sensibel = true;
+  store.tonclip[TAGE_D[0] + "__DEMO_TON_01"].sensibel_grund = "Demo-Begründung zur Tonaufnahme (erfunden)";
+  store.clips[TAGE_D[3] + "__DEMO_C004"].sensibel = true;
+  store.clips[TAGE_D[3] + "__DEMO_C004"].sensibel_grund = "Altbestand: Begründung noch im lesbaren Clip-Eintrag (erfunden)";
+  ALTBESTAND.push("clips/" + TAGE_D[3] + "__DEMO_C004");
+  window.LEITSTAND_DEMO_ALTBESTAND = ALTBESTAND;
+
+  /* Ein Tag, den nur die Clip-Daten kennen (erfundene Fremdkennung; steht in drehtage.tage[] nicht und gehört hinter die Tage) */
+  for (var x = 0; x < 2; x++) {
+    var xn = "DEMO_X" + String(x + 1).padStart(3, "0"), xb = [];
+    for (var xk = 0; xk < 12; xk++) xb.push({ t0: xk * 10, t1: xk * 10 + 10, text: pick(SATZ).replace("%T", pick(TH)) + " (Fremd " + x + "-" + xk + ")." });
+    store.clips["EXTERN-DEMO__" + xn] = { tag: "EXTERN-DEMO", nr: x + 1, clip: xn, datei: xn + ".MP4", dauer_s: 120, woerter: 12 * 12, zuordnung: "B-Roll", jb_prio: "niedrig", inhalt: "Erfundener Fremdclip " + (x + 1) + " für die Demo.", personen: "", adresse: "DEMO/" + xn, sensibel: false, hat_transkript: true, transkript: xb };
+  }
+
+  /* ---- Mini-Datenbank mit der Schnittstelle von leitstand-db.js (gleiche Aufrufe, gleiche Antworten) ----
+     orderBy/where/limit wie dort; onSnapshot(cb, fehlerCb) und doc().onSnapshot(cb, fehlerCb) rufen fehlerCb, solange die Verbindung fehlt
+     (Fall keine-verbindung, demo-daten.js); get() und Schreiben werden dann abgelehnt. Ein Fehler im Rückruf geht wie dort an fehlerCb
+     und steht hier zusätzlich in der Konsole. Jede Leseabfrage steht in LEITSTAND_DEMO_ABFRAGEN. */
+  var verbunden = true;
+  function keineVerbindung() { return new Error("Keine Verbindung zur Datenbank (Demo)"); }
+  function neueId() { return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+  function snapDoc(id, d) { return { id: id, exists: !!d, data: function () { return d ? JSON.parse(JSON.stringify(d)) : undefined; }, ref: null }; }
+  function sortDocs(docs, order) {
+    if (!order) return docs;
+    return docs.slice().sort(function (a, b) {
+      var x = (a.data() || {})[order.f], y = (b.data() || {})[order.f];
+      x = x == null ? "" : x; y = y == null ? "" : y;
+      return (x < y ? -1 : x > y ? 1 : 0) * (order.dir === "desc" ? -1 : 1);
+    });
+  }
   function alle(coll, felder) {
-    var docs = Object.keys(store[coll] || {}).map(function (id) {
+    return Object.keys(store[coll] || {}).map(function (id) {
       var v = store[coll][id], o = v;
       if (felder) { o = {}; felder.forEach(function (f) { if (v[f] !== undefined) o[f] = v[f]; }); }
       return snapDoc(id, o);
     });
-    return { docs: docs, empty: !docs.length, size: docs.length, forEach: function (fn) { docs.forEach(fn); } };
+  }
+  function form(docs, order, filter, lim) {
+    if (filter) docs = docs.filter(function (d) { var x = d.data() || {}; return filter.every(function (c) { return c.op === "==" ? x[c.f] === c.v : c.op === "!=" ? x[c.f] !== c.v : true; }); });
+    docs = sortDocs(docs, order); if (lim) docs = docs.slice(0, lim);
+    return { docs: docs, empty: docs.length === 0, size: docs.length, forEach: function (fn) { docs.forEach(fn); } };
   }
   function on(coll, fn) { (listeners[coll] = listeners[coll] || []).push(fn); return function () { listeners[coll] = listeners[coll].filter(function (x) { return x !== fn; }); }; }
-  function melde(coll) { (listeners[coll] || []).forEach(function (fn) { fn(); }); }
-  function sammlung(name, felder) {
+  function melde(coll) { (listeners[coll] || []).slice().forEach(function (fn) { fn(); }); }
+  function rufe(cb, wert) { try { cb(wert); } catch (e) { try { console.error(e); } catch (x) {} throw e; } }
+  function sammlung(name, felder, order, filter, lim) {
     var self = {
-      orderBy: function () { return self; }, where: function () { return self; }, limit: function () { return self; },
-      get: function () { return Promise.resolve(alle(name, felder)); },
-      onSnapshot: function (cb) { var go = function () { cb(alle(name, felder)); }; setTimeout(go, 0); return on(name, go); },
-      add: function (d) { var id = "demo" + Date.now(); store[name] = store[name] || {}; store[name][id] = d; melde(name); return Promise.resolve({ id: id }); },
+      orderBy: function (f, dir) { return sammlung(name, felder, { f: f, dir: dir || "asc" }, filter, lim); },
+      where: function (f, op, v) { return sammlung(name, felder, order, (filter || []).concat([{ f: f, op: op, v: v }]), lim); },
+      limit: function (n) { return sammlung(name, felder, order, filter, n); },
+      get: function () { ABFRAGEN.push(name); return verbunden ? Promise.resolve(form(alle(name, felder), order, filter, lim)) : Promise.reject(keineVerbindung()); },
+      onSnapshot: function (cb, err) {
+        ABFRAGEN.push(name);
+        var lauf = function () {
+          (verbunden ? Promise.resolve(form(alle(name, felder), order, filter, lim)) : Promise.reject(keineVerbindung()))
+            .then(function (s) { rufe(cb, s); }).catch(function (e) { if (err) err(e); });
+        };
+        setTimeout(lauf, 0); return on(name, lauf);
+      },
+      add: function (d) {
+        if (!verbunden) return Promise.reject(keineVerbindung());
+        var id = neueId(); store[name] = store[name] || {}; store[name][id] = JSON.parse(JSON.stringify(d)); melde(name); return Promise.resolve({ id: id });
+      },
       doc: function (id) { return dok(name + "/" + id); }
     };
     return self;
   }
   function dok(pfad) {
     var t = pfad.split("/"), coll = t[0], id = t.slice(1).join("/");
-    var lade = function () { return Promise.resolve(snapDoc(id, (store[coll] || {})[id])); };
+    var lade = function () { return verbunden ? Promise.resolve(snapDoc(id, (store[coll] || {})[id])) : Promise.reject(keineVerbindung()); };
+    var schreib = function (fn) { if (!verbunden) return Promise.reject(keineVerbindung()); var r = fn(); melde(coll); return Promise.resolve(r); };
     return {
-      get: lade, onSnapshot: function (cb) { setTimeout(function () { lade().then(cb); }, 0); return on(coll, function () { lade().then(cb); }); },
-      set: function (d) { store[coll] = store[coll] || {}; store[coll][id] = d; melde(coll); return Promise.resolve(); },
-      update: function (p) { store[coll] = store[coll] || {}; store[coll][id] = Object.assign({}, store[coll][id], p); melde(coll); return Promise.resolve(); },
-      delete: function () { if (store[coll]) delete store[coll][id]; melde(coll); return Promise.resolve(); }
+      get: function () { ABFRAGEN.push(pfad); return lade(); },
+      onSnapshot: function (cb, err) {
+        ABFRAGEN.push(pfad);
+        var lauf = function () { lade().then(function (s) { rufe(cb, s); }).catch(function (e) { if (err) err(e); }); };
+        setTimeout(lauf, 0); return on(coll, lauf);
+      },
+      set: function (d, opt) {
+        if (opt && opt.merge) return this.update(d);
+        return schreib(function () { store[coll] = store[coll] || {}; store[coll][id] = JSON.parse(JSON.stringify(d)); });
+      },
+      update: function (p) { return schreib(function () { store[coll] = store[coll] || {}; store[coll][id] = JSON.parse(JSON.stringify(Object.assign({}, store[coll][id], p))); }); },
+      /* Antwort wie die Zugriffsschicht: { geloescht: n } */
+      delete: function () { return schreib(function () { var da = !!(store[coll] && store[coll][id]); if (da) delete store[coll][id]; return { geloescht: da ? 1 : 0 }; }); }
     };
   }
   var db = { collection: function (n) { return sammlung(n); }, collectionFelder: function (n, f) { return sammlung(n, f); }, doc: dok };
   window.claude = { use: function (w) { return Promise.resolve(w === "db" ? db : null); }, live: false, logout: function () {}, user: function () { return "Demo"; },
     /* Demo: Kürzel = lokale Wahl "Ich bin" (nur hier; live kommt es aus der Anmeldung) */
-    kuerzel: function () { try { var k = localStorage.getItem("ss-wer"); return k === "LES" || k === "JB" ? k : null; } catch (e) { return null; } } };
+    kuerzel: function () { try { var k = localStorage.getItem("ss-wer"); return k === "LES" || k === "JB" ? k : null; } catch (e) { return null; } },
+    /* Rolle wie claude.rolle() der Zugriffsschicht; die Gast-Demo überschreibt beides */
+    rolle: function () { return { rolle: "admin", kuerzel: window.claude.kuerzel() }; },
+    istGast: function () { return false; },
+    /* Notiz wie claude.notiz() der Zugriffsschicht (B3), Editor: ein Eintrag in notes mit dem Kürzel (hier »Ich bin«), rolle admin, höchstens 1.000
+       Zeichen; Antwort { ok, id } bzw. { ok: false, grund[, max] }, nie ein Fehler. Die Gast-Demo ersetzt sie (gast_notiz). */
+    notiz: function (text) {
+      var k = window.claude.kuerzel(), t = String(text == null ? "" : text).replace(/^\s+|\s+$/g, "");
+      if (!verbunden) return Promise.resolve({ ok: false, grund: "netz" });
+      if (!k) return Promise.resolve({ ok: false, grund: "unbekannt" });
+      if (!t) return Promise.resolve({ ok: false, grund: "leer" });
+      if (Array.from(t).length > 1000) return Promise.resolve({ ok: false, grund: "zu_lang", max: 1000 });
+      var id = neueId(); store.notes = store.notes || {}; store.notes[id] = { text: t, wer: k, rolle: "admin", created: new Date().toISOString() }; melde("notes");
+      return Promise.resolve({ ok: true, id: id });
+    } };
+  /* Für demo-daten.js und gast-demo.js: Verbindung trennen/herstellen (ruft jedes Abo neu: fehlerCb bzw. cb), Änderung melden */
+  window.LEITSTAND_DEMO_DB = {
+    verbindung: function (an) { verbunden = !!an; Object.keys(listeners).forEach(melde); },
+    verbunden: function () { return verbunden; },
+    melde: melde, neueId: neueId, log: function (t) { LOG.push(t); try { console.info("[Demo] " + t); } catch (e) {} }
+  };
   window.LEITSTAND_DEMO_STORE = store;
+  /* Projekt-Eintrag, übrige Sammlungen, Fälle (lädt direkt im Anschluss, vor gast-demo.js und vor der Seite) */
+  document.write('<script src="demo-daten.js"><\/script>');
 })();

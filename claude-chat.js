@@ -16,8 +16,8 @@
   var TEMPLATE =
     '<div class="grid eins"><div>' +
     '<section class="card" id="claudeChatCard">' +
-      '<h2>Claude <span class="hint">Chat mit Claude — läuft auf Schnitt 11 oder dem VPS</span></h2>' +
-      '<p class="ccLesehinweis">Claude liest und antwortet — Änderungen an Dateien macht eine Sitzung am Schnittplatz.</p>' +
+      '<h2>Claude <span class="hint">Chat mit Claude</span></h2>' +
+      '<p class="ccLesehinweis">Für Fragen zum Projekt. Soll etwas gebaut werden, leg eine Claude-Aufgabe an.</p>' +
       '<div class="ccQuick">' +
         '<button type="button" class="ccQuickBtn" data-cmd="stand">Stand?</button>' +
         '<button type="button" class="ccQuickBtn" data-cmd="laeuft">Was läuft gerade?</button>' +

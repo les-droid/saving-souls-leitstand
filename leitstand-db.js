@@ -61,53 +61,78 @@
     b.innerHTML = t; clearTimeout(b._t); b._t = setTimeout(function () { b.remove(); }, ms || 6000);
   }
 
-  /* ---- Login-Overlay: Kürzel + Passwort (Hauptweg), GitHub als Zweitweg darunter ---- */
+  /* ---- Login-Overlay: Kürzel + Passwort (Hauptweg), GitHub als Zweitweg darunter ----
+     Paket 6 Teil 3b, KO-5 Möglichkeit 2 (Entscheidung LES 07.10.; HIG modality:39, accessibility:61/129, toggles:22, text-fields:16, dark-mode:30/35):
+     ein Dialog für Tastatur und VoiceOver (role, aria-modal, Titel und Zeile darunter als Name und Beschreibung, Startfokus auf dem ersten Kürzel,
+     alles dahinter inert, danach Fokus zurück); das gewählte Kürzel mit aria-pressed und gefüllter Fläche; Fehlermeldung als role=alert, bei leerem
+     Feld aria-invalid und Fokus ins Feld; Felder mit dem Platzhaltertext als Namen; Farben über die Marken der Seite (Ersatzwert = bisherige Farbe),
+     Platzhalter, Feldränder, Unschärfe und deckende Fläche bei »Transparenz reduzieren« bzw. »Kontrast erhöhen« über die Stilregel am Ende.
+     Texte, Reihenfolge, Ablauf und Anmeldewege wie bisher (K 2.5). */
+  var hinterGesperrt = [], fokusVorLogin = null;
+  function hinterSperren(el) {   // alles neben dem Anmeldefenster inert — nur, was es nicht schon war (das gibt hinterFrei zurück)
+    Array.prototype.forEach.call(document.body.children, function (c) { if (c === el || c.inert || /^(SCRIPT|STYLE|LINK|TEMPLATE)$/.test(c.tagName)) return; c.inert = true; hinterGesperrt.push(c); });
+  }
+  function hinterFrei() { hinterGesperrt.forEach(function (c) { c.inert = false; }); hinterGesperrt = []; }
   function overlay(zeige) {
     var el = document.getElementById("liveLogin");
-    if (!zeige) { if (el) el.remove(); return; }
-    if (el) return;
+    if (!zeige) {
+      if (el) { el.remove(); hinterFrei(); var f = fokusVorLogin; fokusVorLogin = null; if (f && f !== document.body && document.contains(f)) { try { f.focus({ preventScroll: true }); } catch (e) {} } }
+      return;
+    }
+    if (el) { hinterSperren(el); return; }
+    fokusVorLogin = document.activeElement;
     el = document.createElement("div"); el.id = "liveLogin";
-    el.style.cssText = "position:fixed;inset:0;z-index:9999;display:flex;overflow:auto;padding:16px 0;box-sizing:border-box;background:rgba(14,24,27,.82);backdrop-filter:blur(8px)";
+    el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); el.setAttribute("aria-labelledby", "liveLoginTitel"); el.setAttribute("aria-describedby", "liveLoginZeile");
+    el.style.cssText = "position:fixed;inset:0;z-index:9999;display:flex;overflow:auto;padding:16px 0;box-sizing:border-box";
     var kuerzelBtns = Object.keys(KUERZEL_KONTEN).map(function (k) {
-      return '<button type="button" class="liveLoginKuerzel" data-k="' + k + '" style="flex:1;font:700 16px -apple-system,system-ui,sans-serif;padding:12px 0;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:#0E181B;color:#E4ECEA;cursor:pointer">' + k + "</button>";
+      return '<button type="button" class="liveLoginKuerzel" data-k="' + k + '" aria-pressed="false" style="flex:1;font:700 16px -apple-system,system-ui,sans-serif;padding:12px 0;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:var(--bg,#0E181B);color:var(--ink,#E4ECEA);cursor:pointer">' + k + "</button>";
     }).join("");
-    el.innerHTML = '<div style="background:#162327;color:#E4ECEA;border:1px solid rgba(255,255,255,.1);padding:28px 30px;border-radius:18px;max-width:340px;width:calc(100% - 40px);margin:auto;text-align:center;font:15px -apple-system,system-ui,sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.4)">' +
-      '<div style="font-size:20px;font-weight:600;margin-bottom:6px">Saving Souls Leitstand</div>' +
-      '<div style="font-size:13px;color:#93A8AA;margin-bottom:16px">Kürzel wählen, Passwort eingeben. Danach sind To-dos, Notizen und Befehle live für alle.</div>' +
+    el.innerHTML = '<div style="background:var(--surface,#162327);color:var(--ink,#E4ECEA);border:1px solid rgba(255,255,255,.1);padding:28px 30px;border-radius:18px;max-width:340px;width:calc(100% - 40px);margin:auto;text-align:center;font:15px -apple-system,system-ui,sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.4)">' +
+      '<div id="liveLoginTitel" style="font-size:20px;font-weight:600;margin-bottom:6px">Saving Souls Leitstand</div>' +
+      '<div id="liveLoginZeile" style="font-size:13px;color:var(--muted,#93A8AA);margin-bottom:16px">Editoren: Kürzel wählen und Passwort eingeben. Gäste: unten „Als Gast anmelden“.</div>' +
       '<div style="display:flex;gap:10px;margin-bottom:14px">' + kuerzelBtns + "</div>" +
       '<form id="liveLoginForm">' +
-        '<input id="liveLoginPw" type="password" autocomplete="current-password" placeholder="Passwort" style="font:inherit;width:100%;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:#0E181B;color:#E4ECEA;margin-bottom:10px">' +
-        '<button type="submit" id="liveLoginBtn" style="font:inherit;font-weight:600;padding:12px 18px;border:0;border-radius:12px;background:#56ABB5;color:#0E181B;cursor:pointer;width:100%">Anmelden</button>' +
+        '<input id="liveLoginPw" type="password" autocomplete="current-password" placeholder="Passwort" aria-label="Passwort" style="font:inherit;width:100%;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid var(--field-edge,#5C7075);background:var(--bg,#0E181B);color:var(--ink,#E4ECEA);margin-bottom:10px">' +
+        '<button type="submit" id="liveLoginBtn" style="font:inherit;font-weight:600;padding:12px 18px;border:0;border-radius:12px;background:var(--accent,#56ABB5);color:var(--accent-ink,#0E181B);cursor:pointer;width:100%">Anmelden</button>' +
       "</form>" +
-      '<div id="liveLoginErr" style="font-size:12px;color:#E87A46;margin-top:10px;min-height:14px"></div>' +
-      '<button type="button" id="liveGithubBtn" style="margin-top:16px;font:600 12px -apple-system,system-ui,sans-serif;background:none;border:0;color:#93A8AA;text-decoration:underline;cursor:pointer">Mit GitHub anmelden</button>' +
-      '<div style="margin-top:6px"><button type="button" id="liveGastBtn" style="font:600 12px -apple-system,system-ui,sans-serif;background:none;border:0;color:#93A8AA;text-decoration:underline;cursor:pointer">Als Gast anmelden</button></div>' +
+      '<div id="liveLoginErr" role="alert" style="font-size:12px;margin-top:10px;min-height:14px"></div>' +
+      '<button type="button" id="liveGithubBtn" style="margin-top:16px;padding:12px;font:600 12px -apple-system,system-ui,sans-serif;background:none;border:0;color:var(--muted,#93A8AA);text-decoration:underline;cursor:pointer">Mit GitHub anmelden</button>' +
+      '<div style="margin-top:16px;border-top:1px solid rgba(255,255,255,.1);padding-top:16px"><button type="button" id="liveGastBtn" style="font:inherit;font-weight:600;padding:12px 18px;border:1px solid rgba(255,255,255,.18);border-radius:12px;background:none;color:var(--ink,#E4ECEA);cursor:pointer;width:100%">Als Gast anmelden</button></div>' +
       '<form id="liveGastForm" style="display:none;margin-top:12px;text-align:left;border-top:1px solid rgba(255,255,255,.1);padding-top:12px">' +
-        '<div style="font-size:12px;color:#93A8AA;margin-bottom:8px">Gast: alles ansehen, Aufgaben abhaken. Bearbeiten und Befehle nur für das Team.</div>' +
-        '<input id="liveGastKuerzel" type="text" autocomplete="off" autocapitalize="characters" maxlength="8" placeholder="Dein Kürzel (2–8 Zeichen)" style="font:inherit;width:100%;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:#0E181B;color:#E4ECEA;margin-bottom:10px">' +
-        '<input id="liveGastPw" type="password" autocomplete="off" placeholder="Gast-Passwort" style="font:inherit;width:100%;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:#0E181B;color:#E4ECEA;margin-bottom:10px">' +
-        '<button type="submit" id="liveGastSend" style="font:inherit;font-weight:600;padding:12px 18px;border:0;border-radius:12px;background:#56ABB5;color:#0E181B;cursor:pointer;width:100%">Als Gast anmelden</button>' +
+        '<div style="font-size:12px;line-height:1.35;color:var(--muted,#93A8AA);margin-bottom:8px">Als Gast liest du mit und schreibst den Editoren Notizen. Dein Kürzel wählst du selbst (2 bis 8 Zeichen), das Gast-Passwort bekommst du von den Editoren.</div>' +
+        '<input id="liveGastKuerzel" type="text" autocomplete="off" autocapitalize="characters" maxlength="8" placeholder="Dein Kürzel (2–8 Zeichen)" aria-label="Dein Kürzel (2–8 Zeichen)" style="font:inherit;width:100%;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid var(--field-edge,#5C7075);background:var(--bg,#0E181B);color:var(--ink,#E4ECEA);margin-bottom:10px">' +
+        '<input id="liveGastPw" type="password" autocomplete="off" placeholder="Gast-Passwort" aria-label="Gast-Passwort" style="font:inherit;width:100%;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid var(--field-edge,#5C7075);background:var(--bg,#0E181B);color:var(--ink,#E4ECEA);margin-bottom:10px">' +
+        '<button type="submit" id="liveGastSend" style="font:inherit;font-weight:600;padding:12px 18px;border:0;border-radius:12px;background:var(--accent,#56ABB5);color:var(--accent-ink,#0E181B);cursor:pointer;width:100%">Als Gast anmelden</button>' +
       "</form>" +
-      "</div>";
-    document.body.appendChild(el);
+      "</div>" +
+      "<style>#liveLogin{background:rgba(14,24,27,.82);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}#liveLoginErr{color:var(--danger,#FF6B6F)}" +
+      "#liveLogin [aria-invalid=\"true\"]{border-color:var(--danger,#FF6B6F)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--danger,#FF6B6F) 25%,transparent)}#liveLogin ::placeholder{color:var(--muted,#93A8AA);opacity:1}" +
+      "@media (prefers-reduced-transparency: reduce){#liveLogin{background:var(--bg,#0E181B);-webkit-backdrop-filter:none;backdrop-filter:none}}" +
+      "@media (prefers-contrast: more){#liveLogin{background:var(--bg,#0E181B);-webkit-backdrop-filter:none;backdrop-filter:none}}</style>";
+    document.body.prepend(el);
+    hinterSperren(el);
     if (oauthFehler) { el.querySelector("#liveLoginErr").textContent = /Kein Team-Mitglied/.test(oauthFehler) ? "Dieses GitHub-Konto ist nicht in der Team-Liste. Bitte LES den GitHub-Namen schicken." : oauthFehler; oauthFehler = null; }
     var gewaehltesKuerzel = null;
     var kuerzelKnoepfe = el.querySelectorAll(".liveLoginKuerzel");
     var markiere = function () {
       Array.prototype.forEach.call(kuerzelKnoepfe, function (b) {
         var an = b.dataset.k === gewaehltesKuerzel;
-        b.style.borderColor = an ? "#56ABB5" : "rgba(255,255,255,.18)"; b.style.color = an ? "#56ABB5" : "#E4ECEA";
+        b.setAttribute("aria-pressed", an ? "true" : "false");
+        b.style.borderColor = an ? "var(--accent,#56ABB5)" : "rgba(255,255,255,.18)"; b.style.background = an ? "var(--accent,#56ABB5)" : "var(--bg,#0E181B)"; b.style.color = an ? "var(--accent-ink,#0E181B)" : "var(--ink,#E4ECEA)";
       });
     };
+    var feldFehler = function (id) { var f = el.querySelector(id); if (!f) return; f.setAttribute("aria-invalid", "true"); try { f.focus(); } catch (e) {} };
+    Array.prototype.forEach.call(el.querySelectorAll("input"), function (f) { f.addEventListener("input", function () { f.removeAttribute("aria-invalid"); }); });
+    try { kuerzelKnoepfe[0].focus({ preventScroll: true }); } catch (e) {}
     Array.prototype.forEach.call(kuerzelKnoepfe, function (b) {
       b.addEventListener("click", function () { gewaehltesKuerzel = b.dataset.k; markiere(); try { el.querySelector("#liveLoginPw").focus(); } catch (e) {} });
     });
     el.querySelector("#liveLoginForm").addEventListener("submit", function (ev) {
       ev.preventDefault();
       var errEl = el.querySelector("#liveLoginErr"); errEl.textContent = "";
-      if (!gewaehltesKuerzel) { errEl.textContent = "Bitte zuerst das Kürzel wählen."; return; }
+      if (!gewaehltesKuerzel) { errEl.textContent = "Wähl oben dein Kürzel. Bist du Gast, nimm unten „Als Gast anmelden“."; return; }
       var pw = el.querySelector("#liveLoginPw").value;
-      if (!pw) { errEl.textContent = "Bitte Passwort eingeben."; return; }
+      if (!pw) { errEl.textContent = "Bitte Passwort eingeben."; feldFehler("#liveLoginPw"); return; }
       var kuerzel = gewaehltesKuerzel;
       sb.auth.signInWithPassword({ email: KUERZEL_KONTEN[kuerzel], password: pw }).then(function (r) {
         if (r.error) { errEl.textContent = "Passwort falsch oder Konto noch nicht angelegt."; return; }
@@ -134,9 +159,9 @@
       if (el.querySelector("#liveGastSend").disabled) return;   /* gesperrt: Anmeldung/Prüfung läuft noch */
       var errEl = el.querySelector("#liveLoginErr"); errEl.textContent = "";
       var k = el.querySelector("#liveGastKuerzel").value, pw = el.querySelector("#liveGastPw").value;
-      if (!k.trim()) { errEl.textContent = "Bitte dein Kürzel eintragen."; return; }
-      if (!KUERZEL_FORMAT.test(k.trim())) { errEl.textContent = GAST_FEHLER.kuerzel_ungueltig; return; }   /* erst prüfen, dann ein Konto anlegen */
-      if (!pw) { errEl.textContent = "Bitte das Gast-Passwort eingeben."; return; }
+      if (!k.trim()) { errEl.textContent = "Bitte dein Kürzel eintragen."; feldFehler("#liveGastKuerzel"); return; }
+      if (!KUERZEL_FORMAT.test(k.trim())) { errEl.textContent = GAST_FEHLER.kuerzel_ungueltig; feldFehler("#liveGastKuerzel"); return; }   /* erst prüfen, dann ein Konto anlegen */
+      if (!pw) { errEl.textContent = "Bitte das Gast-Passwort eingeben."; feldFehler("#liveGastPw"); return; }
       gastFormularSperren(true);
       gastAnmelden(k, pw).then(function (f) {
         /* Erfolg (f = null): start() läuft jetzt (Rollenprüfung) — das Formular bleibt gesperrt, bis start() fertig ist
@@ -162,7 +187,7 @@
   }
   function pruefungAnzeigen() {
     var el = document.getElementById("liveLogin"); if (!el) return;
-    var err = el.querySelector("#liveLoginErr"); if (err) { err.textContent = PRUEFTEXT; err.style.color = "#93A8AA"; }
+    var err = el.querySelector("#liveLoginErr"); if (err) { err.textContent = PRUEFTEXT; err.style.color = "var(--muted,#93A8AA)"; }
   }
   function pruefungEnde() {
     gastFormularSperren(false);
@@ -250,27 +275,36 @@
     }, function (e) { return { text: "Keine Verbindung zum Server. Bitte noch einmal versuchen.", grund: "netz" }; })
       .then(function (t) { gastLaeuft = false; return t; });
   }
-  /* Gäste lesen nur. Einzige Ausnahme: der Status (done) einer Aufgabe — über die Server-Funktion, die serverseitig
-     alles andere ablehnt. Alles andere wird hier gar nicht erst abgeschickt (die Datenbank würde es ohnehin ablehnen). */
+  /* Gäste lesen und schreiben Notizen (K 2.4, 9.1 Z26). Jede andere Schreibaktion eines Gasts endet hier und wird gar nicht erst
+     abgeschickt (die Datenbank würde sie ohnehin ablehnen); einen Abhak-Weg für Gäste gibt es nicht mehr (A4). */
   function gastBlock() {
-    banner("Als Gast kannst du nur lesen und Aufgaben abhaken.", 4000);
+    banner("Als Gast liest du mit und schreibst den Editoren Notizen.", 4000);
     return Promise.reject(new Error("Gast: nur lesen"));
   }
-  function gastStatus(coll, id, patch) {
-    var keys = Object.keys(patch || {});
-    if (coll !== "todos" || keys.length !== 1 || keys[0] !== "done" || typeof patch.done !== "boolean") return gastBlock();
-    return mitZeit(sb.rpc("gast_aufgabe_status", { p_id: id, p_done: patch.done }), 15000).then(function (r) {
-      if (r.error) {
-        var ga = fehlerArt(r.error, r.status);
-        banner(ga === "netz" ? "Keine Verbindung — der Status wurde nicht geändert." : ga === "abgelaufen" ? "Anmeldung abgelaufen — bitte die Seite neu laden und neu anmelden." : "Der Server hat die Änderung abgelehnt.", 5000);
-        throw new Error("Gast-Status: Fehler " + (r.error.code || r.error.message));
-      }
-      if (!r.data || !r.data.ok) {
-        if (r.data && r.data.grund === "kein_gast") { pruefeGast(); }
-        banner(r.data && r.data.grund === "gesperrt" ? "Befehle an Claude und Rückfragen ändern nur die Editoren." : r.data && r.data.grund === "kein_gast" ? "Dein Gast-Zugang ist nicht mehr eingetragen." : "Status konnte nicht geändert werden.", 5000);
-        throw new Error("Gast-Status abgelehnt: " + (r.data && r.data.grund));
-      }
+  /* Notiz schreiben (B3; K 5.4, Bauplan 2.3): window.claude.notiz(text) → Promise, nie ein Fehler: { ok: true, id } oder { ok: false, grund[, max] }.
+     Gast: Server-Funktion gast_notiz mit genau dem eingegebenen Text; ihre Gründe kommen unverändert zurück (leer, zu_lang, ungueltig, limit_stunde,
+     limit_tag, limit_gesamt, fehler, nicht_angemeldet, kein_gast). Dazu »netz« (keine Antwort, Zeitgrenze, Serverausfall), »nicht_angemeldet«
+     (Zugang abgelaufen: HTTP 401, PGRST301/303), »ungueltig« (ein Zeichen, das die Datenbank gar nicht annimmt: 22P05), sonst »unbekannt«.
+     Den Satz je Grund wählt die Seite. Editor: ein Eintrag in notes mit dem Kürzel der ANMELDUNG (wie bei den Sternen, nie aus »Ich bin«),
+     rolle admin, höchstens 1.000 Zeichen wie beim Server (Bauplan Annahme A-6). Kein anderer Schreibweg für Notizen. */
+  var NOTIZ_ZEICHEN = 1000;
+  function notizGrund(err, status) { var a = fehlerArt(err, status); return a === "netz" ? "netz" : a === "abgelaufen" ? "nicht_angemeldet" : err.code === "22P05" ? "ungueltig" : "unbekannt"; }
+  function notiz(text) {
+    if (!sb || !rolle) return Promise.resolve({ ok: false, grund: "nicht_angemeldet" });
+    if (istGast()) return mitZeit(sb.rpc("gast_notiz", { p_text: text }), 15000).then(function (r) {
+      if (r.error) return { ok: false, grund: notizGrund(r.error, r.status) };
+      var d = r.data, x = { ok: !!(d && d.ok === true) };
+      if (x.ok) { x.id = d.id; return x; }
+      x.grund = d && typeof d.grund === "string" ? d.grund : "unbekannt";
+      if (d && typeof d.max === "number") x.max = d.max;
+      return x;
     });
+    var k = kontoKuerzel() || rolle.kuerzel || null, t = String(text == null ? "" : text).replace(/^\s+|\s+$/g, ""), id = uid();
+    if (!k) return Promise.resolve({ ok: false, grund: "unbekannt" });   /* ohne Kürzel der Anmeldung keine Notiz */
+    if (!t) return Promise.resolve({ ok: false, grund: "leer" });
+    if (Array.from(t).length > NOTIZ_ZEICHEN) return Promise.resolve({ ok: false, grund: "zu_lang", max: NOTIZ_ZEICHEN });
+    return mitZeit(sb.from(TABELLE).insert({ collection: "notes", id: id, data: { text: t, wer: k, rolle: "admin", created: new Date().toISOString() }, updated_by: k }), 15000)
+      .then(function (r) { return r.error ? { ok: false, grund: notizGrund(r.error, r.status) } : { ok: true, id: id }; });
   }
 
   /* ---- Hinweiskarte (Verbindung / Berechtigung / Gast-Zugang beendet): kein Anmeldefenster, ein klarer Satz und ein Knopf ---- */
@@ -331,7 +365,13 @@
         set.forEach(function (fn) { try { fn(row, p.eventType); } catch (e) { console.error(e); } });
       })
       .subscribe(function (st) {
-        if (st === "CHANNEL_ERROR" || st === "TIMED_OUT") banner("Live-Verbindung unterbrochen – Seite neu laden.", 10000);
+        /* Kanalfehler und Wiederverbindung an EINE Stelle (A7, Fall 1 der Sammelzeile): Ereignis "leitstand-verbindung" an die Seite.
+           Übernimmt die Seite es (preventDefault), zeigt die Zugriffsschicht kein eigenes Band mehr — sonst wie bisher. */
+        if (st !== "CHANNEL_ERROR" && st !== "TIMED_OUT" && st !== "SUBSCRIBED") return;
+        var ok = st === "SUBSCRIBED", ev = null;
+        try { ev = new CustomEvent("leitstand-verbindung", { detail: { ok: ok, quelle: "kanal" }, cancelable: true }); } catch (e) {}
+        var uebernommen = !!ev && !window.dispatchEvent(ev);
+        if (!ok && !uebernommen) banner("Live-Verbindung unterbrochen – Seite neu laden.", 10000);
       });
   }
 
@@ -410,7 +450,7 @@
         return sb.from(TABELLE).upsert({ collection: coll, id: id, data: data, updated_by: wer(), updated_at: new Date().toISOString() }).then(function (r) { if (r.error) throw r.error; });
       },
       update: function (patch) {
-        if (istGast()) return gastStatus(coll, id, patch);
+        if (istGast()) return gastBlock();
         return sb.rpc("docs_patch", { p_collection: coll, p_id: id, p_patch: patch, p_by: wer() }).then(function (r) { if (r.error) throw r.error; });
       },
       /* Antwort: { geloescht: n } — n = 0, wenn die Datenbank nichts gelöscht hat (z. B. Recht entzogen); Aufrufer mit "Rückgängig"-Hinweis zeigen ihn nur bei n > 0 */
@@ -568,41 +608,186 @@
     /* Rolle laut Server: {rolle:"admin"|"gast", kuerzel} oder null (noch nicht angemeldet) */
     rolle: function () { return rolle ? { rolle: rolle.rolle, kuerzel: rolle.kuerzel || null } : null; },
     istGast: istGast,
+    notiz: notiz,   /* B3: Notiz schreiben (Gast über gast_notiz, Editor direkt in notes) */
     kuerzel: kontoKuerzel };
+  /* ---- Projekt-Austausch (Stufe 2, Teil B: Bauplan P2 Nr. 1 und 4; Datenvertrag B 2.1–2.3, 2.7, 2.8; Entscheidungen 5.4 a, h, m) ----
+     window.claude.hochladen(datei, art, beiFortschritt) → Promise, nie ein Fehler: { ok: true } oder { ok: false, grund }.
+       Ablauf: Datei, Endung .prproj, Art und Größe vorab prüfen → die Datei hier im Browser lesen → gast_eingang_anlegen(p_art, p_bytes) →
+       Hochladen in den privaten Bucket projekt-eingaenge unter genau dem Namen »objekt« aus der Antwort, als namenloser Datenblock: die
+       gelesenen Bytes, nicht das Datei-Objekt (der Originalname geht nicht mit), Typ application/octet-stream von der Seite gesetzt, upsert aus
+       (kein Überschreiben; P1-08) → gast_eingang_fertig(p_id). In docs schreibt die Seite dabei nichts selbst.
+       Gründe: die vereinbarten der zwei Server-Funktionen (B 2.7, E 5.4 h) — anlegen: nicht_angemeldet, abgeschaltet, kein_gast, art_ungueltig,
+       zu_gross, grenze_stunde, grenze_tag, grenze_gesamt, speicher_voll, platz_offen, unbekannt; fertig: nicht_angemeldet, abgeschaltet,
+       kein_gast, nicht_gefunden, nicht_deins, falscher_zustand, datei_fehlt —, dazu die Seiten-Codes netz (keine Antwort, Zeitgrenze,
+       Serverausfall), falsche_endung (nicht .prproj) und abgebrochen (keine Datei übergeben; Lesen oder Übertragung vom Browser abgebrochen).
+       Jeder andere Grund des Servers wird »unbekannt«; eine leere Datei ist »unbekannt« wie beim Server (p_bytes unter 1).
+       Lehnt der Speicher die Datei ab oder bleibt seine Antwort aus, fragt die Seite bei gast_eingang_fertig nach (die Funktion prüft nur, ob die
+       Datei unter dem Namen liegt): liegt sie da, ist der Upload gelungen; sonst nennt der Server den Grund (abgeschaltet, kein_gast …; ein
+       verfallener Platz heißt datei_fehlt); bleibt auch diese Antwort aus, bleibt es netz bzw. abgebrochen.
+       Fehlt eine der Funktionen auf dem Server (v3 nicht eingespielt), gilt das als »abgeschaltet«: das Hochladen gibt es dort nicht.
+       beiFortschritt({ schritt }) mit schritt "lesen", "platz", "hochladen", "melden"; ein Fehler im Rückruf hält nichts an. Fortschritt in
+       Byte liefert die Bibliothek beim Hochladen nicht (fetch ohne Ereignisse für den Upload) [offen].
+     window.claude.meineEingaenge() → { ok: true, offen, eingaenge: [{ art, angelegt_am, bytes_gemeldet, hochgeladen_am, status, status_am,
+       grund }] } — nur die eigenen, neueste zuerst, nur die Felder der Spalte »Gast sieht« (B 2.2; jedes andere Feld fällt hier weg, Text bleibt
+       Text, Zahl bleibt Zahl, alles andere wird null) — oder { ok: false, grund } (nicht_angemeldet, abgeschaltet, netz, unbekannt).
+       offen ist der Stand des Server-Schalters; nur bei offen: true zeigt die Seite das Hochladen (P2 Nr. 7). Werte bleiben Daten: die Seite
+       setzt sie nur maskiert ein (P2 Nr. 8).
+     window.claude.eingaengeAbo(cb, fehlerCb) → Abmelde-Funktion oder null. Abo der Sammlung eingaenge erst, wenn die Rolle feststeht und Admin
+       ist (P2 Nr. 4, wie beim Reiter »Redaktion«); Gäste und eine unbekannte Rolle bekommen null: keine Abfrage, kein Abo. Auch über
+       db.collection, db.collectionFelder und db.doc fragt nur ein Admin die Sammlung an (Gäste bekämen von der Datenbank ohnehin nichts). */
+  var EINGANG_BUCKET = "projekt-eingaenge";
+  var EINGANG_MAX_BYTES = 52428800;   /* 50 MiB je Datei: F5 (Vorschlag), wie file_size_limit des Buckets und max_bytes in v3 — ändert Main die Grenze, dann an allen drei Stellen */
+  var EINGANG_ZEIT = 15000;           /* Antwortgrenze der Server-Funktionen, wie bei notiz */
+  var HOCHLADEN_ZEIT = 1200000;       /* Antwortgrenze des Hochladens: 20 Minuten, damit 50 MiB auch über ein langsames Mobilnetz durchgehen [Annahme für den Bau, offen] */
+  var LESEN_ZEIT = 120000;            /* Grenze für das Lesen der Datei im Browser: 2 Minuten — hängt das Lesen, endet hochladen() mit »unbekannt« statt nie (Prüfrunde 1 zu Teil B, T-11) [Annahme für den Bau, offen] */
+  var EINGANG_ARTEN = ["ausgangsstand", "rueckgabe"];
+  var GRUENDE_ANLEGEN = ["nicht_angemeldet", "abgeschaltet", "kein_gast", "art_ungueltig", "zu_gross", "grenze_stunde", "grenze_tag", "grenze_gesamt", "speicher_voll", "platz_offen", "unbekannt"];
+  var GRUENDE_FERTIG = ["nicht_angemeldet", "abgeschaltet", "kein_gast", "nicht_gefunden", "nicht_deins", "falscher_zustand", "datei_fehlt"];
+  var GAST_SIEHT = ["art", "angelegt_am", "bytes_gemeldet", "hochgeladen_am", "status", "status_am", "grund"];
+  function abbruch(e) { return !!e && /^AbortError$/.test(String(e.name || "")); }
+  /* Antwort einer Server-Funktion → { ok: true, d } oder { ok: false, grund } (nur vereinbarte Gründe; Fehlerwege wie bei notiz, »fehlt« = abgeschaltet) */
+  function austauschAntwort(r, gruende) {
+    if (r.error) { var a = fehlerArt(r.error, r.status); return { ok: false, grund: a === "netz" ? "netz" : a === "abgelaufen" ? "nicht_angemeldet" : a === "fehlt" ? "abgeschaltet" : "unbekannt" }; }
+    var d = r.data;
+    if (d && typeof d === "object" && d.ok === true) return { ok: true, d: d };
+    return { ok: false, grund: d && typeof d.grund === "string" && gruende.indexOf(d.grund) !== -1 ? d.grund : "unbekannt" };
+  }
+  /* Datei im Browser lesen → { b: ArrayBuffer } | { e: Fehler } | { abbruch: true } (FileReader nur, wo Blob.arrayBuffer fehlt) */
+  function dateiLesen(datei) {
+    return new Promise(function (fertig) {
+      try {
+        if (typeof datei.arrayBuffer === "function") { datei.arrayBuffer().then(function (b) { fertig({ b: b }); }, function (e) { fertig({ e: e || {} }); }); return; }
+        var fr = new FileReader();
+        fr.onload = function () { fertig({ b: fr.result }); };
+        fr.onerror = function () { fertig({ e: fr.error || {} }); };
+        fr.onabort = function () { fertig({ abbruch: true }); };
+        fr.readAsArrayBuffer(datei);
+      } catch (e) { fertig({ e: e || {} }); }
+    });
+  }
+  /* Fehler des Speichers beim Hochladen → netz, abgebrochen, zu_gross, nicht_angemeldet, unbekannt oder (nur intern, die Nachfrage bei
+     gast_eingang_fertig klärt sie) »vorhanden« (Name schon belegt: ein früherer Versuch kam an) bzw. »abgelehnt« (Regel des Speichers: kein
+     offener Platz). Der Status steht je nach Fassung der Plattform im HTTP-Status oder nur im Feld statusCode — beides zählt. */
+  function speicherArt(e) {
+    if (abbruch(e) || abbruch(e.originalError)) return "abgebrochen";
+    var st = +e.status || 0, sc = parseInt(e.statusCode, 10) || 0;
+    if (st === 401 || sc === 401) return "nicht_angemeldet";
+    if (st === 413 || sc === 413) return "zu_gross";
+    if (st === 409 || sc === 409) return "vorhanden";
+    if (st === 403 || sc === 403) return "abgelehnt";
+    if ((!st && !sc) || st >= 500 || sc >= 500) return "netz";
+    return "unbekannt";
+  }
+  function hochladen(datei, art, beiFortschritt) {
+    var schritt = function (s) { if (typeof beiFortschritt === "function") { try { beiFortschritt({ schritt: s }); } catch (e) {} } };
+    var nein = function (g) { return { ok: false, grund: g }; };
+    var vorab;
+    try {
+      vorab = !sb || !rolle || !session || !session.user || !session.user.id ? "nicht_angemeldet"
+        : !datei ? "abgebrochen"
+        : !/\.prproj$/i.test(String(datei.name == null ? "" : datei.name)) ? "falsche_endung"
+        : EINGANG_ARTEN.indexOf(art) === -1 ? "art_ungueltig"
+        : !(datei.size >= 1) ? "unbekannt"
+        : datei.size > EINGANG_MAX_BYTES ? "zu_gross" : null;
+    } catch (e) { vorab = "unbekannt"; }
+    if (vorab) return Promise.resolve(nein(vorab));
+    var konto = String(session.user.id);
+    schritt("lesen");
+    return mitZeit(dateiLesen(datei), LESEN_ZEIT).then(function (g) {   /* nach der Zeitgrenze: { error } ohne Bytes → unbekannt */
+      if (g.abbruch || abbruch(g.e)) return nein("abgebrochen");
+      var b = g.b, n = b && typeof b.byteLength === "number" ? b.byteLength : 0;
+      if (!(n >= 1)) return nein("unbekannt");
+      if (n > EINGANG_MAX_BYTES) return nein("zu_gross");
+      schritt("platz");
+      return mitZeit(sb.rpc("gast_eingang_anlegen", { p_art: art, p_bytes: n }), EINGANG_ZEIT).then(function (r) {
+        var a = austauschAntwort(r, GRUENDE_ANLEGEN);
+        if (!a.ok) return nein(a.grund);
+        var id = a.d.id, objekt = a.d.objekt;
+        /* nur auf genau den vereinbarten Namen <Konto>/<Kennung>.prproj (B 2.1, E 5.4 a) — sonst nichts hochladen */
+        if (typeof id !== "string" || !/^eg-[0-9a-f]{32}$/.test(id) || konto.indexOf("/") !== -1 || objekt !== konto + "/" + id + ".prproj") return nein("unbekannt");
+        schritt("hochladen");
+        return mitZeit(sb.storage.from(EINGANG_BUCKET).upload(objekt, b, { contentType: "application/octet-stream", upsert: false }), HOCHLADEN_ZEIT).then(function (u) {
+          var fehler = u.error ? speicherArt(u.error) : null;
+          if (fehler === "zu_gross" || fehler === "nicht_angemeldet" || fehler === "unbekannt") return nein(fehler);
+          schritt("melden");
+          return mitZeit(sb.rpc("gast_eingang_fertig", { p_id: id }), EINGANG_ZEIT).then(function (f) {
+            var x = austauschAntwort(f, GRUENDE_FERTIG);
+            if (x.ok) return { ok: true };
+            if (!fehler) return nein(x.grund);
+            if (x.grund === "netz") return nein(fehler === "abgebrochen" ? "abgebrochen" : "netz");
+            if (x.grund === "datei_fehlt") return nein(fehler === "abgelehnt" ? "datei_fehlt" : fehler === "vorhanden" ? "unbekannt" : fehler);
+            return nein(x.grund);
+          });
+        });
+      });
+    }).then(null, function () { return nein("unbekannt"); });
+  }
+  function meineEingaenge() {
+    if (!sb || !rolle) return Promise.resolve({ ok: false, grund: "nicht_angemeldet" });
+    return mitZeit(sb.rpc("gast_meine_eingaenge"), EINGANG_ZEIT).then(function (r) {
+      var a = austauschAntwort(r, ["nicht_angemeldet"]);
+      if (!a.ok) return { ok: false, grund: a.grund };
+      if (!Array.isArray(a.d.eingaenge)) return { ok: false, grund: "unbekannt" };
+      return { ok: true, offen: a.d.offen === true, eingaenge: a.d.eingaenge.filter(function (e) { return !!e && typeof e === "object" && !Array.isArray(e); }).map(function (e) {
+        var v = {};
+        GAST_SIEHT.forEach(function (f) { var x = e[f]; v[f] = f === "bytes_gemeldet" ? (typeof x === "number" && isFinite(x) ? x : null) : typeof x === "string" ? x : null; });
+        return v;
+      }) };
+    }).then(null, function () { return { ok: false, grund: "unbekannt" }; });
+  }
+  function nurAdmins(name) { return name === "eingaenge" && !(rolle && rolle.rolle === "admin"); }
+  function eingaengeAbo(cb, fehlerCb) {
+    if (!sb || typeof cb !== "function" || nurAdmins("eingaenge")) return null;
+    return sammlung("eingaenge").onSnapshot(cb, fehlerCb);
+  }
+  /* allgemeine Wege für Nicht-Admins: lesen liefert nichts, ein Abo ruft nie zurück, keine Abfrage; Schreiben bleibt, wie es ist (Gäste: gastBlock) */
+  var dbAllgemein = { collection: db.collection, collectionFelder: db.collectionFelder, doc: db.doc };
+  function ohneAbfrage(name) {
+    var leer = { docs: [], empty: true, size: 0, forEach: function () {} }, self = {
+      orderBy: function () { return self; }, where: function () { return self; }, limit: function () { return self; },
+      get: function () { return Promise.resolve(leer); }, onSnapshot: function () { return function () {}; },
+      add: function (data) { return dbAllgemein.collection(name).add(data); }, doc: function (id) { return db.doc(name + "/" + id); } };
+    return self;
+  }
+  db.collection = function (n) { return nurAdmins(n) ? ohneAbfrage(n) : dbAllgemein.collection(n); };
+  db.collectionFelder = function (n, f) { return nurAdmins(n) ? ohneAbfrage(n) : dbAllgemein.collectionFelder(n, f); };
+  db.doc = function (p) {
+    var t = String(p).split("/"), d = dbAllgemein.doc(p);
+    if (!nurAdmins(t[0])) return d;
+    return { get: function () { return Promise.resolve(snapDoc(t.slice(1).join("/"), undefined)); }, onSnapshot: function () { return function () {}; }, set: d.set, update: d.update, delete: d.delete };
+  };
+  if (window.claude) {   /* ohne window.claude (Ausweichweg der Prüfungen) bleibt es dabei */
+    window.claude.hochladen = hochladen;
+    window.claude.meineEingaenge = meineEingaenge;
+    window.claude.eingaengeAbo = eingaengeAbo;
+  }
 
-  /* ---- Nach dem Laden: Statuszeile, Projektdatei-Links, Schnitt-11-Panel ---- */
+  /* ---- Nach dem Laden: Abmelden im Kopf, Schnitt-11-Panel (B4: keine Umschreibung der Projektdatei-Links mehr, K 4.5, 9.1 Z14) ---- */
   document.addEventListener("DOMContentLoaded", function () {
-    var p = document.querySelector("p.standline");
-    if (p) {
-      var s = document.createElement("span"); s.style.cssText = "color:#56ABB5"; s.textContent = " · live"; p.appendChild(s);
-      var a = document.createElement("a"); a.href = "#"; a.textContent = "Abmelden"; a.title = "GitHub-Konto und Kürzel auf diesem Gerät wechseln";
-      a.style.cssText = "margin-left:10px;color:var(--muted,#93A8AA);text-decoration:underline;font-size:12px";
-      a.addEventListener("click", function (ev) { ev.preventDefault(); if (confirm(istGast() ? "Abmelden? Danach musst du dich wieder als Gast anmelden (Kürzel und Gast-Passwort)." : "Abmelden? Danach kann man sich mit einem anderen GitHub-Konto anmelden und das Kürzel neu wählen.")) abmelden(); });
-      p.appendChild(a);
-    }
+    /* Abmelden (K 2.4): Knopf #abmelden im Kopf der Seite, auf jedem Reiter; Rückfrage je Rolle. Ohne Knopf geschieht nichts. */
+    var ab = document.getElementById("abmelden");
+    if (ab) ab.addEventListener("click", function (ev) { ev.preventDefault(); if (confirm(istGast() ? "Abmelden? Danach musst du dich wieder als Gast anmelden (Kürzel und Gast-Passwort)." : "Abmelden? Danach meldest du dich neu an.")) abmelden(); });
 
-    /* Premiere-Projektdateien liegen als Kopie neben dieser Seite (projekte/) */
-    setInterval(function () {
-      var as = document.querySelectorAll('a[href*="/blob/main/projekte/"]');
-      for (var i = 0; i < as.length; i++) { var a = as[i]; if (a.dataset.lokal) continue; var m = a.getAttribute("href").match(/\/blob\/main\/projekte\/([^?]+\.prproj)/i); if (!m) continue; a.dataset.lokal = "1"; if (/raw=true/.test(a.getAttribute("href")) || a.textContent.trim() === "Download") { a.setAttribute("href", "projekte/" + m[1]); a.removeAttribute("target"); a.setAttribute("download", ""); } }
-    }, 700);
 
-    /* Schnitt 11: Live-Status der Claude-Aufgaben („Jetzt erledigen“) */
-    var host = document.querySelector("#page-aufgaben .grid > div:first-child");
+    /* Schnitt 11: Live-Status der Claude-Aufgaben („Jetzt erledigen“) — B1: im Abschnitt »Bei Claude« des Reiters Aufgaben (K 5.2 Nr. 6), nur für
+       Editoren; Nachrichten aus dem Reiter „Claude“ (quelle chat, Schreibweisen wie die Leseregel, Vertrag V3) stehen nicht darin (Prüfbericht Bauplan Nr. 14) */
+    var host = document.getElementById("beiClaudeInhalt");
     if (!host) return;
     var sec = document.createElement("section"); sec.className = "card"; sec.id = "schnitt11";
     sec.innerHTML = '<h2>Schnitt 11 <span class="hint">Claude-Aufgaben · läuft live auf dem Schnittrechner</span></h2>' +
       '<p class="muted s11bedienung" style="margin:0 0 10px;font-size:13px;color:var(--muted)">To-do mit Art „Claude-Aufgabe“ anlegen und auf „Jetzt erledigen“ tippen. Claude Code auf Schnitt 11 nimmt es in Sekunden auf; Ausgabe erscheint hier.</p>' +
       '<ul class="todos" id="s11List"><li class="empty">Keine laufenden oder kürzlich erledigten Claude-Aufgaben.</li></ul>' +
       '<style>#schnitt11 .s11st{font-size:12px;font-weight:600}#schnitt11 .s11st[data-s="offen"]{color:var(--muted)}#schnitt11 .s11st[data-s="wartet"]{color:var(--muted)}#schnitt11 .s11st[data-s="laeuft"]{color:var(--signal)}#schnitt11 .s11st[data-s="fertig"]{color:var(--ok)}#schnitt11 .s11st[data-s="fehler"]{color:#E87A46}#schnitt11 pre{margin:6px 0 0;max-height:220px;overflow:auto;font:12px var(--font-mono);background:#0E181B;color:#E4ECEA;padding:8px 10px;border-radius:8px;white-space:pre-wrap;border:1px solid var(--line)}#schnitt11 details summary{cursor:pointer;font-size:12px;color:var(--muted)}#schnitt11 li{list-style:none;padding:10px 0;border-top:1px solid var(--line)}#schnitt11 li:first-child{border-top:0}</style>';
-    host.insertBefore(sec, host.firstChild.nextSibling);
+    host.insertBefore(sec, host.firstChild);
     var ul = sec.querySelector("#s11List");
     var fmt = function (t) { try { return new Date(t).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
+    var chat = function (v) { return /^[^\p{L}\p{N}]*chat[^\p{L}\p{N}]*$/iu.test(v.quelle == null ? "" : String(v.quelle)); };
     ready.then(function (d) {
       if (!d) return;
+      if (istGast()) { if (sec.parentNode) sec.parentNode.removeChild(sec); return; }   /* Gäste: keine Karte, keine Abfrage (Bauplan 3) */
       d.collection("todos").onSnapshot(function (snap) {
-        var rows = snap.docs.map(function (x) { var v = x.data(); v._id = x.id; return v; })
-          .filter(function (v) { return v.typ === "claude" && (v.angefordert || v.s11status); })
+        var rows = snap.docs.map(function (x) { var v = x.data(); if (!v || typeof v !== "object") return {}; v._id = x.id; return v; })   /* ein Eintrag, der kein Objekt ist, fällt weg, statt die Karte still anzuhalten (Prüfrunde 2, Befund S-07) */
+          .filter(function (v) { return v.typ === "claude" && (v.angefordert || v.s11status) && !chat(v); })
           .sort(function (a, b) { return String(b.angefordertAm || b.created || "").localeCompare(String(a.angefordertAm || a.created || "")); }).slice(0, 8);
         if (!rows.length) { ul.innerHTML = '<li class="empty">Keine laufenden oder kürzlich erledigten Claude-Aufgaben.</li>'; return; }
         ul.innerHTML = rows.map(function (v) {

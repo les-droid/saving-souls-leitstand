@@ -1,6 +1,6 @@
-/* Saving Souls Leitstand – Zeiterfassung + Lagebericht
+/* Saving Souls Leitstand – Zeiterfassung und Zeile »Gerade aktiv«
    Läuft NACH dem Board-Script. Nutzt dieselbe Datenbank (claude.use("db")).
-   Collections: zeiten (Einträge), lagebericht/aktuell (Dokument), todos (für Claude-Zeit + „Wer macht was“). */
+   Collections: zeiten (Einträge), todos (für Claude-Zeit), praesenz (»Gerade aktiv«); zeiten und praesenz nur ohne Gast. */
 (function () {
   "use strict";
 
@@ -21,113 +21,46 @@
   var fmtStd = function (min) { var h = (min || 0) / 60; return (Math.round(h * 4) / 4).toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + " h"; };
   var minuten = function (von, bis) { if (!von || !bis) return null; var a = von.split(":"), b = bis.split(":"); var m = (Number(b[0]) * 60 + Number(b[1])) - (Number(a[0]) * 60 + Number(a[1])); if (m < 0) m += 24 * 60; return m; };
 
-  /* ---- Mini-Markdown (Absätze, Listen, fett) ---- */
-  function md(text) {
-    var inline = function (s) { return esc(s).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, "<code>$1</code>"); };
-    var out = [], liste = false;
-    String(text || "").split("\n").forEach(function (z) {
-      var t = z.replace(/\s+$/, ""); var m = t.match(/^\s*([-*]|\d+\.)\s+(.*)$/);
-      if (m) { if (!liste) { out.push('<ul style="margin:4px 0 4px 18px;padding:0">'); liste = true; } out.push('<li style="margin:2px 0">' + inline(m[2]) + "</li>"); return; }
-      if (liste) { out.push("</ul>"); liste = false; }
-      if (t === "") return;
-      out.push('<p style="margin:4px 0">' + inline(t) + "</p>");
-    });
-    if (liste) out.push("</ul>");
-    return out.join("");
-  }
-
   var db = null, zeiten = [], todos = [], zeigeAlle = false;
   (function () { var st = document.createElement("style"); st.textContent = ".chip.CL{color:var(--chip-claude)} #page-zeit .pill{font:500 11px var(--font-mono);letter-spacing:.04em;padding:2px 7px;border-radius:999px;border:1px solid var(--muted);color:var(--muted);white-space:nowrap}"; document.head.appendChild(st); })();
 
-  /* ================= Lagebericht ================= */
-  var lageCard = document.getElementById("lageCard");
-  function renderLage(v) {
-    var body = document.getElementById("lageBody"), meta = document.getElementById("lageMeta");
-    if (!v) { body.innerHTML = '<p style="color:var(--muted);margin:0">Noch kein Lagebericht hinterlegt. Claude schreibt ihn nach jedem Überwachungslauf auf Schnitt 11.</p>'; return; }
-    meta.textContent = "Stand " + (v.stand || "");
-    /* Startseite knapp: Kurzfassung + je drei Punkte „Neu“, „Ansteht“, „Achtung“; alles Weitere aufklappbar */
-    var punkte = function (text, n) { return String(text || "").split("\n").filter(function (z) { return /^\s*([-*]|\d+\.)\s+/.test(z); }).slice(0, n).join("\n"); };
-    var spalte = function (titel, text, n) { var p = punkte(text, n); return p ? '<div style="flex:1 1 200px;min-width:0"><div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:2px">' + esc(titel) + "</div>" + md(p) + "</div>" : ""; };
-    var abschnitt = function (titel, text) { return text ? '<h3 style="margin:12px 0 4px;font-size:14px">' + esc(titel) + "</h3>" + md(text) : ""; };
-    body.innerHTML = (v.kurz ? '<p style="margin:0 0 10px;font-weight:600">' + esc(v.kurz) + "</p>" : "") +
-      '<div style="display:flex;gap:16px;flex-wrap:wrap">' + spalte("Neu", v.verlauf, 3) + spalte("Ansteht", v.ansteht, 3) + spalte("Achtung", v.probleme, 2) + "</div>" +
-      '<details style="margin-top:10px"><summary style="cursor:pointer;font-size:13px;color:var(--muted)">Ganzer Lagebericht' + (v.von ? " · " + esc(v.von) : "") + "</summary>" +
-      abschnitt("Gedreht", v.gedreht) + abschnitt("Was schiefging / Risiken", v.probleme) + abschnitt("Was ansteht", v.ansteht) + abschnitt("Wer macht was", v.wer) + abschnitt("Zuletzt passiert", v.verlauf) + "</details>";
-  }
-  function renderLageWer() {
-    var el = document.getElementById("lageWerBody"); if (!el) return;
-    var gruppen = {};
-    todos.forEach(function (d) { var v = d.data(); if (!v || v.done) return; var w = v.wer || "alle"; (gruppen[w] = gruppen[w] || []).push(v); });
-    var reihenfolge = ["LES", "JB", "TS", "DS", "Claude", "alle"];
-    var keys = Object.keys(gruppen).sort(function (a, b) { return (reihenfolge.indexOf(a) + 1 || 99) - (reihenfolge.indexOf(b) + 1 || 99); });
-    if (!keys.length) { el.innerHTML = '<p style="color:var(--muted);margin:0">Keine offenen To-dos.</p>'; return; }
-    el.innerHTML = keys.map(function (w) {
-      var l = gruppen[w].sort(function (a, b) { return (Number(a.prio) || 2) - (Number(b.prio) || 2); });
-      return '<div style="margin:0 0 8px"><span class="chip ' + esc(w) + '">' + esc(w) + "</span> <span style=\"color:var(--muted)\">" + l.length + " offen</span><ul style=\"margin:4px 0 0 18px;padding:0\">" +
-        l.slice(0, 6).map(function (v) { return '<li style="margin:2px 0">' + (Number(v.prio) === 1 ? "<strong>" : "") + esc(v.text) + (Number(v.prio) === 1 ? "</strong>" : "") + (v.typ === "claude" && v.s11status ? ' <span style="color:var(--muted)">(' + esc(v.s11status) + ")</span>" : "") + "</li>"; }).join("") +
-        (l.length > 6 ? '<li style="color:var(--muted)">… und ' + (l.length - 6) + " weitere</li>" : "") + "</ul></div>";
-    }).join("");
-  }
-  /* Startseite entschlacken: Projektstand-Phasen erst auf Klick */
-  (function () {
-    var ul = document.querySelector("#page-start ul.phasen"); if (!ul) return;
-    var det = document.createElement("details"); det.innerHTML = '<summary style="cursor:pointer;font-size:13px;color:var(--muted)">Phasen anzeigen</summary>';
-    ul.parentNode.insertBefore(det, ul); det.appendChild(ul);
-  })();
-  function lageOben() {
-    /* Geschäftsleitung: Lagebericht ganz oben, „Wer macht was“ aufgeklappt */
-    var k = me(); if (k !== "TS" && k !== "DS") return;
-    var tiles = document.getElementById("tiles"); if (tiles && lageCard && lageCard.parentNode) { tiles.parentNode.insertBefore(lageCard, tiles); lageCard.style.marginBottom = "14px"; }
-    var det = document.getElementById("lageWer"); if (det) det.open = true;
-  }
+  /* Hier standen die Karten aus K 9.1 Z5 und Z8 samt Schreiblogik und die Sonderregel für weitere Kürzel (Z10) — entfallen mit A8 */
 
-  /* ================= Wer ist gerade dran? (Präsenz) =================
-     Sammlung praesenz/<LES|JB>: schreibt der Listener aus den Commits auf main (Autor „CL LES“/„CL JB“,
-     Marken „Sitzung gestartet“/„Sitzung beendet“). Dazu laufende Claude-Aufgaben aus todos. */
+  /* ================= »Gerade aktiv« (A9; K 3.4) =================
+     Sammlung praesenz/<LES|JB|Schnitt 11>: schreibt der Hintergrunddienst aus den Commits auf main (Autor „CL LES“/„CL JB“/„Dropout Schnitt 11“,
+     Marken „Sitzung gestartet“/„Sitzung beendet“, „Thema: …“) und aus laufenden Claude-Prozessen am Schnittplatz. Eine Zeile auf Heute
+     (#geradeAktiv), nur wenn jemand aktiv ist und nur, wenn die Seite sie erlaubt (window.leitstandGeradeAktiv: Einstellung EINST.geradeAktiv,
+     Standard aus; nie für Gäste — die lesen praesenz auch nicht). Wann jemand als aktiv gilt, ist unverändert aus der früheren Karte »Live«.
+     Akteure LES, JB, Schnittplatz 11; die Zeile für den Serverlauf und die laufenden Aufträge entfallen (die zeigt »Bei Claude«).
+     Wortlaut nur in GERADE_TEXT; Text aus der Datenbank über esc(). */
   var praesenz = [];
-  var AKTEURE = [
-    { id: "LES", name: "LES", was: "privater Claude" },
-    { id: "JB", name: "JB", was: "privater Claude" },
-    { id: "Schnitt 11", name: "Schnitt 11", was: "Claude am Schnittplatz" },
-    { id: "VPS-Routine", name: "VPS", was: "Überwachungslauf" }
-  ];
-  var praesenzEl = (function () {
-    var start = document.getElementById("page-start"); if (!start) return null;
-    var card = document.createElement("section"); card.className = "card"; card.id = "liveCard";
-    card.innerHTML = '<h2>Live <span class="hint">wer arbeitet gerade woran</span></h2><div id="liveRows"></div>';
-    var facts = start.querySelector(".facts");
-    if (facts && facts.parentNode) facts.parentNode.insertBefore(card, facts); else start.appendChild(card);
-    var st = document.createElement("style");
-    st.textContent = "#liveCard{margin-bottom:14px}#liveRows .lrow{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px solid color-mix(in srgb,var(--muted) 22%,transparent);font-size:13px;line-height:1.4}#liveRows .lrow:first-child{border-top:0;padding-top:2px}#liveRows .lname{flex:0 0 112px;font-weight:600;color:var(--ink)}#liveRows .lname small{display:block;font-weight:400;font-size:11px;color:var(--muted)}#liveRows .lstat{flex:1;min-width:0;color:var(--muted)}#liveRows .lstat b{color:var(--ink);font-weight:600}#liveRows .dot{flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:var(--muted);opacity:.45;margin-top:6px}#liveRows .dot.on{opacity:1;background:#2fa84f;box-shadow:0 0 0 0 rgba(47,168,79,.6);animation:ssPuls 1.6s infinite}@keyframes ssPuls{to{box-shadow:0 0 0 7px rgba(47,168,79,0)}}";
-    document.head.appendChild(st);
-    return card.querySelector("#liveRows");
-  })();
-  var ORT_NAME = { schnitt11: "Schnitt 11", vps: "dem VPS", cloud: "Claude in der Cloud" };
+  var AKTEURE = ["LES", "JB", "Schnitt 11"];
+  var praesenzEl = document.getElementById("geradeAktiv");
+  var GERADE_TEXT = {   // K 3.4: »Gerade aktiv: {Kürzel} arbeitet an „{Thema}“ seit {HH:MM} · Schnittplatz 11: Sitzung läuft seit {HH:MM}«
+    anfang: "Gerade aktiv: ", person: [" arbeitet an „", "“ seit "], schnitt11: "Schnittplatz 11: Sitzung läuft seit ", trenner: " · ",
+    ohneThema: "",   // WORTLAUT FEHLT: Person aktiv, aber noch ohne Thema (K 3.4 kennt nur » arbeitet an „{Thema}“«, die alte Karte sagte »(Thema folgt)«) — leer: die Person erscheint nicht; gefüllt steht der Text an Stelle von » arbeitet an „{Thema}“«
+    lauf: ""         // WORTLAUT FEHLT: Schnittplatz 11 mit unbeaufsichtigtem Lauf (art »lauf«; K 3.4 kennt nur »Sitzung läuft«) — leer: erscheint nicht; gefüllt steht der Text vor {HH:MM}
+  };
+  var FMT_HHMM = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });   // Berliner Zeit wie die übrige Seite
   function renderPraesenz() {
     if (!praesenzEl) return;
-    var jetzt = Date.now();
-    var zeit = function (iso) { var d = new Date(iso); return isNaN(d) ? "" : hhmm(d); };
-    var wann = function (iso) { if (!iso) return ""; var d = new Date(iso); return isNaN(d) ? "" : (d.toDateString() === new Date().toDateString() ? "" : fmtDatum(iso) + " ") + hhmm(d); };
+    var jetzt = Date.now(), T = GERADE_TEXT, teile = [];
+    var erlaubt = typeof window.leitstandGeradeAktiv === "function" && window.leitstandGeradeAktiv() === true;
     var docs = {}; praesenz.forEach(function (d) { var v = d.data(); if (v && v.wer) docs[v.wer] = v; });
-    var zeile = function (on, name, was, stat) { return '<div class="lrow"><span class="dot' + (on ? " on" : "") + '"></span><span class="lname">' + esc(name) + "<small>" + esc(was) + "</small></span><span class=\"lstat\">" + stat + "</span></div>"; };
-    var rows = AKTEURE.map(function (a) {
-      var v = docs[a.id];
-      if (!v) return zeile(false, a.name, a.was, "noch keine Sitzung");
-      var marke = /Sitzung gestartet|^Thema:/i.test(v.text || "");
-      var thema = v.thema ? " an <b>„" + esc(v.thema) + "“</b>" : "";
-      var zuletzt = v.text && !marke && v.text !== v.thema ? " · zuletzt " + wann(v.zuletztAm) + " „" + esc(v.text) + "“" : "";
+    if (erlaubt) AKTEURE.forEach(function (a) {
+      var v = docs[a]; if (!v) return;
       var lebt = v.prozesse > 0 ? (v.geprueft && jetzt - new Date(v.geprueft).getTime() < 12 * 60000) : (v.zuletztAm && jetzt - new Date(v.zuletztAm).getTime() < 45 * 60000);
-      var on = !!(v.aktiv && lebt);
-      if (a.id === "VPS-Routine") return zeile(v.zuletztAm && jetzt - new Date(v.zuletztAm).getTime() < 15 * 60000, a.name, a.was, "letzter Lauf " + wann(v.zuletztAm));
-      if (!on) return zeile(false, a.name, a.was, (a.id === "Schnitt 11" ? "Claude nicht aktiv" : "nicht aktiv") + (v.zuletztAm ? " · zuletzt " + wann(v.zuletztAm) + (v.thema ? " „" + esc(v.thema) + "“" : "") : ""));
-      var kopf = a.id === "Schnitt 11" ? (v.art === "lauf" ? "<b>unbeaufsichtigter Lauf</b>" : "<b>Sitzung läuft</b>") : "<b>arbeitet</b>";
-      return zeile(true, a.name, a.was, kopf + thema + (!v.thema && a.id !== "Schnitt 11" ? " (Thema folgt)" : "") + (v.seit ? " · seit " + wann(v.seit) : "") + zuletzt);
+      if (!(v.aktiv && lebt)) return;
+      var s = v.seit ? new Date(v.seit) : null; if (!s || isNaN(s)) return;   // ohne lesbaren Beginn keine Angabe »seit {HH:MM}« (der Dienst schreibt seit bei jeder aktiven Sitzung)
+      var uhr = FMT_HHMM.format(s);
+      if (a === "Schnitt 11") { var vor = v.art === "lauf" ? T.lauf : T.schnitt11; if (vor) teile.push(esc(vor + uhr)); return; }
+      var thema = typeof v.thema === "string" && v.thema.trim() ? v.thema.trim() : null;
+      if (thema) teile.push(esc(a + T.person[0] + thema + T.person[1] + uhr));
+      else if (T.ohneThema) teile.push(esc(a + T.ohneThema + T.person[1] + uhr));
     });
-    todos.forEach(function (d) {
-      var v = d.data(); if (!v || v.s11status !== "laeuft") return;
-      rows.push(zeile(true, "Aufgabe", "auf " + (ORT_NAME[v.s11ziel] || "Schnitt 11"), "<b>„" + esc(v.text) + "“</b>" + (v.s11fortschritt ? " · " + esc(String(v.s11fortschritt).slice(0, 100)) : "")));
-    });
-    praesenzEl.innerHTML = rows.join("");
+    var html = teile.length ? esc(T.anfang) + teile.join(esc(T.trenner)) : "";
+    if (praesenzEl._html !== html) { praesenzEl.innerHTML = html; praesenzEl._html = html; }
+    praesenzEl.hidden = !html;
   }
   setInterval(renderPraesenz, 60000);
 
@@ -250,15 +183,14 @@
   });
 
   /* ================= Start ================= */
-  lageOben();
   if (!(window.claude && window.claude.use)) return;
   window.claude.use("db").then(function (d) {
     if (!d) return; db = d;
-    db.doc("lagebericht/aktuell").onSnapshot(function (snap) { renderLage(snap.exists ? snap.data() : null); }, function () { renderLage(null); });
-    db.collection("todos").onSnapshot(function (snap) { todos = snap.docs; renderLageWer(); renderSumme(); renderPraesenz(); }, function () {});
-    db.collection("praesenz").onSnapshot(function (snap) { praesenz = snap.docs; renderPraesenz(); }, function () {});
-    db.collection("zeiten").onSnapshot(function (snap) { zeiten = snap.docs; renderZeiten(); }, function () {});
+    db.collection("todos").onSnapshot(function (snap) { todos = snap.docs; renderSumme(); renderPraesenz(); }, function () {});
+    /* praesenz und zeiten nur für Editoren — Gäste fragen beide nicht an (A5; Prüfbericht Bauplan offen Nr. 1, entschieden) */
+    if (!(window.claude.istGast && window.claude.istGast())) db.collection("praesenz").onSnapshot(function (snap) { praesenz = snap.docs; renderPraesenz(); }, function () {});
+    if (!(window.claude.istGast && window.claude.istGast())) db.collection("zeiten").onSnapshot(function (snap) { zeiten = snap.docs; renderZeiten(); }, function () {});
   });
   /* Kürzel-Wechsel im Kopf: Vorgabe im Formular nachziehen */
-  document.addEventListener("click", function (ev) { if (ev.target.closest("#whoPick button, #whoModalBtns button")) setTimeout(function () { document.getElementById("zeitWer").value = me(); lageOben(); }, 0); });
+  document.addEventListener("click", function (ev) { if (ev.target.closest("#whoPick button, #whoModalBtns button")) setTimeout(function () { document.getElementById("zeitWer").value = me(); }, 0); });
 })();
