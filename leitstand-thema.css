@@ -1,0 +1,113 @@
+/* Saving Souls Leitstand — Gestaltung »Freundlich« (Vorschlag CL LES, 09.10.2026, Wunsch LES: „moderner, cleaner und freundlicher … dieser
+   grün/türkis farbton mit den fonts etc geben mir leichte jailbreak vibes“). Überlagerung: ändert keine Zeile der Seite, setzt nur die
+   Farb- und Schrift-Variablen neu (die Seite nutzt fast nur Variablen) und rundet einige Bausteine weicher. Bleibt dunkel (Entscheidung KO-4
+   bleibt unberührt); statt Petrol ein ruhiges Neutralgrau mit weichem Blau als Akzent, keine Monoschrift mehr für Marken und Zahlen.
+   Selektor :root:root:root, damit die Werte auch gegen die Dunkel-Blöcke der Seite (:root:not([data-theme="light"]), :root[data-theme="dark"])
+   gewinnen; »Kontrast erhöhen« hat unten einen eigenen, stärkeren Block. Kontraste gemessen im Prüfskript (ink, muted, accent, signal, ok, danger,
+   Kürzel-Farben ≥ 4,5:1, auch über dem hellsten Bildpunkt des Kopfbilds). Was die Seite entscheidet, bleibt ihre Sache: Polster der Karten am Telefon
+   (Paket 6 KO-1), Reiterleiste als Tab-Leiste mit Strich in Akzent (GP-S04), Verhalten bei »Transparenz reduzieren« (GP-S06). */
+:root:root:root {
+  --bg: #111317; --surface: #1A1D23; --surface2: #22262E; --line: #2D323C;
+  --ink: #EEF1F5; --muted: #A1A9B5; --accent: #82AAFF; --accent-ink: #0B1633;
+  --signal: #F5A05C; --ok: #63C78F; --danger: #FF7A7F;   /* danger eine Spur heller als das erste Rot: ≥ 4,5:1 auch auf Glas über dem hellsten Bildpunkt (Prüfung t.11) */
+  --chip-les: #9DBBFF; --chip-jb: #E6BE6E; --chip-ts: #C5A3F2; --chip-ds: #F09CA6; --chip-claude: #A1A9B5;
+  --prio-niedrig: #4F5663;
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-ui);   /* Marken, Zähler, Kürzel: dieselbe Schrift wie der Text, Ziffern gleich breit (unten) */
+  --font-code: ui-monospace, "SF Mono", Menlo, Consolas, monospace;   /* Quelltext, Ausgaben und Adressen bleiben in Festschrift (unten) */
+  --material: rgba(26, 29, 35, 0.82); --material-strong: rgba(22, 25, 30, 0.9); --material-edge: rgba(255, 255, 255, 0.06);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.22), 0 8px 24px rgba(0, 0, 0, 0.22);
+  --field-edge: #646C7A; --on-hell: #151A22;
+  --kopfbild-schleier: rgba(17, 19, 23, 0.5);
+  --schleier-fest: rgba(17, 19, 23, 0.82);   /* Schleier hinter Anmeldefenster und Hinweiskarten (leitstand-db.js setzt dort feste Petrol-Werte) */
+}
+@media (prefers-contrast: more) {
+  :root:root:root:root { --muted: #C7CDD6; --line: #6A7280; --accent: #A9C4FF; --signal: #FFB27A; --danger: #FF8E92; --ok: #8EDCB0; --chip-claude: var(--muted);
+    --material: color-mix(in srgb, var(--surface) 70%, var(--bg)); --material-strong: color-mix(in srgb, var(--surface) 86%, var(--bg)); }
+}
+body { font-feature-settings: "cv11" 1; }
+/* Ziffern gleich breit (tnum) an allen Bausteinen, die vorher Monoschrift trugen (Zähler, Uhrzeiten, Kürzel, Marken, Adressen der Transkripte): dort setzt die
+   Seite die Schrift mit der Kurzschreibweise »font:«, die font-feature-settings zurücksetzt — ein Wert am body käme nicht an. Im Fließtext bleiben die Ziffern wie
+   in der Seite (proportional): gleich breite Ziffern machen Zeilen wie »überfällig seit 07.10.« breiter und ließen die Seite bei Zoom 200 % seitlich überlaufen
+   (Prüfung t.20). :is() nimmt die höchste Spezifität der Liste, html legt eins drauf — gewinnt also auch gegen Regeln, die die Seite später im Dokument nachlädt
+   (redaktion.js, leitstand-zeit.js). Prüfung t.22 misst es am echten Seitenbaum. */
+html :is(.mono, td.num, .whobtn, nav.seg a .n, .marke, .neudatum, h2 .count, .chip, h4.gruppekz, #archivFilter button, .ainhalt, #notizZaehler, ul.mtage > li.weiteres, .nmeta, .pill,
+  ul.tree details > summary .n, ul.tree .files li .fsize, .boardtag-head .bdatum, .boardtag-head .bzahl, .boardcard .bk, #boardLightbox .lbmeta, .countbar, .fach,
+  .prioqual, .senschip, #transViewer .tvmeta, #transViewer .tvadresse, #transViewer .tvtc, .aushead .n, .ausmeta, .ausstern span, .tourbar .step, .tvon,
+  #page-claude .ccAntwort .ccAntwortLabel, .rd .rd-mappe-kopf, .rd .rd-stand, .rd .rd-zurueck, .rd .rd-quelle, #page-zeit .pill) { font-feature-settings: "tnum" 1, "cv11" 1; }
+/* Quelltext bleibt Quelltext: Ausgaben im Reiter Claude und bei Schnitt 11, Quelltext und Adressen in der Redaktion. Dazu das Gast-Kennzeichen im Kopf: es steht in einer
+   Zeile, die umbricht, sobald die Knöpfe daneben nicht mehr passen — mit der schmaleren Systemschrift rutschte »Einführung« in seine Zeile, der Kopf der Gäste wurde am iPhone
+   20 px höher und der Anfang von »Für dich offen« rutschte aus dem ersten Blick (Probe KO1 und Abnahme 13). In Festschrift bleibt die Breite wie in der Seite (Prüfung t.27). */
+html :is(#page-claude .ccPre, #schnitt11 pre, .rd code, .rd .rd-adresse, .gastvermerk) { font-family: var(--font-code); }
+/* weichere Formen: Karten, Knöpfe, Felder. Die Reiterleiste bleibt die Tab-Leiste der Seite (GP-S04: gewählter Reiter mit Strich in Akzent) — keine Pille. */
+section.card { border-radius: 18px; }
+@media (min-width: 601px) { section.card { padding: 20px 20px 18px; } }   /* am Telefon (bis 600 px) gilt das engere Polster der Seite (Paket 6 KO-1) */
+button.primary { border-radius: 999px; padding: 9px 18px; }
+form.add input[type="text"], form.add input[type="date"], form.add input[type="time"], form.add input[type="number"], form.add textarea, form.add select, .tantwort input { border-radius: 12px; }
+.tantwort button, .tclaude button { border-radius: 999px; }
+.chip { font-weight: 600; letter-spacing: 0.01em; }
+h2 .count, nav.seg a .n { font-weight: 600; }
+/* Startseite (Wünsche LES 09.10.: „zumindest auf der startseite sollte das header bild zu sehen sein“; „man könnte das bild auch bis unten
+   zeigen mit verlauf. jetzt aber zeimlich viel leere fläche unter der titelleiste“; „das bild sollte die volle breiten und wird bis runter zum
+   nummernschild ausgeblendet“): das Kopfbild reicht in voller Breite hinter den oberen Teil des Inhalts und blendet zur Unterkante des Zuschnitts
+   weich aus — kein leeres Band, der Inhalt beginnt direkt unter dem Kopf. Derselbe Zuschnitt (Himmel, Bäume, Zeltdach; kein
+   Kennzeichen), aufgehellt (die Datei ist auf 25 % abgedunkelt; hellster Bildpunkt von kopfbild-weit.jpg RGB 68/67/65, ×2).
+   Lesbarkeit (gemessen, Prüfung t.11 und 20-hig): hinter der Kopfzeile scheint das Bild nur zu 32 % durch (graue Schrift ≥ 4,5:1 auch über dem
+   hellsten Bildpunkt); darunter voll, aber jeder Text dort liegt auf Glas (Karten wie bisher; die Projektzeile und »Gerade aktiv« bekommen auf
+   der Startseite ab 881 px Breite dieselbe Glasfläche). Bei »Kontrast erhöhen« und »Transparenz reduzieren« entfällt das Bild wie bisher (content: none). */
+.wrap:has(#page-start.on)::before {
+  /* volle Bildbreite (Wunsch LES: „das bild sollte die volle breite und wird bis runter zum nummernschild ausgeblendet“): eigener, höherer Zuschnitt
+     kopfbild-weit.jpg aus dem Foto, das LES am 09.10. in der Sitzung gegeben hat (1916 × 634: Himmel, Bäume, Zelt, Wohnwagen bis knapp über das
+     Kennzeichen — das Kennzeichen liegt nicht in der Datei; 25 % Helligkeit, ohne Metadaten; zuschnitt-kopfbild CL LES.py), über die ganze
+     Fensterbreite im eigenen Seitenverhältnis; der Verlauf endet an der Unterkante des Zuschnitts. Schmal hält eine Mindesthöhe das Bild hinter Kopf
+     und erster Zeile (dort seitlich beschnitten). Die übrigen Reiter behalten kopfbild.jpg (Zuschnitt vom 07.10.).
+     Die Breite steht fest auf 100 % (nicht »right: 0; width: auto«): mit dem Seitenverhältnis würde Chromium sonst die Mindesthöhe auf die Breite übertragen
+     (bei 390 px 798 px breit, am Telefon 943 px) und die Seite seitlich verschiebbar machen. */
+  left: 0; width: 100%; height: auto; aspect-ratio: 1916 / 634; min-height: calc(var(--kopfbild-h, 150px) + 60px);
+  /* Versionsnummer = cksum der Datei (anwenden.sh bildet die Version des <link> daraus und bricht ab, wenn die Nummer nicht zur Datei passt; Prüfung t.12 und t.15b), damit ein Browser nach einem neuen Bild nicht das alte zeigt */
+  background: url("kopfbild-weit.jpg?v=3364961779") center top / cover no-repeat;
+  filter: brightness(2) saturate(1.1);   /* Wunsch LES: „bild kann nur ein bisschen weiter unten sichtbar sein, dafür vieilleicht aber dunkler“ */
+  /* weicher Verlauf (Wunsch LES „und mit weicherem verlauf“) aus zwei Masken, die sich überschneiden (mask-composite: intersect, die Deckkräfte werden
+     multipliziert): 1. unter dem Kopf über rund 100 px auf voll — in Pixeln der Kopfhöhe; 2. der Auslauf zur Unterkante in Prozent der Bildhöhe, voll bis
+     knapp zwei Drittel, in Stufen (Annäherung an eine sanfte Kurve) bis 12 % an der Unterkante. Getrennt, weil sich Pixel- und Prozentstopps in einem einzigen
+     Verlauf überholen, sobald das Bild niedriger ist als (Kopf + 100 px) / 0,64 — dann zog Chromium den Auslauf hinter die Unterkante und das Bild endete hart
+     (Telefon, iPad hochkant, unter rund 1060 px Breite). */
+  --kopf-rampe: linear-gradient(to bottom, rgba(0, 0, 0, 0.32) 0, rgba(0, 0, 0, 0.32) calc(var(--kopfbild-h, 150px) - 8px),
+    rgba(0, 0, 0, 0.7) calc(var(--kopfbild-h, 150px) + 40px), #000 calc(var(--kopfbild-h, 150px) + 100px));
+  --kopf-auslauf: linear-gradient(to bottom, #000 0, #000 64%, rgba(0, 0, 0, 0.82) 72%, rgba(0, 0, 0, 0.58) 80%, rgba(0, 0, 0, 0.36) 88%,
+    rgba(0, 0, 0, 0.2) 95%, rgba(0, 0, 0, 0.12) 100%);
+  /* Wunsch LES: „noch weiter nach unten. am ganz unteren bildrand sollte das bild immernoch ganz minimal zu sehen sein“ — voll bis knapp zwei
+     Drittel, an der Unterkante noch 12 % */
+  -webkit-mask-image: var(--kopf-rampe), var(--kopf-auslauf); mask-image: var(--kopf-rampe), var(--kopf-auslauf);
+  -webkit-mask-composite: source-in; mask-composite: intersect;
+}
+/* Glasfläche für Projektzeile und »Gerade aktiv« nur in der zweispaltigen Anordnung (ab 881 px, Umbruch der Seite): dort liegen beide über dem Bild. Darunter (Telefon,
+   iPad hochkant) liegen sie weit unter dem Bild (gemessen bei 320 bis 880 px) und bleiben, wie die Seite sie setzt — Polster und Rand der Glasfläche kosteten dort 38 px
+   Höhe und schoben den Anfang von »Für dich offen« am iPhone 390 × 844 aus dem ersten Blick (Paket 6 KO-1, K 3.8; Probe KO1 und Abnahme 13). */
+@media (min-width: 881px) {
+  .wrap:has(#page-start.on) .projektzeile, .wrap:has(#page-start.on) #geradeAktiv { background: var(--material); -webkit-backdrop-filter: blur(16px) saturate(160%);
+    backdrop-filter: blur(16px) saturate(160%); border: 1px solid var(--material-edge); border-radius: 14px; padding: 9px 14px; }
+  .wrap:has(#page-start.on) #geradeAktiv { margin-top: -6px; }
+}
+/* GP-S06: »Transparenz reduzieren« auch für die beiden Glasflächen der Startseite (das Bild entfällt dann ohnehin); bei »Kontrast erhöhen« ohne Weichzeichner */
+@media (min-width: 881px) and (prefers-reduced-transparency: reduce) {
+  .wrap:has(#page-start.on) .projektzeile, .wrap:has(#page-start.on) #geradeAktiv { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (min-width: 881px) and (prefers-contrast: more) {
+  .wrap:has(#page-start.on) .projektzeile, .wrap:has(#page-start.on) #geradeAktiv { -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+/* Feste Petrol-Werte in leitstand-db.js (Anmeldefenster, Hinweiskarten, Banner) — die Seite setzt sie im Skript, nicht über Variablen. Inline-Werte lassen sich
+   nur mit !important übersteuern; das Anmeldefenster hat sie in einem Stilblock, der nach diesem Blatt im Dokument steht (daher html davor). Die beiden
+   Systemmodi des Anmeldefensters (deckend ohne Weichzeichner) bleiben wie in der Seite. */
+html #liveLogin { background: var(--schleier-fest); }
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) { html #liveLogin { background: var(--bg); } }
+#liveKarte { background: var(--schleier-fest) !important; }
+#liveKarte > div { background: var(--surface) !important; color: var(--ink) !important; }
+#liveKarte > div > div + div { color: var(--muted) !important; }
+#liveKarte button[data-i="0"] { background: var(--accent) !important; color: var(--accent-ink) !important; }
+#liveKarte button:not([data-i="0"]) { color: var(--muted) !important; }
+#liveBanner { background: rgba(26, 29, 35, 0.94) !important; color: var(--ink) !important; }
+#gastDemoLog { background: var(--surface) !important; color: var(--ink) !important; }   /* Protokollfeld der Gast-Demo (gast-demo.js, nur ?demo=gast) */
+#legende .pill[style*="#1B272B"] { color: var(--on-hell) !important; }   /* Legende der Farblabels: Schrift auf hellen Marken war ein Petrol-Schwarz */
+#boardLightbox { background: rgba(8, 9, 11, 0.92); }   /* die Seite nimmt hier ein sehr dunkles Petrol (6, 10, 12) */
