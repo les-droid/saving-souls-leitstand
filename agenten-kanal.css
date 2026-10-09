@@ -1,0 +1,179 @@
+/* Saving Souls Leitstand — Agenten-Kanal und Lagebild im Reiter "Claude", Absprache an Aufgabenzeilen (Überlagerung, agenten-kanal.js). Nur CSS-Variablen aus index.html (:root). */
+#page-claude .akGrid { margin-top: 16px; }
+#page-claude .akHinweis { font: 400 12px var(--font-ui); color: var(--muted); margin: 0 0 10px; }
+#page-claude .akUnter { font: 600 13px var(--font-ui); margin: 4px 0 6px; color: var(--ink); }
+#page-claude ul.akVorschlaege, #page-claude ul.akVerlauf { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+#page-claude ul.akVorschlaege .empty, #page-claude ul.akVerlauf .empty { color: var(--muted); font-size: 13px; padding: 4px; }
+#page-claude li.akVorschlag { border: 1px solid var(--line); border-radius: 12px; padding: 8px 11px; background: color-mix(in srgb, var(--surface) 65%, transparent); }
+#page-claude .akAnwesenheit { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
+#page-claude .akAnw { white-space: nowrap; }
+#page-claude label.akAuftrag { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; min-height: 32px; }
+@media (pointer: coarse) { #page-claude label.akAuftrag { min-height: 44px; } }
+#page-claude li.akVorschlag { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+#page-claude .akMeta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+#page-claude .akMeta .chip { margin-top: 0; }
+#page-claude .akArt { font: 600 11px var(--font-mono); letter-spacing: 0.04em; color: var(--muted); }
+#page-claude .akWas { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+#page-claude .akTitel { font-size: 14px; font-weight: 600; word-break: break-word; }
+#page-claude .akText { font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+#page-claude .akGelesen { font-size: 11px; color: var(--muted); margin-top: 4px; }
+#page-claude .akBeschr { margin-top: 4px; }
+#page-claude .akBeschr .akLabel { display: block; font: 600 11px var(--font-ui); color: var(--muted); margin-bottom: 1px; }
+#page-claude details.akMehr { margin-top: 2px; }
+#page-claude details.akMehr summary { cursor: pointer; font-size: 12px; color: var(--accent); min-height: 24px; }
+@media (pointer: coarse) { #page-claude details.akMehr summary { min-height: 44px; display: flex; align-items: center; } }
+#page-claude li.akWarnung { list-style: none; font-size: 12px; color: var(--ink); padding: 6px 10px; border: 1px solid var(--fehler); border-radius: 10px; background: color-mix(in srgb, var(--fehler) 8%, transparent); }
+#page-claude p.alGaeste { border-left: 3px solid var(--accent); padding-left: 8px; color: var(--ink); }
+/* unsichtbar, aber für Sprachausgabe da: sagt nur neue Nachrichten an */
+#page-claude .akSrNur { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+#page-claude .akKnoepfe { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+#page-claude .akBtn { font: 600 12px var(--font-ui); padding: 6px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap; min-height: 32px; }
+#page-claude .akBtn.akJa { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); }
+#page-claude .akBtn.akNein { border: 1px solid var(--line); background: none; color: var(--ink); }
+#page-claude .akBtn:disabled { opacity: 0.5; cursor: default; }
+#page-claude #akMeldung { margin-top: 8px; padding: 8px 12px; border-radius: 10px; font-size: 12px; background: var(--material); border: 1px solid var(--material-edge); color: var(--muted); }
+@media (pointer: coarse) { #page-claude .akBtn { min-height: 44px; } }
+@media (max-width: 360px) { #page-claude .akBtn { white-space: normal; } }
+/* ===== Fassung 3 (Wunsch LES 09.10.): Messenger rechts, Lagebild als Architektur-Grafik links ===== */
+@media (min-width: 881px) {
+  #page-claude .akGrid > .akSpalteLage { grid-column: 1; grid-row: 1; }
+  #page-claude .akGrid > .akSpalteChat { grid-column: 2; grid-row: 1; }
+}
+/* --- Messenger --- */
+#page-claude .akMessenger { display: flex; flex-direction: column; }
+#page-claude .akAnwesenheit { font-size: 11px; line-height: 1.6; }
+#page-claude .akAnw.akDa::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); margin-right: 5px; vertical-align: 1px; }
+#page-claude .akAngeheftet { border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line)); border-left: 3px solid var(--accent); border-radius: 12px; padding: 6px 8px 2px; margin-bottom: 10px;
+  background: color-mix(in srgb, var(--accent) 6%, transparent); }
+#page-claude .akAngeheftet ul.akVorschlaege { margin-bottom: 6px; }
+#page-claude ul.akVerlauf { height: min(62vh, 560px); min-height: 240px; overflow-y: auto; margin: 0; padding: 10px 6px; gap: 6px; border: 1px solid var(--line); border-radius: 14px;
+  background-color: color-mix(in srgb, var(--bg) 70%, var(--surface)); background-image: radial-gradient(color-mix(in srgb, var(--line) 80%, transparent) 1px, transparent 1px); background-size: 18px 18px;
+  overscroll-behavior: contain; }
+#page-claude li.akTag { list-style: none; text-align: center; margin: 6px 0 2px; }
+#page-claude li.akTag span { font: 600 10.5px var(--font-ui); letter-spacing: 0.03em; color: var(--muted); background: var(--surface2); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+#page-claude li.akMsg { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 2px 7px; }
+#page-claude li.akMsg.akEigen { justify-content: flex-end; }
+#page-claude .akBild { flex: 0 0 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font: 600 9.5px var(--font-mono); letter-spacing: 0.02em;
+  color: var(--chip-claude); border: 1px solid currentColor; background: var(--surface2); margin-bottom: 14px; }
+#page-claude .akBild.LES { color: var(--chip-les); } #page-claude .akBild.JB { color: var(--chip-jb); }
+#page-claude .akBild.akBildAgent { color: var(--accent); border-style: dashed; background: color-mix(in srgb, var(--accent) 12%, var(--surface2)); }
+#page-claude .akBlase { max-width: min(82%, 300px); min-width: 0; padding: 6px 10px 4px; border-radius: 16px 16px 16px 4px; background: var(--surface2); border: 1px solid var(--line); }
+#page-claude li.akAgent .akBlase { border-style: dashed; border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+#page-claude li.akEigen .akBlase { border-radius: 16px 16px 4px 16px; background: color-mix(in srgb, var(--accent) 24%, var(--surface2)); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+#page-claude .akBlase .akMeta { gap: 6px; font-size: 11px; margin-bottom: 2px; }
+#page-claude .akVon { font-weight: 600; color: var(--ink); }
+#page-claude li.akAgent .akVon { color: var(--accent); }
+#page-claude .akAn { color: var(--muted); }
+#page-claude .akBlase .akText { font-size: 14px; line-height: 1.4; }
+#page-claude .akUhr { display: block; text-align: right; font: 400 10px var(--font-ui); color: var(--muted); margin-top: 1px; }
+#page-claude li.akMsg .akGelesen { flex: 1 0 100%; font-size: 10.5px; margin: 0 0 0 37px; }
+#page-claude li.akEigen .akGelesen { text-align: right; margin: 0; }
+#page-claude li.akSystem { justify-content: center; }
+#page-claude .akPille { display: inline-flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 2px 6px; max-width: 92%; font-size: 11px; color: var(--muted);
+  background: color-mix(in srgb, var(--surface) 80%, transparent); border: 1px dotted var(--line); border-radius: 999px; padding: 3px 12px; }
+#page-claude .akPille .akWas, #page-claude .akPille .akUhr { margin: 0; display: inline; }
+#page-claude .akPille .akVon { color: var(--muted); }
+#page-claude form.akForm { margin-top: 10px; align-items: center; }
+#page-claude form.akForm textarea { min-height: 44px; max-height: 168px; border-radius: 22px; padding: 11px 16px; resize: none; line-height: 1.35; }
+#page-claude form.akForm select { border-radius: 999px; flex: 1 1 140px; }
+#page-claude form.akForm .akSenden { border-radius: 999px; padding-inline: 18px; margin-left: auto; }
+#page-claude .akFussHinweis { margin: 8px 2px 0; font-size: 11px; }
+/* --- Lagebild: Grafik nach der Formensprache von Archify (DESIGN.md: dunkle Konsole, eine Monoschrift, Farbe nur mit Bedeutung,
+   flach in Ruhe, Übergänge 140–200 ms, keine Dauer-Animation; Aufwärts violett, Abwärts grün). Farben der Kategorien wie dort. --- */
+#page-claude .alInhalt { position: relative;
+  --al-ext: #94A3B8; --al-ext-f: rgba(30, 41, 59, 0.5); --al-cyan: #22D3EE; --al-cyan-f: rgba(8, 51, 68, 0.4); --al-green: #34D399; --al-green-f: rgba(6, 78, 59, 0.4);
+  --al-violet: #A78BFA; --al-violet-f: rgba(76, 29, 149, 0.4); --al-amber: #FBBF24; --al-orange: #FB923C; --al-orange-f: rgba(251, 146, 60, 0.16); --al-rose: #FB7185;
+  --al-grund: #0F172A; --al-pfeil: #64748B; --al-rand: #1E293B; }
+#page-claude .alLeer { color: var(--muted); font-size: 13px; margin: 0; }
+#page-claude .alGraph.alBreit { position: relative; border-radius: 16px; box-shadow: inset 0 0 0 1px var(--al-rand); overflow: hidden;
+  background-color: #020617; background-image: radial-gradient(#1E293B 1px, transparent 1px); background-size: 20px 20px; }
+#page-claude .alKanten { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; z-index: 1; }
+#page-claude .alSpKopf { font: 700 10px var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: #475569; }
+#page-claude .alBreit .alSpKopf { position: absolute; top: 10px; text-align: center; }
+#page-claude .alZone { border: 1.5px dashed color-mix(in srgb, var(--al-amber) 70%, transparent); border-radius: 12px; background: rgba(251, 191, 36, 0.035); }
+#page-claude .alBreit .alZone { position: absolute; z-index: 0; }
+#page-claude .alZoneKopf { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; padding: 6px 10px 2px; font: 600 10.5px var(--font-mono); color: var(--al-amber); }
+#page-claude .alZoneMarke { font: 400 10px var(--font-mono); color: var(--al-green); }
+#page-claude .alKasten { --kat: var(--al-ext); --fl: var(--al-ext-f); position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px; text-align: center;
+  font: 400 10.5px/1.45 var(--font-mono); color: #E2E8F0; background: linear-gradient(var(--fl), var(--fl)), var(--al-grund);
+  border: 1.5px solid var(--kat); border-radius: 7px; padding: 14px 8px 7px; cursor: pointer; min-width: 0;
+  transition: opacity 160ms ease-out, box-shadow 160ms ease-out, border-color 160ms ease-out; }
+#page-claude .alBreit .alKasten { position: absolute; z-index: 2; }
+#page-claude .alKasten:focus-visible { outline: 2px solid var(--al-cyan); outline-offset: 2px; }
+#page-claude .alSigel { position: absolute; left: 7px; top: 4px; font: 700 8px var(--font-mono); letter-spacing: 0.12em; color: var(--kat); opacity: 0.9; }
+#page-claude .alArt-mitarbeiter { --kat: var(--al-ext); --fl: var(--al-ext-f); }
+#page-claude .alArt-mitarbeiter .alKKopf { font-size: 13px; letter-spacing: 0.06em; }
+#page-claude .alSorte-claude { --kat: var(--al-cyan); --fl: var(--al-cyan-f); }
+#page-claude .alSorte-mensch { --kat: var(--al-ext); --fl: var(--al-ext-f); }
+#page-claude .alSorte-dienst { --kat: var(--al-orange); --fl: var(--al-orange-f); }
+#page-claude .alSorte-warte { --kat: var(--al-ext); --fl: rgba(15, 23, 42, 0.6); border-style: dashed; }
+#page-claude .alArt-aufgabe { --kat: var(--al-green); --fl: var(--al-green-f); }
+#page-claude .alSorte-thema { border-style: dashed; }
+#page-claude .alArt-speicher { --kat: var(--al-violet); --fl: var(--al-violet-f); }
+#page-claude .alKKopf { font-weight: 600; font-size: 11.5px; color: #FFFFFF; overflow-wrap: break-word; hyphens: auto; max-width: 100%;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#page-claude .alKKlein { font: 700 9px var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--kat); }
+#page-claude .alKZeile { color: #94A3B8; max-width: 100%; overflow-wrap: break-word; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#page-claude .alKMarke { font-weight: 700; font-size: 9.5px; color: var(--al-rose); }
+#page-claude .alKasten.alWarn { border-color: var(--al-rose); }
+#page-claude .alKasten.alBlass { opacity: 0.5; }
+#page-claude .alGraph.alFokus .alKasten:not(.alAn) { opacity: 0.22; }
+#page-claude .alKasten.alUrsprung { box-shadow: 0 0 7px var(--al-cyan); border-color: var(--al-cyan); }
+#page-claude .alKasten.alHoch { border-color: var(--al-violet); }
+#page-claude .alKasten.alRunter { border-color: var(--al-green); }
+#page-claude .alKasten[aria-pressed="true"] { outline: 2px solid var(--al-cyan); outline-offset: 2px; }
+#page-claude path.alKante { fill: none; stroke: var(--al-pfeil); stroke-width: 1.5; transition: opacity 160ms ease-out, stroke 160ms ease-out; }
+#page-claude #alPfeil path { fill: var(--al-pfeil); }
+#page-claude path.alKante-plan { stroke-dasharray: 5 4; }
+#page-claude path.alKante-blass { opacity: 0.4; }
+#page-claude path.alKante-laeuft { stroke: var(--al-green); stroke-width: 2; }
+#page-claude path.alKante-abweichung { stroke: var(--al-rose); stroke-width: 2; stroke-dasharray: 5 4; }
+#page-claude .alGraph.alFokus path.alKante:not(.alAn) { opacity: 0.1; }
+#page-claude path.alKante.alHoch { stroke: var(--al-violet); stroke-width: 2.2; opacity: 1; }
+#page-claude path.alKante.alRunter { stroke: var(--al-green); stroke-width: 2.2; opacity: 1; }
+/* schmal: dieselben Kästen als Liste (Archify: enge Bildschirme bekommen Einfassung, keine zweite Oberfläche) */
+#page-claude .alGraph.alSchmal { display: flex; flex-direction: column; gap: 14px; padding: 10px; border-radius: 16px; background: #020617; box-shadow: inset 0 0 0 1px var(--al-rand); }
+#page-claude .alSpalte { display: flex; flex-direction: column; gap: 6px; }
+#page-claude .alSchmal .alZone { display: flex; flex-direction: column; gap: 6px; padding: 0 6px 6px; }
+#page-claude .alGraph.alSchmal .alKasten { width: 100%; }
+#page-claude .alGraph.alSchmal .alArt-mitarbeiter { width: auto; min-width: 72px; }
+#page-claude .alGraph.alSchmal .alSpalte:first-child { flex-flow: row wrap; }
+#page-claude .alGraph.alSchmal .alSpalte:first-child .alSpKopf { flex: 1 0 100%; }
+/* Legende (mit Zahl je Kategorie) und Details (»Semantic Passport«) */
+#page-claude .alLegende { display: flex; flex-wrap: wrap; gap: 4px 12px; font: 400 10.5px var(--font-mono); color: var(--muted); margin: 10px 2px; }
+#page-claude .alLegZahl { font-weight: 400; font-size: 9.5px; border: 1px solid var(--al-rand); border-radius: 999px; padding: 0 5px; margin-left: 2px; color: #94A3B8; }
+#page-claude .alLeg i { --kat: var(--al-ext); --fl: var(--al-ext-f); display: inline-block; width: 14px; height: 9px; border: 1.5px solid var(--kat); background: var(--fl); border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+#page-claude .alLeg-claude i { --kat: var(--al-cyan); --fl: var(--al-cyan-f); } #page-claude .alLeg-dienst i { --kat: var(--al-orange); --fl: var(--al-orange-f); }
+#page-claude .alLeg-warte i { border-style: dashed; } #page-claude .alLeg-aufgabe i { --kat: var(--al-green); --fl: var(--al-green-f); }
+#page-claude .alLeg-speicher i { --kat: var(--al-violet); --fl: var(--al-violet-f); }
+#page-claude .alLeg-laeuft i, #page-claude .alLeg-plan i, #page-claude .alLeg-abweichung i { width: 18px; height: 0; border-width: 2px 0 0; border-radius: 0; background: none; border-color: var(--al-green); vertical-align: 3px; }
+#page-claude .alLeg-plan i { border-color: var(--al-pfeil); border-top-style: dashed; } #page-claude .alLeg-abweichung i { border-color: var(--al-rose); border-top-style: dashed; }
+#page-claude .alDetail { border: 1px solid var(--al-rand); border-radius: 12px; padding: 8px 12px; background: #0F172A; margin-bottom: 12px; font-family: var(--font-mono); }
+#page-claude .alDetail .akHinweis { margin: 0; font-family: var(--font-ui); }
+#page-claude .alDetail .akText { font-size: 11.5px; }
+#page-claude .alDetail.alOffen { border-color: color-mix(in srgb, var(--al-cyan) 60%, var(--al-rand)); }
+#page-claude .alDetailKopf { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+#page-claude .alDetail .alZeile { font-size: 11.5px; }
+#page-claude .alZeile { font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+#page-claude .alLabel { color: var(--muted); }
+#page-claude .alAbweichung .alMarke { font-weight: 600; color: var(--al-rose); }
+/* Absprache festlegen */
+#page-claude details.alEditor > summary { cursor: pointer; font-size: 12px; color: var(--accent); }
+#page-claude details.alEditor { border-top: 1px solid var(--line); padding-top: 8px; }
+#page-claude form.alForm { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+#page-claude .alFelder { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+#page-claude label.alFeld { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); min-width: 0; }
+#page-claude label.alFeld > select, #page-claude label.alFeld > input, #page-claude label.alFeld > textarea { width: 100%; }
+#page-claude .alKlein { margin: -4px 0 0; }
+#page-claude fieldset.alZugriff { border: 1px solid var(--line); border-radius: 10px; padding: 4px 10px 6px; margin: 0; display: flex; flex-wrap: wrap; gap: 0 14px; }
+#page-claude fieldset.alZugriff legend { font-size: 12px; color: var(--muted); padding: 0 4px; }
+#page-claude [aria-invalid="true"] { outline: 2px solid var(--fehler); outline-offset: 1px; }
+#page-claude #alMeldung { margin-top: 8px; padding: 8px 12px; border-radius: 10px; font-size: 12px; background: var(--material); border: 1px solid var(--material-edge); color: var(--muted); }
+#page-claude .akPlan { font-size: 12px; color: var(--muted); margin-top: 4px; overflow-wrap: anywhere; }
+#page-claude form.alForm select, #page-claude form.alForm input[type="text"], #page-claude form.alForm textarea { background: color-mix(in srgb, var(--surface) 70%, transparent); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; font: 400 calc(14rem / 17) var(--font-ui); min-height: 36px; }
+#page-claude form.alForm textarea { resize: vertical; min-height: 56px; }
+#page-claude form.alForm select:focus, #page-claude form.alForm input[type="text"]:focus, #page-claude form.alForm textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent); }
+@media (pointer: coarse) { #page-claude form.alForm select, #page-claude form.alForm input[type="text"] { min-height: 44px; } #page-claude fieldset.alZugriff label.akAuftrag { min-height: 44px; } }
+/* Absprache an Aufgabenzeilen der Seite (alle Rollen) */
+.akAbsprache { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; overflow-wrap: anywhere; }
