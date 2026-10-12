@@ -1,0 +1,79 @@
+/* Baukasten — »Fragensammlung« und »Drehplan« im Reiter Redaktion (baukasten.js). CL JB 12.10.2026.
+   Farben und Schriften nur über die Marken der Seite (:root in index.html). Alle Regeln gelten nur unter .bk-… */
+.bk-umschalter { display: flex; flex-wrap: wrap; gap: 2px; margin: 0 0 14px; padding: 3px; border-radius: 12px; background: color-mix(in srgb, var(--surface2) 70%, transparent); width: max-content; max-width: 100%; }
+.bk-tab { appearance: none; border: 0; background: transparent; color: var(--muted); font: 600 14px var(--font-ui); padding: 8px 14px; min-height: 40px; border-radius: 9px; cursor: pointer; }
+.bk-tab[aria-selected="true"] { background: color-mix(in srgb, var(--ink) 16%, var(--surface2)); color: var(--ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 40%, transparent); }
+.bk-tab:focus-visible, .bk-knopf:focus-visible, .bk-baustein:focus-visible, .bk-akt button:focus-visible, .bk-ctrl button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bk-panel[hidden] { display: none; }
+.bk-hinweis { color: var(--muted); padding: 16px 0; }
+.bk-ansicht { padding: 0 0 40px; }
+.bk-kopf { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; border-bottom: 1px solid var(--line); margin-bottom: 14px; padding-bottom: 8px; }
+.bk-kopf h2 { margin: 0; font: 600 20px var(--font-display, var(--font-ui)); }
+.bk-hint { color: var(--muted); font-size: 13px; font-weight: 400; }
+.bk-zwei { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.bk-zwei-dreh { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.6fr); }
+@media (max-width: 900px) { .bk-zwei, .bk-zwei-dreh { grid-template-columns: minmax(0, 1fr); } }
+.bk-karte { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow); min-width: 0; }
+.bk-karte h3 { margin: 0 0 6px; font-size: 16px; }
+.bk-blatt { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; }
+@media (max-width: 900px) { .bk-blatt { position: static; max-height: none; } }
+.bk-leiste { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; margin-bottom: 10px; }
+.bk-leiste label, .bk-eigen label { display: flex; flex-direction: column; gap: 3px; color: var(--muted); font-size: 12px; }
+.bk-breit { flex: 1 1 220px; }
+.bk-karte select, .bk-karte input[type="text"], .bk-karte input[type="date"], .bk-karte input[type="time"], .bk-karte input[type="number"] {
+  background: var(--surface2); color: var(--ink); border: 1px solid var(--field-edge, var(--line)); border-radius: 8px; padding: 7px 9px; font: 14px var(--font-ui); min-height: 36px; max-width: 100%; }
+.bk-knopf { background: var(--surface2); color: var(--ink); border: 1px solid var(--line); border-radius: 9px; padding: 8px 12px; font: 500 14px var(--font-ui); cursor: pointer; min-height: 38px; }
+.bk-haupt { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.bk-regeln { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+.bk-regeln summary { cursor: pointer; color: var(--ink); font-weight: 600; }
+.bk-modul { border-top: 1px solid var(--line); padding: 6px 0; }
+.bk-modul summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; padding: 6px 0; }
+.bk-mid { font: 600 12px var(--font-mono); color: var(--accent); }
+.bk-mt { font-weight: 600; }
+.bk-mm { color: var(--muted); font-size: 12px; margin-left: auto; }
+.bk-zweck { color: var(--muted); font-size: 13px; margin: 0 0 6px; }
+.bk-frage { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; padding: 7px 0; cursor: pointer; border-top: 1px dashed color-mix(in srgb, var(--line) 60%, transparent); }
+.bk-frage input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); }
+.bk-fremd { opacity: 0.55; }
+.bk-qt { line-height: 1.4; overflow-wrap: anywhere; }
+.bk-tag { display: inline-block; margin-left: 6px; font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); vertical-align: 1px; }
+.bk-pflicht { color: var(--signal); border-color: var(--signal); }
+.bk-meta { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.bk-rueck { color: var(--chip-jb); font-size: 12.5px; margin-top: 2px; }
+.bk-warn { color: var(--signal); font-size: 12.5px; margin-top: 2px; }
+.bk-eigen { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; border-top: 1px solid var(--line); padding-top: 10px; margin-top: 6px; }
+.bk-eigen label { flex: 1 1 240px; }
+.bk-eigen input { width: 100%; }
+.bk-blatt h3 { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.bk-sm { display: flex; gap: 8px; align-items: baseline; margin: 14px 0 4px; }
+.bk-ctrl { margin-left: auto; display: flex; gap: 4px; }
+.bk-ctrl button, .bk-akt button { background: var(--surface2); color: var(--ink); border: 1px solid var(--line); border-radius: 7px; min-width: 32px; min-height: 32px; cursor: pointer; font: 14px var(--font-ui); }
+.bk-ql { margin: 0; padding-left: 22px; }
+.bk-ql li { margin: 4px 0; line-height: 1.4; }
+.bk-n { display: block; color: var(--muted); font-size: 12.5px; }
+.bk-fuss { margin-top: 14px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px; }
+.bk-notfall { width: 100%; min-height: 160px; margin-top: 8px; background: var(--surface2); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; font: 12px var(--font-mono); }
+.bk-lib { display: flex; flex-direction: column; gap: 10px; }
+.bk-artname { font: 600 11px var(--font-ui); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 4px 0; }
+.bk-baustein { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; width: 100%; text-align: left; background: var(--surface2); color: var(--ink); border: 1px solid var(--line); border-left: 3px solid var(--line); border-radius: 9px; padding: 8px 10px; margin-bottom: 6px; cursor: pointer; font: 14px var(--font-ui); }
+.bk-bt { font-weight: 600; }
+.bk-bn { flex-basis: 100%; color: var(--muted); font-size: 12px; line-height: 1.35; }
+.bk-sonne { background: var(--surface2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; font-size: 13px; color: var(--chip-jb); margin-bottom: 10px; }
+.bk-tabelle { overflow-x: auto; }
+.bk-tabelle table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.bk-tabelle th { text-align: left; color: var(--muted); font-weight: 600; font-size: 12px; padding: 6px; border-bottom: 1px solid var(--line); }
+.bk-tabelle td { padding: 6px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); vertical-align: top; }
+.bk-tabelle td input[type="number"] { width: 70px; }
+.bk-tabelle td input[type="text"] { width: 130px; }
+.bk-zeit { font: 13px var(--font-mono); white-space: nowrap; }
+.bk-tagwechsel { display: inline-block; font: 600 11px var(--font-ui); color: var(--accent); margin-left: 4px; }
+.bk-par .bk-zeit { color: var(--chip-jb); }
+.bk-par td:first-child { box-shadow: inset 3px 0 0 var(--chip-jb); }
+.bk-akt { white-space: nowrap; }
+.bk-akt button[aria-pressed="true"] { border-color: var(--chip-jb); color: var(--chip-jb); }
+.bk-weg { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+[data-art="dreh"].bk-baustein { border-left-color: var(--accent); }
+[data-art="interview"].bk-baustein { border-left-color: var(--fach-interview); }
+[data-art="pause"].bk-baustein { border-left-color: var(--ok); }
+[data-art="orga"].bk-baustein { border-left-color: var(--muted); }
+.bk-blatt .bk-leiste { margin: 10px 0 0; }
