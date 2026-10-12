@@ -2,7 +2,8 @@
    keine echten Namen, Orte, Zitate oder Inhalte aus JBs Dateien; Adressen nur example.org. Form genau nach der Feldbeschreibung
    der Sammlung (Bauart 1). Deckt ab: alle 14 Arten, alle Block-Formen der Quelltexte (absatz, zitat, liste,
    tabelle, trennlinie, zurueckgehalten), alle Textstück-Merkmale (fett, kursiv, code, durch, link, marke ok/warnung/neutral),
-   alle Platzhalter (Überschrift, Tabellenzeile, Block, Listenpunkt), alle Kanten-Arten (durchgezogen/gestrichelt × mit/ohne Pfeil,
+   alle Platzhalter (Überschrift, Tabellenzeile, Block, Listenpunkt; im vierten Reiter „Finanzierung“ auch an der Stelle einer
+   Textfolge der Vorlage: Tabellenzelle, Listenpunkt, Absatz, Hinweis — mit und ohne Vorspann; Nachtrag CL LES 09.10.2026), alle Kanten-Arten (durchgezogen/gestrichelt × mit/ohne Pfeil,
    mit/ohne Beschriftung, zwei Kanten zwischen denselben Knoten, Kante in derselben Spalte), Diagramme in vier Richtungen (LR, TD mit
    Kreis und lage null, BT, RL) und drei ausgeblendete Einträge (nicht_mehr_in_quelle: eine Tabellenzeile, ein Steckbrief, ein Listenpunkt).
    Dazu Proben, die als Text erscheinen müssen: „<img src=x onerror=…>“, „<script>“, javascript:-, data:- und relative Verweise.
@@ -186,6 +187,30 @@
     ] },
     { form: "trennlinie" }
   ] }, 6);
+
+  /* ---- Ansicht finanzierung (vierter Reiter, 09.10.2026) — erfundene Programme und Fristen, keine echten Förderer oder Beträge ---- */
+  function phv(vorspann) { var p = ph(0, 0); if (vorspann) p.vorspann = vorspann; return p; }
+  // Platzhalter eines Eintrags tragen die Zeilen des Eintrags selbst (wie im Skript: Zeilen des Elements in der Vorlage)
+  function aufZeile(id) {
+    E.forEach(function (e) {
+      if (e.id !== id) return;
+      [e.data.text].concat(e.data.zellen || []).forEach(function (x) { if (x && x.zurueckgehalten === true) { x.zeile = e.data.quelle.zeile; x.bis = e.data.quelle.bis; } });
+    });
+    return id;
+  }
+  var fn = neu("ansicht", "finanzierung", mappe, "vorlage", { titel: "Demo-Reiter Vier" });
+  var fnA1 = neu("abschnitt", "finanzierung", fn, "vorlage", { ueberschrift: null });
+  neu("absatz", "finanzierung", fnA1, "vorlage", { form: "absatz", text: [t("Grundlage", { marke: "neutral" }), t(" Erfundenes Konzept (im Repo unter "), t("demo/", { code: true }), t(").")] });
+  var fnA2 = neu("abschnitt", "finanzierung", fn, "vorlage", { ueberschrift: "Fristen (Demo)" });
+  var fnT = neu("tabelle", "finanzierung", fnA2, "vorlage", { spalten: ["Was", "Frist", "Status"] }, 2);
+  neu("zeile", "finanzierung", fnT, "vorlage", { zellen: [[t("Programm Alpha", { fett: true }), t(" (erfunden)")], [t("01.12.2026", { fett: true })], [t("vorbereiten", { marke: "neutral" })]] });
+  aufZeile(neu("zeile", "finanzierung", fnT, "vorlage", { zellen: [phv([t("Programm Beta — Priorität 1.", { fett: true })]), [t("15.01.2027")], [t("anfragen", { marke: "warnung" })]] }));
+  aufZeile(neu("zeile", "finanzierung", fnT, "vorlage", { zellen: [[t("Stiftung Gamma", { fett: true })], [t("eingereicht")], phv(null)] }));
+  var fnA3 = neu("abschnitt", "finanzierung", fn, "vorlage", { ueberschrift: "Logik (Demo)" });
+  var fnL = neu("liste", "finanzierung", fnA3, "vorlage", { nummeriert: false });
+  neu("punkt", "finanzierung", fnL, "vorlage", { nummer: null, text: [t("Erst Sender:", { fett: true }), t(" erfundene Reihenfolge.")] });
+  aufZeile(neu("punkt", "finanzierung", fnL, "vorlage", { nummer: null, text: phv([t("Eigenes Geld:", { fett: true })]) }));
+  aufZeile(neu("hinweis", "finanzierung", fnA3, "vorlage", { text: phv(null) }));
 
   window.LEITSTAND_REDAKTION_DEMO = { eintraege: E };
 

@@ -1,14 +1,18 @@
 /* Redaktion — JBs redaktionelle Arbeitsmappe im Leitstand (Paket 5, Entscheidung E14; CL LES 07.10.2026). Nur für Admins.
-   Zeichnet die drei Ansichten „Experten & Gespräche“, „Figuren (Beziehungsdiagramm + Steckbriefe)“ und „Dramaturgie“ aus der
-   Datenbank-Sammlung `redaktion` — genau nach der Feldbeschreibung der Sammlung (Bauart 1; liegt im privaten Repo).
-   Form nach E14: EIN Reiter „Redaktion“ mit Umschalter für drei Unteransichten — oder, mit der Einstellung
-   redaktionDreiReiter: true im Optionen-Objekt (die Seite übergibt EINST), drei eigene Reiter.
+   Zeichnet die vier Ansichten „Experten & Gespräche“, „Figuren (Beziehungsdiagramm + Steckbriefe)“, „Dramaturgie“ und
+   „Finanzierung & Förderung“ (vierter Reiter, Vorschlag CL LES 09.10.2026; Geld und Förderer — wie die ganze Sammlung nur für
+   Editoren) aus der Datenbank-Sammlung `redaktion` — genau nach der Feldbeschreibung der Sammlung (Bauart 1; liegt im privaten Repo).
+   Form nach E14: EIN Reiter „Redaktion“ mit Umschalter für die Unteransichten — oder, mit der Einstellung
+   redaktionDreiReiter: true im Optionen-Objekt (die Seite übergibt EINST; Name aus der Zeit mit drei Ansichten), je Ansicht ein Reiter.
+   Zurückgehaltene Teile (Platzhalter) zeigt das Modul als gestrichelten Kasten mit den Zeilen der Datei, nie mit Text — in den
+   Quelltexten wie bisher, in der Vorlage-Ansicht „Finanzierung & Förderung“ auch an der Stelle einer Textfolge (Absatz, Hinweis,
+   Listenpunkt, Tabellenzelle), dort mit dem fetten Vorspann aus den Daten davor.
    Regeln: Inhalt nur aus den Daten, nichts davon im Code. Jeder Text aus der Datenbank wird als Textknoten gesetzt (textContent,
    createTextNode), nie als HTML. Verweise nur mit http:, https:, mailto: (rel="noopener noreferrer"); jede andere Adresse als Text.
    Einträge mit nicht_mehr_in_quelle, einer anderen Bauart oder unbekannter Art blendet das Modul aus. Das Beziehungsdiagramm entsteht
    aus Knoten und Kanten als SVG im Browser — kein Bild, keine Bibliothek, keine Adresse von außen.
    Schnittstelle (window.LEITSTAND_REDAKTION):
-     reiter(opt)              → sichtbare Reiter je Einstellung: [{ seite, name, ansicht }] (eins oder drei; für Gäste leer)
+     reiter(opt)              → sichtbare Reiter je Einstellung: [{ seite, name, ansicht }] (einer oder je Ansicht einer; für Gäste leer)
      SEITEN                   → alle Seiten-Schlüssel beider Formen (für PAGES und NUR_ADMIN): redaktion, redaktion-experten, …
      seite(p, opt)            → Seiten-Schlüssel der anderen Form auf die gültige abbilden (alte Adressen führen weiter)
      starte(ziel, db, opt)    → abonniert db.collection("redaktion").onSnapshot(cb, fehlerCb) und zeichnet; ziel = Element (ein Reiter),
@@ -26,7 +30,8 @@
   var ANSICHTEN = [               // Namen aus dem Auftrag (Paket 5); Reihenfolge der Reiter der Vorlage
     { schluessel: "experten", name: "Experten & Gespräche", seite: "redaktion-experten" },
     { schluessel: "figuren", name: "Figuren (Beziehungsdiagramm + Steckbriefe)", seite: "redaktion-figuren" },
-    { schluessel: "dramaturgie", name: "Dramaturgie", seite: "redaktion-dramaturgie" }
+    { schluessel: "dramaturgie", name: "Dramaturgie", seite: "redaktion-dramaturgie" },
+    { schluessel: "finanzierung", name: "Finanzierung & Förderung", seite: "redaktion-finanzierung" }   // vierter Reiter (Name wie in der Vorlage)
   ];
   var ARTEN = { mappe: 1, ansicht: 1, abschnitt: 1, absatz: 1, hinweis: 1, tabelle: 1, zeile: 1, liste: 1, punkt: 1, diagramm: 1,
     knoten: 1, kante: 1, steckbrief: 1, quelltext: 1 };
@@ -247,6 +252,14 @@
     e.textContent = T.zurueck ? fuelle(T.zurueck, { zeile: z, bis: b, datei: datei }) : bereich;
     return e;
   }
+  /* Textfolge der Vorlage oder (Ansicht mit Zurückhalten) Platzhalter an ihrer Stelle: Vorspann aus den Daten, dann der Kasten */
+  function dateiVon(e) { return e && e.v && e.v.quelle && typeof e.v.quelle === "object" ? txt(e.v.quelle.datei) : ""; }
+  function folgeOderPlatz(ziel, f, datei, T) {
+    if (!istPlatzhalter(f)) return textfolge(ziel, f);
+    if (Array.isArray(f.vorspann) && f.vorspann.length) { textfolge(ziel, f.vorspann); ziel.appendChild(tn(" ")); }
+    ziel.appendChild(platzhalter("span", f, datei, T));
+    return ziel;
+  }
 
   /* ---- Ansichten ---- */
   function meldung(T, lage) {
@@ -262,7 +275,7 @@
     if (bez(v.stand)) { var s = el("span", "rd-stand"); s.textContent = bez(v.stand); k.appendChild(s); }
     return k;
   }
-  function tabelle(o, t, key) {
+  function tabelle(o, t, key, T) {
     var w = el("div", "rd-scroll"), tab = el("table", "rd-tabelle"), sp = liste(t.v.spalten);
     if (sp.length) {
       var kopf = el("thead"), tr = el("tr");
@@ -273,50 +286,50 @@
     o.kinder(t.id, "zeile", key).forEach(function (z) {
       var r = el("tr"), zellen = liste(z.v.zellen), n = Math.max(sp.length, zellen.length);
       r.setAttribute("data-rd-id", z.id);
-      for (var i = 0; i < n; i++) r.appendChild(textfolge(el("td"), zellen[i]));
+      for (var i = 0; i < n; i++) r.appendChild(folgeOderPlatz(el("td"), zellen[i], dateiVon(z), T));
       rumpf.appendChild(r);
     });
     tab.appendChild(rumpf); w.appendChild(tab);
     return w;
   }
-  function vorlageListe(o, l, key) {
+  function vorlageListe(o, l, key, T) {
     var num = l.v.nummeriert === true, e = el(num ? "ol" : "ul", "rd-liste");
     o.kinder(l.id, "punkt", key).forEach(function (p) {
       var li = el("li"), n = zahl(p.v.nummer); li.setAttribute("data-rd-id", p.id);
       if (num && n != null) li.value = n;
-      e.appendChild(textfolge(li, p.v.text));
+      e.appendChild(folgeOderPlatz(li, p.v.text, dateiVon(p), T));
     });
     return e;
   }
-  function steckbrief(s) {
+  function steckbrief(s, T) {
     var a = el("article", "rd-steckbrief"); a.setAttribute("data-rd-id", s.id);
     if (bez(s.v.marke)) { var m = el("span", "rd-lbl"); m.textContent = bez(s.v.marke); a.appendChild(m); }
     var h = el("h4", "rd-name"); h.textContent = bez(s.v.name); a.appendChild(h);
-    a.appendChild(textfolge(el("p", "rd-p"), s.v.text));
+    a.appendChild(folgeOderPlatz(el("p", "rd-p"), s.v.text, dateiVon(s), T));
     return a;
   }
-  function block(o, b, key) {
+  function block(o, b, key, T) {
     var v = b.v, e;
-    if (v.art === "absatz") e = textfolge(el("p", v.form === "unterzeile" ? "rd-unterzeile" : "rd-p"), v.text);
-    else if (v.art === "hinweis") e = textfolge(el("div", "rd-hinweis"), v.text);
-    else if (v.art === "tabelle") e = tabelle(o, b, key);
-    else if (v.art === "liste") e = vorlageListe(o, b, key);
+    if (v.art === "absatz") e = folgeOderPlatz(el("p", v.form === "unterzeile" ? "rd-unterzeile" : "rd-p"), v.text, dateiVon(b), T);
+    else if (v.art === "hinweis") e = folgeOderPlatz(el("div", "rd-hinweis"), v.text, dateiVon(b), T);
+    else if (v.art === "tabelle") e = tabelle(o, b, key, T);
+    else if (v.art === "liste") e = vorlageListe(o, b, key, T);
     else if (v.art === "diagramm") e = diagramm(o, b, key);
     else return null;
     e.setAttribute("data-rd-id", b.id);
     return e;
   }
-  function abschnitt(o, s, key) {
+  function abschnitt(o, s, key, T) {
     var sec = el("section", "rd-abschnitt"), gitter = null;
     sec.setAttribute("data-rd-id", s.id);
     if (s.v.ueberschrift != null && bez(s.v.ueberschrift) !== "") { var h = el("h3", "rd-h"); h.textContent = bez(s.v.ueberschrift); sec.appendChild(h); }
     o.kinder(s.id, BLOCK_ARTEN, key).forEach(function (b) {
       if (b.v.art === "steckbrief") {   // Steckbriefe nebeneinander wie in der Vorlage (Karten im Raster)
         if (!gitter) { gitter = el("div", "rd-steckbriefe"); sec.appendChild(gitter); }
-        gitter.appendChild(steckbrief(b)); return;
+        gitter.appendChild(steckbrief(b, T)); return;
       }
       gitter = null;
-      var e = block(o, b, key); if (e) sec.appendChild(e);
+      var e = block(o, b, key, T); if (e) sec.appendChild(e);
     });
     return sec;
   }
@@ -409,7 +422,7 @@
     if (!abschnitte.length && !qt.length) { p.setAttribute("data-lage", "leer"); p.appendChild(meldung(L.T, "leer")); return p; }
     if (abschnitte.length) {
       var k = el("div", "rd-karte rd-vorlage");
-      abschnitte.forEach(function (s) { k.appendChild(abschnitt(o, s, key)); });
+      abschnitte.forEach(function (s) { k.appendChild(abschnitt(o, s, key, L.T)); });
       p.appendChild(k);
     }
     if (qt.length) p.appendChild(quelltexte(L, qt));
@@ -623,7 +636,7 @@
     return fig;
   }
 
-  /* ---- Hülle (ein Reiter mit Umschalter) und Einzelansicht (drei Reiter) ---- */
+  /* ---- Hülle (ein Reiter mit Umschalter) und Einzelansicht (je Ansicht ein Reiter) ---- */
   function waehle(L, key, fokus) {
     key = gueltigeAnsicht(key) || ANSICHTEN[0].schluessel;
     L.gewaehlt = key; merke(key);
