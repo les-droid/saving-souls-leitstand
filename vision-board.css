@@ -1,0 +1,131 @@
+/* Vision Board — Reiter »Vision« (vision-board.js). CL LES 09.10.2026. Gestaltung nach dem freigegebenen Entwurf (LES 09.10.2026), Farben und
+   Schriften nur über die Marken der Seite (:root in index.html). Alle Regeln gelten nur unter .vb-… bzw. #page-vision, #vbGross, #vbGast. */
+#page-vision .vb-seite { padding: 6px 0 40px; }
+.vb-head { padding: 4px 0 0; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.vb-head h1 { margin: 0 0 4px; font: 600 20px var(--font-display, var(--font-ui)); }
+.vb-unter { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+.vb-seg { display: flex; gap: 4px; flex-wrap: wrap; }
+.vb-seg a { color: var(--muted); font: 600 14px var(--font-ui); padding: 10px 14px; border-bottom: 2px solid transparent; min-height: 44px; display: inline-flex; align-items: center; text-decoration: none; }
+.vb-seg a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
+.vb-seg a:focus-visible, .vb-tagknopf:focus-visible, .vb-szenenwahl button:focus-visible, .vb-bild:focus-visible, .vb-minitxt:focus-visible, .vb-grosszu:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.vb-leiste { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.vb-tagknopf { background: var(--surface); border: 1px solid var(--line); color: var(--ink); border-radius: 10px; padding: 8px 12px; cursor: pointer; font: 500 14px var(--font-ui); min-height: 44px; text-align: left; }
+.vb-tagknopf small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; }
+.vb-tagknopf[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.vb-schalter { margin-left: auto; display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 14px; min-height: 44px; }
+.vb-schalter input { width: 18px; height: 18px; accent-color: var(--accent); }
+.vb-karte { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; box-shadow: var(--shadow); min-width: 0; }
+.vb-karte h2 { margin: 0 0 8px; font-size: 16px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.vb-hint { color: var(--muted); font-weight: 400; font-size: 13px; }
+.vb-kopf { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 14px; }
+.vb-titel { font-size: 22px; font-weight: 600; overflow-wrap: anywhere; }
+.vb-zustand { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; background: var(--surface2); color: var(--muted); border: 1px solid var(--line); }
+.vb-z-geplant { color: var(--accent); border-color: var(--accent); }
+.vb-z-gedreht { color: var(--ok); border-color: var(--ok); }
+.vb-z-vorschlag { color: var(--chip-claude); border-style: dashed; }
+.vb-z-verworfen { text-decoration: line-through; }
+.vb-bezuege { margin: 8px 0 0; padding: 0; list-style: none; display: flex; gap: 6px; flex-wrap: wrap; }
+.vb-bezuege li { background: var(--surface2); border: 1px solid var(--line); border-radius: 8px; padding: 3px 8px; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.vb-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); gap: 12px; }
+.vb-idee { background: var(--surface2); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+.vb-idee.vb-claude, .vb-mini.vb-claude { border-style: dashed; }
+.vb-idee.vb-verworfen { opacity: .5; }
+.vb-idee.vb-markiert, .vb-mini.vb-markiert { outline: 2px solid var(--accent); }
+.vb-txt { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; overflow-wrap: anywhere; }
+.vb-t { font-weight: 600; }
+.vb-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--muted); }
+.vb-begr { font-size: 13px; color: var(--muted); border-left: 2px solid var(--line); padding-left: 8px; }
+.vb-chip { border-radius: 6px; padding: 1px 6px; font: 600 11px var(--font-ui); color: #0E181B; }
+.vb-chip-LES { background: var(--chip-les); } .vb-chip-JB { background: var(--chip-jb); } .vb-chip-Claude { background: var(--chip-claude); }
+.vb-art { font: 600 11px var(--font-ui); letter-spacing: .02em; text-transform: uppercase; color: var(--accent); }
+.vb-knoepfe { display: flex; gap: 6px; margin-top: auto; }
+.vb-knoepfe button { flex: 1; min-height: 44px; border-radius: 8px; border: 1px solid var(--field-edge); background: none; color: var(--ink); font: 500 13px var(--font-ui); cursor: pointer; }
+.vb-knoepfe button:disabled { cursor: not-allowed; opacity: .6; }
+.vb-miniknoepfe { padding: 0 10px 10px; }
+/* Bildfläche: das Kennzeichen liegt IM Bild (Konzept Abschnitt 2) — auch in der Großansicht */
+.vb-bild { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; background: #0b1416; border: 0; padding: 0; margin: 0; overflow: hidden; color: inherit; font: inherit; text-align: left; }
+button.vb-bild { cursor: zoom-in; }
+.vb-bild svg, .vb-bild img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.vb-band { position: absolute; left: 0; top: 0; padding: 3px 8px; font: 700 11px var(--font-mono); letter-spacing: .04em; color: #0E181B; background: var(--ink); border-bottom-right-radius: 8px; max-width: 100%; overflow-wrap: anywhere; }
+.vb-band-previs { background: var(--signal); right: 0; border-radius: 0; text-align: center; }
+.vb-band-still { background: var(--accent); }
+.vb-band-foto { background: var(--chip-les); }
+.vb-band-skizze { background: var(--muted); }
+.vb-band-aussen { background: var(--chip-jb); }
+.vb-bildunter { position: absolute; right: 8px; bottom: 6px; font: 400 11px var(--font-mono); color: #E4ECEA; background: rgba(11, 20, 22, .72); padding: 1px 5px; border-radius: 4px; }
+.vb-ohnebild { position: absolute; inset: auto 8px 8px 8px; color: var(--muted); font-size: 12px; }
+.vb-szenen { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.vb-szenenwahl { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.vb-szenenwahl button { background: var(--surface2); border: 1px solid var(--line); color: var(--ink); border-radius: 8px; padding: 6px 10px; cursor: pointer; font: 500 13px var(--font-ui); min-height: 36px; }
+.vb-szenenwahl button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.vb-grundriss { display: block; width: 100%; height: auto; background: #0b1416; border: 1px solid var(--line); border-radius: 12px; }
+table.vb-liste { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+table.vb-liste th, table.vb-liste td { text-align: left; padding: 6px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+table.vb-liste th { color: var(--muted); font-weight: 500; text-transform: none; letter-spacing: normal; }
+table.vb-liste th:first-child { width: 26%; } table.vb-liste th:nth-child(2) { width: 30%; }
+.vb-absicht { color: var(--ink); font-style: italic; margin: 0 0 10px; }
+.vb-legende { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 8px; }
+.vb-legende span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; background: var(--c); }
+.vb-zaehler { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.vb-zaehler div { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+.vb-zaehler b { display: block; font-size: 20px; }
+.vb-zaehler span { color: var(--muted); font-size: 12px; }
+.vb-zaehler .vb-leerart b { color: var(--signal); }
+.vb-panel { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.vb-spalte { min-width: 0; }
+.vb-spalte > summary { list-style: none; cursor: pointer; margin: 0 0 8px; font: 600 13px var(--font-ui); text-transform: uppercase; letter-spacing: .04em; color: var(--accent); min-height: 32px; display: flex; align-items: center; gap: 6px; }
+.vb-spalte > summary::-webkit-details-marker { display: none; }
+.vb-anz { color: var(--muted); font-weight: 500; }
+.vb-mini { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 10px; }
+.vb-minitxt { display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 8px 10px; font: 400 13px var(--font-ui); color: var(--ink); background: none; border: 0; text-align: left; cursor: pointer; overflow-wrap: anywhere; min-height: 44px; }
+.vb-filter { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; color: var(--muted); font-size: 14px; }
+.vb-filter label { display: inline-flex; gap: 6px; align-items: center; max-width: 100%; }
+.vb-filter select { background: var(--surface); color: var(--ink); border: 1px solid var(--field-edge); border-radius: 8px; padding: 6px 8px; font: 400 14px var(--font-ui); min-height: 36px; max-width: 100%; min-width: 0; }
+.vb-filter .vb-mitbild { margin-left: 0; }
+.vb-leer { color: var(--muted); font-size: 13px; padding: 6px 0; }
+.vb-warnung { border: 1px solid var(--signal); color: var(--ink); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; font-size: 14px; }
+/* Eingeben (Fassung »Eingeben«, CL LES 09.10.2026) */
+.vb-aktion { min-height: 44px; border-radius: 8px; border: 1px solid var(--field-edge); background: var(--surface2); color: var(--ink); font: 500 14px var(--font-ui); padding: 0 14px; cursor: pointer; }
+.vb-aktion:focus-visible, .vb-knoepfe button:focus-visible, .vb-speichern:focus-visible, .vb-zeileweg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.vb-werkzeug { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.vb-kopfrechts { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.vb-meldung { color: var(--ink); font-size: 14px; min-height: 0; }
+.vb-meldung:not(:empty) { border: 1px solid var(--accent); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; }
+.vb-formhuelle { align-items: flex-start; overflow: auto; }
+.vb-formular { width: min(860px, 100%); max-height: none; }
+.vb-formular h2 { margin: 0; font-size: 17px; color: var(--ink); }
+.vb-felder { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); gap: 12px; }
+.vb-standort, .vb-felder > .vb-hint { grid-column: 1 / -1; margin: 0; font-size: 13px; color: var(--muted); }
+.vb-standort { border-left: 3px solid var(--signal); padding-left: 8px; color: var(--ink); }
+.vb-feld { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); min-width: 0; }
+.vb-feld-breit { grid-column: 1 / -1; }
+.vb-feld small { font-size: 12px; }
+.vb-feld input, .vb-feld select, .vb-feld textarea, .vb-zfeld input, .vb-zfeld select { background: var(--surface2); color: var(--ink); border: 1px solid var(--field-edge); border-radius: 8px; padding: 8px; font: 400 15px var(--font-ui); min-height: 44px; min-width: 0; width: 100%; box-sizing: border-box; }
+.vb-feld textarea { resize: vertical; }
+.vb-zeilen { grid-column: 1 / -1; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px 10px; margin: 0; min-width: 0; }
+.vb-zeilen legend { color: var(--ink); font-weight: 600; font-size: 14px; padding: 0 4px; }
+.vb-zeile { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(96px, 100%), 1fr)) 44px; gap: 6px; align-items: end; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.vb-zfeld { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); min-width: 0; }
+.vb-zeileweg { min-height: 44px; min-width: 44px; border-radius: 8px; border: 1px solid var(--field-edge); background: none; color: var(--ink); font: 600 18px var(--font-ui); cursor: pointer; }
+.vb-zeilen .vb-aktion { margin-top: 8px; }
+.vb-formfehler:not(:empty) { border: 1px solid var(--signal); border-radius: 10px; padding: 8px 12px; margin-top: 12px; color: var(--ink); font-size: 14px; }
+.vb-formfehler ul { margin: 4px 0 0; padding-left: 18px; }
+.vb-formknoepfe { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.vb-speichern { min-height: 44px; border-radius: 8px; border: 0; background: var(--accent); color: #0E181B; font: 600 15px var(--font-ui); padding: 0 18px; cursor: pointer; }
+.vb-speichern:disabled { opacity: .6; cursor: progress; }
+/* Großansicht */
+.vb-gross { position: fixed; inset: 0; z-index: 80; background: var(--schleier, rgba(0, 0, 0, .5)); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.vb-grosskarte { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); width: min(1100px, 100%); max-height: 100%; overflow: auto; padding: 12px; }
+.vb-grossbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; color: var(--muted); font-size: 13px; }
+.vb-grosszu { min-height: 44px; border-radius: 8px; border: 1px solid var(--field-edge); background: none; color: var(--ink); font: 500 14px var(--font-ui); padding: 0 14px; cursor: pointer; }
+.vb-gross-bild .vb-band { font-size: 14px; padding: 6px 10px; }
+.vb-grossunter { color: var(--muted); font-size: 13px; margin: 8px 0 0; overflow-wrap: anywhere; }
+/* Gast-Block im Reiter Boards (Vorschlag F6, Standard aus) */
+#vbGast { margin-top: 22px; }
+@media (max-width: 900px) { .vb-szenen { grid-template-columns: minmax(0, 1fr); } .vb-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); } .vb-zaehler { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+  .vb-panel { grid-template-columns: minmax(0, 1fr); } .vb-zaehler { grid-template-columns: repeat(2, minmax(0, 1fr)); } .vb-schalter { margin-left: 0; }
+  .vb-karte { padding: 12px; } .vb-titel { font-size: 19px; } .vb-kopf { grid-template-columns: minmax(0, 1fr); }
+  .vb-spalte > summary { border-bottom: 1px solid var(--line); }
+}
+@media (prefers-reduced-motion: reduce) { .vb-idee.vb-markiert { scroll-behavior: auto; } }
