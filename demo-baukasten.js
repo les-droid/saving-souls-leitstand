@@ -23,7 +23,11 @@
       { id: "ankunft", titel: "Ankunft", min: 30, art: "orga", notiz: "Absprache vor Ort." },
       { id: "arbeit", titel: "Arbeit beobachten", min: 90, art: "dreh", notiz: "Ruhige Kamera." },
       { id: "essen", titel: "Gemeinsam essen", min: 60, art: "pause", notiz: "Zwei Kameras." },
-      { id: "gespraech", titel: "Gesetztes Interview", min: 60, art: "interview", notiz: "Neutraler Hintergrund." } ]
+      { id: "gespraech", titel: "Gesetztes Interview", min: 60, art: "interview", notiz: "Neutraler Hintergrund." } ],
+    dreh_vorlagen: [
+      { id: "demo-tag", titel: "Demo: Drehtag mit zwei Einheiten", datum: "2026-10-13", zeit: "15:30", rows: [
+        { id: "ankunft", min: 30, wer: "A" }, { id: "arbeit", min: 90, wer: "A", notiz: "Eigene Notiz aus der Vorlage" },
+        { id: "essen", min: 60, wer: "B" }, { id: "gespraech", min: 60, wer: "A + B", par: true }, { id: "eigen", titel: "Eigener Punkt", min: 20 } ] } ]
   };
   window.LEITSTAND_BAUKASTEN_DEMO = K;
   var store = window.LEITSTAND_DEMO_STORE;

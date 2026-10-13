@@ -63,13 +63,22 @@
 .bk-tabelle table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .bk-tabelle th { text-align: left; color: var(--muted); font-weight: 600; font-size: 12px; padding: 6px; border-bottom: 1px solid var(--line); }
 .bk-tabelle td { padding: 6px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); vertical-align: top; }
-.bk-tabelle td input[type="number"] { width: 70px; }
-.bk-tabelle td input[type="text"] { width: 130px; }
+.bk-tabelle td input[type="number"] { width: 64px; }
+.bk-tabelle td input[type="text"] { width: 110px; }
+.bk-was { width: 100%; }
+.bk-tabelle td input[type="text"].bk-titelfeld { width: 100%; font-weight: 600; margin-bottom: 4px; }   /* zellenbreit: muss die Regel für Textfelder (110px) weiter oben schlagen */
+.bk-notiz { display: block; width: 100%; min-width: 160px; margin-top: 4px; background: transparent; color: var(--muted); border: 1px solid transparent; border-radius: 7px; padding: 4px 6px; font: 12.5px/1.35 var(--font-ui); resize: vertical; }
+.bk-notiz:hover, .bk-notiz:focus { border-color: var(--line); background: var(--surface2); color: var(--ink); outline: none; }
+.bk-griff { cursor: grab; color: var(--muted); font-size: 18px; width: 22px; user-select: none; -webkit-user-select: none; }
+.bk-zieht { opacity: 0.45; }
+.bk-ziel td { box-shadow: inset 0 2px 0 var(--accent); }
+@media (max-width: 600px) { .bk-griff, .bk-tabelle th:first-child { display: none; } }
+[data-art="eigen"].bk-baustein, tr[data-art="eigen"] .bk-griff { border-left-color: var(--chip-jb); }
 .bk-zeit { font: 13px var(--font-mono); white-space: nowrap; }
 .bk-tagwechsel { display: inline-block; font: 600 11px var(--font-ui); color: var(--accent); margin-left: 4px; }
 .bk-par .bk-zeit { color: var(--chip-jb); }
 .bk-par td:first-child { box-shadow: inset 3px 0 0 var(--chip-jb); }
-.bk-akt { white-space: nowrap; }
+.bk-akt { display: grid; grid-template-columns: repeat(2, 32px); gap: 4px; }
 .bk-akt button[aria-pressed="true"] { border-color: var(--chip-jb); color: var(--chip-jb); }
 .bk-weg { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 [data-art="dreh"].bk-baustein { border-left-color: var(--accent); }

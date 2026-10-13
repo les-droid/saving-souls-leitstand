@@ -12,7 +12,7 @@
    Gelesen wird nur über den Zugriff, den die Seite der Redaktion gibt (onSnapshot); geschrieben wird nichts. Was man zusammenstellt (Leitfaden, Drehplan),
    bleibt auf diesem Gerät (localStorage) und wird als Markdown kopiert. Jeder Text aus der Datenbank wird maskiert gesetzt (esc).
 
-   Schalter: EIN.an (Standard AUS — eingehängt heißt noch nicht sichtbar). Nur lokal auch über die Adresse: ?baukasten=1; mit ?demo=1 zusätzlich erfundene
+   Schalter: EIN.an (seit 12.10.2026 AN; steht er auf false, ist der Baukasten eingehängt, aber nicht sichtbar). Nur lokal auch über die Adresse: ?baukasten=1; mit ?demo=1 zusätzlich erfundene
    Demo-Daten (demo-baukasten.js). Prüfzugang: window.LEITSTAND_BAUKASTEN. */
 (function () {
   "use strict";
@@ -74,7 +74,21 @@
     });
     arr(roh.vorlagen).forEach(function (v) { if (v && v.id) k.vorlagen.push({ id: str(v.id), titel: str(v.titel), person: str(v.person), module: arr(v.module).map(str) }); });
     arr(roh.dreh_bausteine).forEach(function (b) { if (b && b.id) k.bausteine.push({ id: str(b.id), titel: str(b.titel), min: Math.max(5, zahl(b.min, 30)), art: str(b.art) || "orga", notiz: str(b.notiz) }); });
+    k.drehVorlagen = [];
+    arr(roh.dreh_vorlagen).forEach(function (v) {
+      if (!v || !v.id) return;
+      k.drehVorlagen.push({ id: str(v.id), titel: str(v.titel) || str(v.id), datum: /^\d{4}-\d{2}-\d{2}$/.test(str(v.datum)) ? str(v.datum) : "", zeit: /^\d{2}:\d{2}$/.test(str(v.zeit)) ? str(v.zeit) : "",
+        rows: arr(v.rows).filter(function (r) { return r && r.id; }).map(zeileAus) });
+    });
     return k;
+  }
+  // Eine Zeile des Drehplans (aus Vorlage oder Speicher): Baustein-Kennung, Dauer, Wer, parallel, eigene Notiz, eigener Titel (nur bei »eigen«)
+  // Notiz: fehlt das Feld, gilt die Notiz des Bausteins aus dem Katalog; steht es da — auch leer —, gilt es (eine bewusst geleerte Notiz bleibt leer).
+  function zeileAus(r) {
+    var z = { id: str(r.id), min: Math.max(5, Math.round(zahl(r.min, 30))), wer: str(r.wer), par: !!r.par };
+    if (r.notiz != null) z.notiz = str(r.notiz);
+    if (r.titel != null && str(r.titel) !== "") z.titel = str(r.titel);
+    return z;
   }
   function docsAus(snap) {
     var d = snap && Array.isArray(snap.docs) ? snap.docs : arr(snap), out = {};
@@ -214,20 +228,31 @@
   function Drehplan(wurzel, K) {
     var ORT = K.ort;
     var BB = {}; K.bausteine.forEach(function (b) { BB[b.id] = b; });
+    var VL = K.drehVorlagen || [];
     var P = lies(SP.plan, null);
-    if (!P || typeof P !== "object" || !Array.isArray(P.rows)) P = { titel: "Neuer Drehplan", datum: heute(), zeit: "09:00", rows: [] };
+    if (!P || typeof P !== "object" || !Array.isArray(P.rows)) P = null;
     function speichern() { schreib(SP.plan, P); }
+    function vorlageLaden(id) {
+      var v = null; VL.forEach(function (x) { if (x.id === id) v = x; }); if (!v) return false;
+      P = { titel: v.titel, datum: v.datum || (P && P.datum) || heute(), zeit: v.zeit || "09:00", vorlage: v.id, rows: v.rows.map(function (r) { return zeileAus(r); }) };
+      speichern(); return true;
+    }
     var arten = []; K.bausteine.forEach(function (b) { if (arten.indexOf(b.art) === -1) arten.push(b.art); });
 
     wurzel.innerHTML =
-      '<div class="bk-kopf"><h2>Drehplan</h2><span class="bk-hint">' + K.bausteine.length + " Bausteine · " + (ORT ? "Sonnenzeiten für " + esc(ORT.name) : TEXT.keinOrt) + " · " + TEXT.lokal + "</span></div>" +
-      '<div class="bk-zwei bk-zwei-dreh"><section class="bk-karte"><h3>Bausteine</h3><p class="bk-hint">Antippen hängt ihn hinten an.</p><div class="bk-lib" data-bk="lib"></div></section>' +
-      '<section class="bk-karte"><div class="bk-leiste">' +
+      '<div class="bk-kopf"><h2>Drehplan</h2><span class="bk-hint">' + K.bausteine.length + " Bausteine · " + VL.length + (VL.length === 1 ? " Vorlage" : " Vorlagen") + " · " + (ORT ? "Sonnenzeiten für " + esc(ORT.name) : TEXT.keinOrt) + " · " + TEXT.lokal + "</span></div>" +
+      '<div class="bk-zwei bk-zwei-dreh"><section class="bk-karte"><h3>Bausteine</h3><p class="bk-hint">Antippen hängt ihn hinten an.</p><div class="bk-lib" data-bk="lib"></div>' +
+      '<div class="bk-eigen"><label>Eigener Baustein <input type="text" data-bk="eigenTitel" maxlength="80" placeholder="z. B. Interview"></label>' +
+      '<label>Min. <input type="number" data-bk="eigenMin" min="5" step="5" value="30"></label><button type="button" class="bk-knopf" data-bk="eigenPlus">Hinzufügen</button></div></section>' +
+      '<section class="bk-karte">' +
+      (VL.length ? '<div class="bk-leiste"><label class="bk-breit">Vorlage <select data-bk="vorlage">' + VL.map(function (v) { return '<option value="' + esc(v.id) + '">' + esc(v.titel) + "</option>"; }).join("") + '</select></label>' +
+        '<button type="button" class="bk-knopf" data-bk="vorlageLaden">Vorlage laden</button></div>' : "") +
+      '<div class="bk-leiste">' +
       '<label class="bk-breit">Titel <input type="text" data-bk="titel" maxlength="120"></label>' +
       '<label>Datum <input type="date" data-bk="datum"></label><label>Beginn <input type="time" data-bk="zeit"></label></div>' +
       '<div class="bk-sonne" data-bk="sonne"></div>' +
-      '<div class="bk-tabelle"><table><thead><tr><th>Zeit</th><th>Was</th><th>Min.</th><th>Wer</th><th><span class="bk-weg">Aktionen</span></th></tr></thead><tbody data-bk="plan"></tbody></table></div>' +
-      '<p class="bk-hint">∥ = parallel zum vorigen Baustein (zweite Einheit, z. B. Drohne draußen und Frühstück drinnen).</p>' +
+      '<div class="bk-tabelle"><table><thead><tr><th><span class="bk-weg">Ziehen</span></th><th>Zeit</th><th>Was</th><th>Min.</th><th>Wer</th><th><span class="bk-weg">Aktionen</span></th></tr></thead><tbody data-bk="plan"></tbody></table></div>' +
+      '<p class="bk-hint">⠿ ziehen oder ↑↓ zum Verschieben · ∥ = parallel zum vorigen Baustein (zweite Einheit) · Notiz je Zeile änderbar, die Zeiten rechnen sich selbst.</p>' +
       '<div class="bk-leiste"><button type="button" class="bk-knopf bk-haupt" data-bk="kopieren">Drehplan als Markdown kopieren</button><button type="button" class="bk-knopf" data-bk="leeren">Plan leeren</button></div></section></div>';
     var $ = function (n) { return wurzel.querySelector('[data-bk="' + n + '"]'); };
 
@@ -239,9 +264,34 @@
     Array.prototype.forEach.call($("lib").querySelectorAll("[data-plus]"), function (b) {
       b.addEventListener("click", function () { var x = BB[b.getAttribute("data-plus")]; if (!x) return; P.rows.push({ id: x.id, min: x.min, wer: "", par: false }); speichern(); zeichne(); });
     });
+    function baustein(r) { return r.id === "eigen" ? { titel: r.titel || "Eigener Baustein", art: "eigen", notiz: "" } : BB[r.id] || { titel: r.titel || r.id, art: "orga", notiz: "" }; }
+    function verschiebe(von, nach) {
+      if (von === nach || von < 0 || nach < 0 || von >= P.rows.length || nach >= P.rows.length) return;
+      var x = P.rows.splice(von, 1)[0]; P.rows.splice(nach, 0, x); speichern(); zeichne();
+    }
+    // Text einer Tabellenzelle im kopierten Markdown: eine Zeile, kein | (sonst zerbricht die Tabelle)
+    function mdZelle(s) { return String(s == null ? "" : s).replace(/\s*\n\s*/g, " ").replace(/\|/g, "/"); }
+    // Notizfeld so hoch wie sein Text. Ist die Fläche gerade nicht sichtbar (anderer Umschalter-Reiter), hat das Feld keine Höhe — dann bleibt die
+    // Schätzung aus dem rows-Attribut, und hoeheAlle() läuft erneut, sobald die Fläche sichtbar wird oder ihre Breite ändert (Beobachter unten).
+    function hoehe(ta) {
+      if (!ta || !ta.offsetParent) return;
+      ta.rows = 1; ta.style.height = "auto";   // kleinste Höhe = eine Zeile; scrollHeight ist dann die Höhe des Textes
+      var h = ta.scrollHeight + (ta.offsetHeight - ta.clientHeight);
+      if (h > 0) ta.style.height = h + "px";
+    }
+    function hoeheAlle() { Array.prototype.forEach.call(wurzel.querySelectorAll(".bk-notiz"), hoehe); }
+    // Solange die Tabelle neu gebaut oder ein Notizfeld gemessen wird, behält die Fläche ihre bisherige Höhe als Mindesthöhe. Sonst wäre die Seite für einen
+    // Augenblick kürzer (Feld auf eine Zeile, Höhen erst geschätzt), und ein Browser, der die Scroll-Lage nicht verankert, spränge am Seitenende nach oben.
+    function haelt(fn) {
+      var h0 = wurzel.offsetHeight, vorher = wurzel.style.minHeight;
+      if (h0 > 0) wurzel.style.minHeight = h0 + "px";
+      try { fn(); } finally { wurzel.style.minHeight = vorher; }
+    }
 
-    function zeichne() {
+    function zeichne() { haelt(zeichneJetzt); }
+    function zeichneJetzt() {
       $("titel").value = P.titel; $("datum").value = P.datum; $("zeit").value = P.zeit;
+      if ($("vorlage") && P.vorlage) $("vorlage").value = P.vorlage;
       var dt = String(P.datum).split("-").map(Number), hz = String(P.zeit).split(":").map(Number);
       if (dt.length !== 3 || dt.some(isNaN)) { P.datum = heute(); dt = P.datum.split("-").map(Number); }
       if (hz.length < 2 || hz.some(isNaN)) { P.zeit = "09:00"; hz = [9, 0]; }
@@ -256,45 +306,88 @@
       var md = ["# " + P.titel, "", (ORT ? "Sonne: " + sonneTxt : sonneTxt), "", "| Zeit | Baustein | Min. | Wer | Notiz |", "|---|---|---|---|---|"];
       body.innerHTML = "";
       P.rows.forEach(function (r, i) {
-        var b = BB[r.id] || { titel: r.id, art: "orga", notiz: "" };
+        var b = baustein(r), notiz = r.notiz != null ? r.notiz : b.notiz;
         var par = r.par && i > 0, start = par ? vorStart : t, ende = new Date(start.getTime() + r.min * 6e4);
         if (!par) { vorStart = start; t = ende; } else if (ende > t) t = ende;
         var tag = start.getDate() !== dt[2] ? ' <span class="bk-tagwechsel">' + esc(start.toLocaleDateString("de-DE", { weekday: "short" })) + "</span>" : "";
-        var tr = el("tr", par ? "bk-par" : ""); tr.setAttribute("data-art", b.art);
-        tr.innerHTML = '<td class="bk-zeit">' + (par ? "∥ " : "") + uhr(start) + "–" + uhr(ende) + tag + '</td><td><div class="bk-bt">' + esc(b.titel) + '</div><div class="bk-hint">' + esc(b.notiz) + "</div></td>" +
+        var tr = el("tr", par ? "bk-par" : ""); tr.setAttribute("data-art", b.art); tr.setAttribute("data-zeile", String(i));
+        tr.innerHTML = '<td class="bk-griff" draggable="true" title="ziehen zum Verschieben" aria-hidden="true">⠿</td>' +
+          '<td class="bk-zeit">' + (par ? "∥ " : "") + uhr(start) + "–" + uhr(ende) + tag + "</td>" +
+          '<td class="bk-was">' + (r.id === "eigen" ? '<input type="text" class="bk-titelfeld" value="' + esc(b.titel) + '" aria-label="Titel" maxlength="80" data-i="' + i + '" data-f="titel">' : '<div class="bk-bt">' + esc(b.titel) + "</div>") +
+          '<textarea class="bk-notiz" rows="' + Math.min(6, Math.max(1, Math.ceil(String(notiz).length / 34))) + '" aria-label="Notiz" maxlength="600" data-i="' + i + '" data-f="notiz">' + esc(notiz) + "</textarea></td>" +
           '<td><input type="number" min="5" step="5" value="' + r.min + '" aria-label="Dauer in Minuten" data-i="' + i + '" data-f="min"></td>' +
           '<td><input type="text" value="' + esc(r.wer || "") + '" aria-label="Wer" maxlength="80" data-i="' + i + '" data-f="wer"></td>' +
           '<td class="bk-akt"><button type="button" data-i="' + i + '" data-a="par" aria-pressed="' + (r.par ? "true" : "false") + '" aria-label="parallel zum vorigen" title="parallel zum vorigen">∥</button>' +
           '<button type="button" data-i="' + i + '" data-a="hoch" aria-label="nach oben">↑</button><button type="button" data-i="' + i + '" data-a="runter" aria-label="nach unten">↓</button>' +
           '<button type="button" data-i="' + i + '" data-a="weg" aria-label="entfernen">×</button></td>';
         body.appendChild(tr);
-        md.push("| " + (par ? "∥ " : "") + uhr(start) + "–" + uhr(ende) + " | " + b.titel + " | " + r.min + " | " + (r.wer || "") + " | " + b.notiz + " |");
+        md.push("| " + (par ? "∥ " : "") + uhr(start) + "–" + uhr(ende) + " | " + mdZelle(b.titel) + " | " + r.min + " | " + mdZelle(r.wer || "") + " | " + mdZelle(notiz) + " |");
       });
-      if (!P.rows.length) body.innerHTML = '<tr><td colspan="5" class="bk-hint">Noch leer — Bausteine links antippen.</td></tr>';
+      if (!P.rows.length) body.innerHTML = '<tr><td colspan="6" class="bk-hint">Noch leer — Bausteine links antippen' + (VL.length ? " oder eine Vorlage laden" : "") + ".</td></tr>";
       zeichne.md = md.join("\n");
-      Array.prototype.forEach.call(body.querySelectorAll("input"), function (inp) {
+      Array.prototype.forEach.call(body.querySelectorAll("input, textarea"), function (inp) {
         inp.addEventListener("change", function (e) {
-          var i = Number(e.target.getAttribute("data-i")), f = e.target.getAttribute("data-f");
-          P.rows[i][f] = f === "min" ? Math.max(5, Math.round(Number(e.target.value)) || 5) : e.target.value; speichern(); zeichne();
-        });
-      });
-      Array.prototype.forEach.call(body.querySelectorAll("button[data-a]"), function (bt) {
-        bt.addEventListener("click", function () {
-          var i = Number(bt.getAttribute("data-i")), a = bt.getAttribute("data-a"), R = P.rows;
-          if (a === "weg") R.splice(i, 1); else if (a === "par") R[i].par = !R[i].par;
-          else { var j = i + (a === "hoch" ? -1 : 1); if (j >= 0 && j < R.length) { var x = R[i]; R[i] = R[j]; R[j] = x; } }
+          var i = Number(e.target.getAttribute("data-i")), f = e.target.getAttribute("data-f"), w = e.target.value;
+          if (f === "min") P.rows[i].min = Math.max(5, Math.round(Number(w)) || 5);
+          else if (f === "notiz") { var b = baustein(P.rows[i]); if (w === b.notiz) delete P.rows[i].notiz; else P.rows[i].notiz = w; }
+          else P.rows[i][f] = w;
           speichern(); zeichne();
         });
       });
+      Array.prototype.forEach.call(body.querySelectorAll(".bk-notiz"), function (ta) { ta.addEventListener("input", function () { haelt(function () { hoehe(ta); }); }); });
+      hoeheAlle();
+      Array.prototype.forEach.call(body.querySelectorAll("button[data-a]"), function (bt) {
+        bt.addEventListener("click", function () {
+          var i = Number(bt.getAttribute("data-i")), a = bt.getAttribute("data-a");
+          if (a === "weg") { P.rows.splice(i, 1); speichern(); zeichne(); }
+          else if (a === "par") { P.rows[i].par = !P.rows[i].par; speichern(); zeichne(); }
+          else verschiebe(i, i + (a === "hoch" ? -1 : 1));
+        });
+      });
     }
+    // Ziehen und Ablegen (Maus): Griff ⠿ einer Zeile auf eine andere Zeile ziehen
+    var gezogen = -1;
+    $("plan").addEventListener("dragstart", function (e) {
+      var g = e.target.closest ? e.target.closest(".bk-griff") : null; if (!g) { e.preventDefault(); return; }
+      gezogen = Number(g.parentNode.getAttribute("data-zeile")); g.parentNode.classList.add("bk-zieht");
+      try { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(gezogen)); e.dataTransfer.setDragImage(g.parentNode, 10, 10); } catch (x) {}
+    });
+    $("plan").addEventListener("dragover", function (e) { if (gezogen < 0) return; var tr = e.target.closest ? e.target.closest("tr[data-zeile]") : null; if (!tr) return; e.preventDefault();
+      Array.prototype.forEach.call(this.querySelectorAll(".bk-ziel"), function (x) { x.classList.remove("bk-ziel"); }); tr.classList.add("bk-ziel"); });
+    $("plan").addEventListener("drop", function (e) { var tr = e.target.closest ? e.target.closest("tr[data-zeile]") : null; if (!tr || gezogen < 0) return; e.preventDefault();
+      var von = gezogen; gezogen = -1; verschiebe(von, Number(tr.getAttribute("data-zeile"))); });
+    $("plan").addEventListener("dragend", function () { gezogen = -1; Array.prototype.forEach.call(this.querySelectorAll(".bk-ziel, .bk-zieht"), function (x) { x.classList.remove("bk-ziel"); x.classList.remove("bk-zieht"); }); });
+
     $("titel").addEventListener("change", function (e) { P.titel = e.target.value; speichern(); zeichne(); });
     $("datum").addEventListener("change", function (e) { if (e.target.value) { P.datum = e.target.value; speichern(); zeichne(); } });
     $("zeit").addEventListener("change", function (e) { if (e.target.value) { P.zeit = e.target.value; speichern(); zeichne(); } });
-    $("leeren").addEventListener("click", function () { if (!P.rows.length || window.confirm("Plan leeren?")) { P.rows = []; speichern(); zeichne(); } });
+    $("leeren").addEventListener("click", function () { if (!P.rows.length || window.confirm("Plan leeren?")) { P.rows = []; delete P.vorlage; speichern(); zeichne(); } });
     $("kopieren").addEventListener("click", function (e) { kopiere(zeichne.md || "", e.currentTarget); });
-    P.rows = P.rows.filter(function (r) { return r && r.id; }).map(function (r) { return { id: str(r.id), min: Math.max(5, zahl(r.min, 30)), wer: str(r.wer), par: !!r.par }; });
+    $("eigenPlus").addEventListener("click", function () {
+      var t = $("eigenTitel").value.trim(); if (!t) return;
+      P.rows.push({ id: "eigen", titel: t, min: Math.max(5, Math.round(Number($("eigenMin").value)) || 30), wer: "", par: false }); $("eigenTitel").value = ""; speichern(); zeichne();
+    });
+    if ($("vorlageLaden")) $("vorlageLaden").addEventListener("click", function () {
+      if (P.rows.length && !window.confirm("Vorlage laden? Der aktuelle Plan wird ersetzt.")) return;
+      if (vorlageLaden($("vorlage").value)) zeichne();
+    });
+    if (P) P.rows = P.rows.filter(function (r) { return r && r.id; }).map(zeileAus);
+    else if (!(VL.length && vorlageLaden(VL[0].id))) P = { titel: "Neuer Drehplan", datum: heute(), zeit: "09:00", rows: [] };
     zeichne();
-    return { markdown: function () { return zeichne.md || ""; }, zustand: function () { return P; } };
+    // Notizhöhen neu setzen, wenn die Fläche sichtbar wird oder ihre Breite ändert (Umschalter, Telefon gedreht). Nur bei geänderter Breite, und erst im
+    // nächsten Bild: Die neue Höhe der Felder ändert die Fläche selbst — im selben Durchlauf gäbe das die Browser-Meldung »ResizeObserver loop …«.
+    // Hängt die Fläche nicht mehr in der Seite (neu gezeichnet), meldet sich der Beobachter ab.
+    var breite = -1;
+    function beiBreite() { var b = wurzel.clientWidth; if (b !== breite) { breite = b; if (b > 0) haelt(hoeheAlle); } }
+    if (typeof ResizeObserver === "function") {
+      var beob = new ResizeObserver(function () { if (!wurzel.isConnected) { beob.disconnect(); return; } window.requestAnimationFrame(beiBreite); });
+      beob.observe(wurzel);
+    } else {
+      var beiFenster = function () { if (!document.documentElement.contains(wurzel)) { window.removeEventListener("resize", beiFenster); return; } beiBreite(); };
+      window.addEventListener("resize", beiFenster);
+    }
+    beiBreite();
+    return { markdown: function () { return zeichne.md || ""; }, zustand: function () { return P; }, verschiebe: verschiebe };
   }
 
   /* ================= Lauf: Abo der Sammlung baukasten, Zeichnen in die Flächen ================= */
