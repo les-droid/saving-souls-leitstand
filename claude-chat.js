@@ -58,14 +58,19 @@
 
   function chip(wer) { return '<span class="chip ' + esc(wer || "alle") + '">' + esc(wer || "?") + "</span>"; }
 
+  /* Bauschritt 2: das Wort der Blase ist das der gemeinsamen Lesart (Bauvorlage Fassung 2, § 3.2); fehlt sie oder hat sie eine andere Fassung, gelten die fünf Wörter wie zuvor */
+  function lesart() { var l = window.LEITSTAND_LESART; return l && l.fassung === 1 ? l : null; }
+
   function bubble(id, v) {
     var st = v.s11status || (v.done ? "fertig" : "wartet");
     var STATUS_TXT = { wartet: "wartet", laeuft: "läuft seit " + fmtZeit(v.angefordertAm || v.created), fertig: "fertig", fehler: "Fehler", abgebrochen: "abgebrochen" };
+    var L = lesart(), z = L ? L.zustand(v) : null;
+    var wort = z ? (st === "laeuft" && z.klasse === "laeuft" ? STATUS_TXT.laeuft : z.wort) : (STATUS_TXT[st] || st);
     var text = v.chatNachricht != null ? v.chatNachricht : (v.beschreibung || v.text || "");
     var html = '<li class="ccMsg" data-id="' + esc(id) + '">' +
       '<div class="ccMeta">' + chip(v.angefordertVon || v.wer) + '<span>' + fmtZeit(v.angefordertAm || v.created) + "</span></div>" +
       '<div class="ccText">' + esc(text) + "</div>" +
-      '<div class="ccStatusRow"><span class="ccStatus" data-s="' + esc(st) + '"><span class="ccDot"></span>' + esc(STATUS_TXT[st] || st) + "</span></div>";
+      '<div class="ccStatusRow"><span class="ccStatus" data-s="' + esc(st) + '"><span class="ccDot"></span>' + esc(wort) + "</span></div>";
 
     if (st === "laeuft" && v.s11fortschritt) {
       html += '<details class="ccFortschritt"><summary></summary><pre class="ccPre">' + esc(v.s11fortschritt) + "</pre></details>";

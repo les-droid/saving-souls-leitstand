@@ -124,6 +124,9 @@
     { name: "Leitstand-Code", ort: "cloud", modell: "opus", effort: "medium", pruefung: "Prüfer Opus high, Gegenprüfer Sonnet high" },                           // RW10 (Entwurf: bei der Datenbank Aufwand high — steht nur in der Textliste)
     { name: "Förder-Scan", konto: "JB", modell: "sonnet", effort: "medium", pruefung: "JB" }                                                                       // RW11
   ];
+  /* Bauschritt 2: die gemeinsame Lesart (leitstand-lesart.js, Bauvorlage Fassung 2, § 3). Fehlt sie oder hat sie eine andere Fassung, tut diese Datei, was sie vor dem Schritt tat. */
+  function lesart() { var l = window.LEITSTAND_LESART; return l && l.fassung === 1 ? l : null; }
+  if (lesart()) KANAL_TEXT.ortName = lesart().ortNamen();   // »Schnitt 11«, »VPS«, »Remote«, »LES MacBook (privat)«; andere Arbeitsplätze wie gespeichert
   var MITARBEITER = ["LES", "JB", "TH", "FS", "TS", "DS"], KONTEN = ["LES", "JB", "Dropout"];
   var MODELLE = ["opus", "sonnet", "haiku"], EFFORTS = ["low", "medium", "high", "xhigh", "max"], ARBEITSWEISEN = ["einzeln", "subagenten", "workflow"];
   var ZUGRIFFE = ["raid-s11", "expansion", "backup-327", "frameio", "repo", "cloud-xml", "lokal"], STAENDE = ["geplant", "in_arbeit", "pausiert"];
@@ -287,6 +290,7 @@
   }
   function angefordertWahr(v) { return /^[^\p{L}\p{N}]*(?:t|tr|tru|true|y|ye|yes|on|1)[^\p{L}\p{N}]*$/iu.test(v.angefordert == null ? "" : String(v.angefordert)); }
   function offenerVorschlag(v) {
+    if (lesart()) return lesart().vorschlagKarte(v);   // Bauschritt 2: dieselbe Regel wie die Zeile im Reiter »Aufgaben« (Lesart, Zustand »Vorschlag«)
     /* Bauschritt 1a: Vorschlag = Auftrag aus dem Kanal (quelle »kanal« oder ein vorgeschlagenVon mit irgendeinem Wert außer fehlend/null — auch leer, nur Leerzeichen oder eine Liste), nicht angefordert, nicht erledigt — ohne Pflicht
        vorgeschlagenVon (dann »Absender unbekannt«) und ohne Ausschluss abgelehntVon (ein zurückgeholter Vorschlag steht wieder hier). Jede Zeile, die in
        index.html »Zum Vorschlag →« trägt (istVorschlag), hat hier ihre Karte; dazu bleibt die Karte eines schon einmal bestätigten Eintrags stehen. */
@@ -440,10 +444,18 @@
     var lebt = v.prozesse > 0 ? (v.geprueft && jetztMs - new Date(v.geprueft).getTime() < 12 * 60000) : (v.zuletztAm && jetztMs - new Date(v.zuletztAm).getTime() < 45 * 60000);
     var s = ms(v.seit); return v.aktiv && lebt && s != null ? s : null;
   }
-  function ortVonZiel(z) { z = String(z || ""); var m = /@(.+)$/.exec(z); return m ? m[1] : ORTE.indexOf(z) !== -1 || /^[a-z0-9-]+$/.test(z) && z !== "egal" && z !== "alle" ? z : "egal"; }
+  function ortVonZiel(z) { if (lesart()) return lesart().ortVonZiel(z); z = String(z || ""); var m = /@(.+)$/.exec(z); return m ? m[1] : ORTE.indexOf(z) !== -1 || /^[a-z0-9-]+$/.test(z) && z !== "egal" && z !== "alle" ? z : "egal"; }
   /* Nach fehler/abgebrochen ist ein Auftrag erst wieder frei, wenn danach erneut angefordert wurde (angefordertAm nach s11beendetAm) — wie kanal_frei (SQL) und der Listener */
-  function neuAngefordert(v) { var a = ms(v.angefordertAm), b = ms(v.s11beendetAm); return v.angefordert === true && a != null && (b == null || a > b); }
+  function neuAngefordert(v) { if (lesart()) return lesart().neuAngefordert(v); var a = ms(v.angefordertAm), b = ms(v.s11beendetAm); return v.angefordert === true && a != null && (b == null || a > b); }
+  /* Bauschritt 2: das Wort einer Claude-Aufgabe ist das der Lesart (§ 3.2); was die Seite dahinter schon sagt (Ort, Fortschritt), bleibt, wenn der Satz mit dem Wort beginnt */
   function statusAufgabe(v) {
+    var s = statusAufgabeAlt(v), L = lesart(), a = L ? L.art(v) : "";
+    if (!L || !s.t || !L.claudeArt(v) || !(a === "offen" || (a === "erledigt" && !L.wahrWert(v.done)))) return s;   // wie im Reiter: nur Claude-Aufgaben nach typ/wer — offen, oder fertig gemeldet und zurückgeholt (nicht abgehakt)
+    var z = L.zustand(v);
+    s.wort = z.wort; s.zst = z; if (s.t.indexOf(z.wort) !== 0) s.t = z.wort;
+    return s;
+  }
+  function statusAufgabeAlt(v) {
     var T = LAGE_TEXT, pl = obj(v.plan), claude = (v.typ === "claude" || v.wer === "Claude") && !v.done;
     if (v.s11status === "laeuft") return { t: T.laeuftAuf + (v.s11kennung ? anzeige(v.s11kennung) : KANAL_TEXT.ortName[v.s11ziel] || v.s11ziel || ""), k: "laeuft" };
     if (v.s11status === "wartet") return { t: T.wartet + (v.s11fortschritt ? " — " + v.s11fortschritt : ""), k: "wartet" };
@@ -521,7 +533,7 @@
 
   /* ---- Kästen und Details ---- */
   function kastenTeile(n) {
-    var T = LAGE_TEXT, st = n.st || {}, z = [], kopf = "", klein = "", marke = "";
+    var T = LAGE_TEXT, st = n.st || {}, z = [], kopf = "", klein = "", marke = "", zst = null;
     if (n.art === "mitarbeiter") { kopf = n.wer; if (n.praesenz) z.push(n.praesenz); if (n.ohneMeldung) marke = T.ohneMeldung; }
     else if (n.art === "platz" && n.sorte === "claude") {
       var a = n.anw || {}, m = /^([^@]+)@/.exec(String(a.kennung || ""));
@@ -536,18 +548,24 @@
     else if (n.art === "aufgabe") {
       kopf = n.titel; if (n.sorte === "thema") { klein = T.thema; } else if (n.v) { var s = statusAufgabe(n.v), pl = obj(n.v.plan) || {};
         if (s.k === "fehler") { marke = s.t; if (n.v.s11ergebnis) z.push(kuerzen(n.v.s11ergebnis, 90)); } else klein = s.t;   // Warnfarbe und letztes Ergebnis statt »freigegeben«
+        zst = s.zst || null;
         if (texte(pl.material).length) z.push(texte(pl.material).join("; ")); if (pl.premiere) z.push(T.premiere + " " + pl.premiere); }
     }
     else if (n.art === "speicher") { kopf = T.zugriffName[n.z] || n.z; }
-    return { kopf: kopf, klein: klein, zeilen: z.filter(Boolean), marke: marke };
+    return { kopf: kopf, klein: klein, zeilen: z.filter(Boolean), marke: marke, zst: zst };
+  }
+  function kleinHtml(t) {   // mit der Lesart: die Marke des Zustands, dahinter, was die Seite schon sagte (Ort, Fortschritt); sonst der Text wie zuvor
+    var L = lesart(), s = t.zst ? (t.marke || t.klein) : "";
+    if (!L || !t.zst) return t.klein ? '<span class="alKKlein">' + esc(t.klein) + "</span>" : "";
+    return '<span class="alKKlein">' + L.markeHtml(t.zst) + esc(s.indexOf(t.zst.wort) === 0 ? s.slice(t.zst.wort.length) : "") + "</span>";
   }
   function kastenHtml(n, breite) {
     var t = kastenTeile(n), kl = "alKasten alArt-" + n.art + (n.sorte ? " alSorte-" + n.sorte : "") + (n.wer && n.art === "mitarbeiter" ? " alWer-" + n.wer : "") +
       (n.art === "platz" && n.sorte === "claude" && !n.aktiv ? " alBlass" : "") + (t.marke ? " alWarn" : "");
     return '<button type="button" class="' + esc(kl) + '" data-key="' + esc(n.key) + '" aria-pressed="false"' + (breite ? ' style="width:' + breite + 'px"' : "") + ">" +
       '<span class="alSigel" aria-hidden="true">' + esc(LAGE_TEXT.sigel[n.art === "platz" || n.sorte === "thema" ? n.sorte : n.art] || "") + "</span>" +
-      '<span class="alKKopf">' + esc(t.kopf) + "</span>" + (t.klein ? '<span class="alKKlein">' + esc(t.klein) + "</span>" : "") +
-      t.zeilen.map(function (x) { return '<span class="alKZeile">' + esc(x) + "</span>"; }).join("") + (t.marke ? '<span class="alKMarke">' + esc(t.marke) + "</span>" : "") + "</button>";
+      '<span class="alKKopf">' + esc(t.kopf) + "</span>" + kleinHtml(t) +
+      t.zeilen.map(function (x) { return '<span class="alKZeile">' + esc(x) + "</span>"; }).join("") + (t.marke && !t.zst ? '<span class="alKMarke">' + esc(t.marke) + "</span>" : "") + "</button>";
   }
   function kurzName(n) { var t = kastenTeile(n); return n.art === "platz" && n.sorte === "claude" ? anzeige(n.anw.kennung) : n.art === "platz" && n.sorte !== "warte" ? t.kopf + " @ " + zoneName(n.zone) : t.kopf; }
   function zoneName(o) { return o === "egal" ? LAGE_TEXT.zoneEgal : o === "offen" ? LAGE_TEXT.zoneOffen : ortName(o); }
@@ -596,6 +614,7 @@
     zeichnen(false);
   }
   function zonenReihe(zonen) {
+    if (lesart()) return lesart().zonenReihe(zonen);   // feste Arbeitsplätze in fester Reihenfolge, andere nach dem Alphabet, zuletzt »egal« und »offen«
     var rest = Object.keys(zonen).filter(function (o) { return ORTE.indexOf(o) === -1 && o !== "egal" && o !== "offen"; }).sort();
     return ORTE.concat(rest).concat(["egal", "offen"]).filter(function (o) { return zonen[o]; });
   }

@@ -782,6 +782,7 @@
     var ul = sec.querySelector("#s11List");
     var fmt = function (t) { try { return new Date(t).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
     var chat = function (v) { return /^[^\p{L}\p{N}]*chat[^\p{L}\p{N}]*$/iu.test(v.quelle == null ? "" : String(v.quelle)); };
+    var lesart = function () { var l = window.LEITSTAND_LESART; return l && l.fassung === 1 ? l : null; };   /* Bauschritt 2: fehlt die Lesart oder hat sie eine andere Fassung, bleibt der Rohwert */
     ready.then(function (d) {
       if (!d) return;
       if (istGast()) { if (sec.parentNode) sec.parentNode.removeChild(sec); return; }   /* Gäste: keine Karte, keine Abfrage (Bauplan 3) */
@@ -792,7 +793,8 @@
         if (!rows.length) { ul.innerHTML = '<li class="empty">Keine laufenden oder kürzlich erledigten Claude-Aufgaben.</li>'; return; }
         ul.innerHTML = rows.map(function (v) {
           var st = v.s11status || (v.done ? "fertig" : "wartet");
-          return '<li><div style="display:flex;justify-content:space-between;gap:8px"><span style="font-size:13px;color:var(--muted)">' + esc(v.angefordertVon || v.wer || "") + " · " + fmt(v.angefordertAm || v.created) + '</span><span class="s11st" data-s="' + esc(st) + '">' + esc(st) + "</span></div>" +
+          var L = lesart(), wort = L ? L.zustand(v).wort : st;   /* Bauschritt 2: das Wort der gemeinsamen Lesart (Bauvorlage Fassung 2, § 3.2); ohne sie der Rohwert wie zuvor */
+          return '<li><div style="display:flex;justify-content:space-between;gap:8px"><span style="font-size:13px;color:var(--muted)">' + esc(v.angefordertVon || v.wer || "") + " · " + fmt(v.angefordertAm || v.created) + '</span><span class="s11st" data-s="' + esc(st) + '">' + esc(wort) + "</span></div>" +
             '<div style="margin:4px 0">' + esc(v.text) + "</div>" +
             (st === "laeuft" && v.s11fortschritt ? "<pre>" + esc(v.s11fortschritt) + "</pre>" : "") +
             ((st === "fertig" || st === "fehler") && v.s11ergebnis ? "<details><summary>Ergebnis" + (v.s11beendetAm ? " (" + fmt(v.s11beendetAm) + ")" : "") + "</summary><pre>" + esc(v.s11ergebnis) + "</pre></details>" : "") +

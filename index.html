@@ -800,6 +800,7 @@
 <link rel="stylesheet" href="baukasten.css?v=v2844935910">
 <link rel="stylesheet" href="vision-board.css?v=v820809728">
 <link rel="stylesheet" href="agenten-kanal.css?v=k261012a">
+<link rel="stylesheet" href="leitstand-lesart.css?v=261013a">
 <link rel="stylesheet" href="leitstand-thema.css?v=t3358641517">
 
 <div id="whoModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="whoTitle">
@@ -1231,7 +1232,8 @@ if (/[?&]demo=gast(&|$)/.test(location.search) && (location.protocol === "file:"
 // ?demo=1: erfundene Einträge der Sammlung redaktion (demo-redaktion.js, Paket 5) — nur in der Editor-Demo, nur lokal.
 if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname))) document.write('<script src="demo-redaktion.js"><\/script>');
 </script>
-<script src="leitstand-db.js?v=261006j"></script>
+<script src="leitstand-lesart.js?v=261013a"></script>
+<script src="leitstand-db.js?v=261013a"></script>
 <script src="redaktion.js?v=261007d"></script>
 <script src="baukasten.js?v=v2844935910"></script>
 <script src="vision-board.js?v=v820809728"></script>
@@ -2016,6 +2018,15 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
         : v.s11status === "wartet" && v.s11wiederAb ? "— pausiert, " + esc(v.s11fortschritt || ("geht von selbst weiter ab " + new Date(v.s11wiederAb).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })))
         : nurS11 ? "— wartet auf Schnitt 11 (braucht RAID/Premiere; läuft nur, wenn der Rechner an ist)"
         : "— Schnitt 11 oder der VPS nehmen es in Sekunden (VPS läuft rund um die Uhr)";
+      var Ls = lesartDa();
+      if (Ls) {   // Bauschritt 2: die Marke der Lesart (ein Wort je Zustand) statt des Satzes; der Knopf nur, wo die Lesart ihn vorsieht
+        var zs = Ls.zustand(v), kn = zs.knopf, hw = Ls.hinweisText(zs);
+        extra = istGast ? "" : '<div class="tclaude">' + Ls.markeHtml(zs)
+          + (kn === "zum" ? '<button type="button" data-act="vorschlag">' + pfeil(T.zumVorschlag) + '</button>'
+          : kn === "jetzt" ? '<button type="button" data-act="jetzt">' + esc(Ls.TEXT.knopf.jetzt) + '</button><span>' + (nurS11 ? "startet auf Schnitt 11" : "startet sofort auf Schnitt 11 oder dem VPS") + '</span>'
+          : kn === "neu" ? '<button type="button" data-act="neu">' + esc(Ls.TEXT.knopf.neu) + '</button>' : "")
+          + (hw ? '<span class="llHinweis">' + esc(hw) + '</span>' : "") + '</div>';
+      } else
       extra = wahrWert(v.angefordert)
         ? '<div class="tclaude"><span class="warte">Angefordert' + (v.angefordertVon ? " von " + esc(v.angefordertVon) : "") + '</span><span>' + lauf + '</span></div>'
         : istGast ? ""
@@ -2081,7 +2092,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
   function renderTodos(docs) {   // docs: die sichtbaren todos (cache.todos, A5); dazu die vertraulichen Aufgaben aus cache.intern (nur Editoren)
     if (!heuteDa.todos) return;   // ohne Antwort der Datenbank keine Liste und kein Leerzustand (wie »Für dich offen«, A9)
     var gast = gastSicht(), T = AUFGABEN_TEXT, g = aufgabenGruppen(docs, gast), claude = [], fertig = [], erledigt = [];
-    docs.forEach(function (d) { var v = d.data(); if (!istAufgabe(v) || istChat(v)) return; if (claudeAuftrag(v)) (v.done ? fertig : claude).push({ id: d.id, coll: "todos", v: v, claude: true }); else if (v.done) erledigt.push({ id: d.id, coll: "todos", v: v }); });
+    /* Bauschritt 2: erledigt ist auch, was der Dienst als fertig meldete (§ 3.1) */ docs.forEach(function (d) { var v = d.data(); if (!istAufgabe(v) || istChat(v)) return; if (claudeAuftrag(v)) ((lesartDa() ? lesartDa().erledigt(v) : v.done) ? fertig : claude).push({ id: d.id, coll: "todos", v: v, claude: true }); else if (v.done) erledigt.push({ id: d.id, coll: "todos", v: v }); });
     if (!gast) cache.intern.forEach(function (d) { var v = d.data(); if (istAufgabe(v) && v.art === "aufgabe" && v.done) erledigt.push({ id: d.id, coll: "intern", v: v }); });
     claude.sort(function (a, b) { var pa = Number(a.v.prio) || 2, pb = Number(b.v.prio) || 2; if (pa !== pb) return pa - pb; return String(a.v.created).localeCompare(String(b.v.created)); });   // wie gebaut
     var spaeter = function (a, b) { return (erledigtAm(b.v) || 0) - (erledigtAm(a.v) || 0); };   // Erledigtes: zuletzt erledigt oben
@@ -2888,9 +2899,11 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
 
   /* ---- Merkmale (Vertrag V3; dieselben Schreibweisen wie die Leseregel der Datenbank): Auftrag an Claude bzw. Nachricht aus dem Reiter »Claude« ---- */
   function merkmal(wert, muster) { return new RegExp("^[^\\p{L}\\p{N}]*(?:" + muster + ")[^\\p{L}\\p{N}]*$", "iu").test(wert == null ? "" : String(wert)); }
-  function istChat(v) { return merkmal(v.quelle, "chat"); }
-  function claudeAuftrag(v) { return merkmal(v.typ, "claude") || merkmal(v.wer, "claude") || istChat(v) || merkmal(v.angefordert, "t|tr|tru|true|y|ye|yes|on|1") || v.s11status != null; }
-  function istAufgabe(v) { return !!v && typeof v === "object" && "text" in v; }   // ein Dokument ohne text ist keine Aufgabe
+  /* Bauschritt 2: eine Regel (leitstand-lesart.js, Bauvorlage Fassung 2, § 3.1). Fehlt die Lesart oder hat sie eine andere Fassung, gilt die Regel wie zuvor. */
+  function lesartDa() { var l = window.LEITSTAND_LESART; return l && l.fassung === 1 ? l : null; }
+  function istChat(v) { var L = lesartDa(); return L ? L.istChat(v) : merkmal(v.quelle, "chat"); }
+  function claudeAuftrag(v) { var L = lesartDa(); return L ? L.claudeAuftrag(v) : merkmal(v.typ, "claude") || merkmal(v.wer, "claude") || istChat(v) || merkmal(v.angefordert, "t|tr|tru|true|y|ye|yes|on|1") || v.s11status != null; }
+  function istAufgabe(v) { var L = lesartDa(); return L ? L.istAufgabe(v) : !!v && typeof v === "object" && "text" in v; }   // ein Dokument ohne text ist keine Aufgabe
   /* ---- Bauschritt 1a (CL LES): wer »Jetzt erledigen« sehen und auslösen darf. Eine Stelle für Zeile, Klick und Meldung. ----
      Vorschlag = Eintrag aus dem Kanal, nicht angefordert, nicht erledigt, noch von keinem Menschen bestätigt (§ 3.2 Zeile 10; ohne Pflicht vorgeschlagenVon,
      ohne Ausschluss abgelehntVon — auch zurückgeholt oder aus einer alten Seite bleibt es ein Vorschlag). Freigeben darf ihn nur der Kanal, nach dem Lesen.
@@ -2978,7 +2991,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     else html = '<p class="empty">' + (gast ? esc(T.leerGast[0]) + '<a class="lnk" href="#transkripte">' + pfeil(T.leerGast[1]) + "</a>" : esc(T.leerAdmin)) + "</p>";
     if (!gast) {   // Fuß Admins: im Team offen = alle offenen Aufgaben für Menschen (todos und intern); bei Claude = offene Aufträge ohne Nachrichten aus dem Reiter »Claude«
       var k = 0, m = 0;
-      cache.todos.forEach(function (d) { var v = d.data(); if (!istAufgabe(v) || v.done) return; if (!claudeAuftrag(v)) k++; else if (!istChat(v)) m++; });
+      cache.todos.forEach(function (d) { var v = d.data(), Lf = lesartDa(); if (!istAufgabe(v)) return; if (!claudeAuftrag(v)) { if (!v.done) k++; } else if (!istChat(v) && !(Lf ? Lf.erledigt(v) : v.done)) m++; });   // Bauschritt 2: »bei Claude« zählt wie »Bei Claude (n)« im Reiter
       cache.intern.forEach(function (d) { var v = d.data(); if (istAufgabe(v) && v.art === "aufgabe" && !v.done && !claudeAuftrag(v)) k++; });
       html += '<p class="blockfuss"><a class="lnk" href="#aufgaben">' + pfeil(T.alleAufgaben) + "</a>" + esc(T.imTeam + k + T.beiClaude + m) + "</p>";
     } else html += '<p class="blockfuss"><a class="lnk" href="#aufgaben">' + pfeil(T.alleAufgaben) + "</a></p>" + (liste.length ? '<p class="blockfuss gastfuss">' + esc(NOTIZ_TEXT.gastFuss) + "</p>" : "");   // B3: Gast-Fuß (K 3.5)
@@ -3179,7 +3192,8 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
   /* »Jetzt erledigen«: Der Klick liest die Aufgabe unmittelbar vor dem Schreiben frisch aus der Datenbankschicht und entscheidet an diesem Stand — nicht an
      der Zeile im Bild und nicht am zuletzt empfangenen Stand der Seite (beide können älter sein). Scheitert das Lesen oder das Schreiben, oder gibt es den
      Eintrag nicht mehr, steht die Meldung an der geklickten Zeile (auch ein Fehler schon beim Aufruf der Datenbankschicht landet dort). */
-  function jetztFreigeben(li) {
+  function jetztFreigeben(li, was) {
+    if (lesartDa()) { lesartDa().freigeben(li.dataset.id, was || "jetzt", li); return; }   // Bauschritt 2: ein Schreibweg in der Lesart (»Jetzt erledigen« und »Neu anfordern«); der Rest ist der Weg von Bauschritt 1a für den Rückfall
     var id = li.dataset.id, ref = null, fehl = function () { zeilenMeldung(id, li, AUFGABEN_TEXT.speichernFehl); };
     Promise.resolve().then(function () { ref = db.collection("todos").doc(id); return ref.get(); }).then(function (s) {
       var v = s && s.exists ? s.data() : null;
@@ -3206,6 +3220,10 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     showPage("claude");
     document.dispatchEvent(new CustomEvent("leitstand:zeige", { detail: { art: "vorschlag", id: id } }));
   }
+  if (lesartDa()) {   // Bauschritt 2: Datenbank, Meldung an der Zeile und Sprung in den Kanal für den einen Schreibweg; die Liste »Warten auf dich« liest den Stand der Aufgaben
+    lesartDa().verbinde({ db: function () { return db; }, meldung: zeilenMeldung, vorschlag: zumVorschlag });
+    lesartDa().quelle(function () { return cache.todos.map(function (d) { return { id: d.id, v: d.data() }; }); });
+  }
   aufgabenKarte.addEventListener("change", function (ev) {
     var box = ev.target, li = box && box.type === "checkbox" ? box.closest("li[data-id]") : null; if (!li) return;
     if (istGast || !db) { box.checked = !box.checked; return; }
@@ -3217,7 +3235,8 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
   aufgabenKarte.addEventListener("click", function (ev) {
     var b = ev.target.closest("button"), li = b && b.closest("li[data-id]"); if (!li || !db || istGast) return;
     if (b.dataset.act === "undo") aufgabeRef(li).update(Object.assign(zurueckPatch(li), statusVermerk())).catch(function () {});
-    else if (b.dataset.act === "jetzt") jetztFreigeben(li);
+    else if (b.dataset.act === "jetzt") jetztFreigeben(li, "jetzt");
+    else if (b.dataset.act === "neu") jetztFreigeben(li, "neu");
     else if (b.dataset.act === "vorschlag") zumVorschlag(li.dataset.id);
     else if (b.classList.contains("del")) {   // »×« löscht nicht mehr, sondern legt ins Archiv (K 5.2, Anhang II.4)
       b.disabled = true;
@@ -4954,5 +4973,5 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
 })();
 </script>
 <script src="leitstand-zeit.js?v=261007a"></script>
-<script src="claude-chat.js?v=261012a"></script>
-<script src="agenten-kanal.js?v=k261013a"></script>
+<script src="claude-chat.js?v=261013a"></script>
+<script src="agenten-kanal.js?v=k261013b"></script>
