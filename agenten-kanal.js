@@ -15,6 +15,8 @@
    Antwort da ist (kein Doppel, kein zweiter Auftrag nach Teilfehler); Karten zeichnen nur bei geänderter Fassung (Fokus, offene Teile, Klicks bleiben);
    Verlauf rollt beim ersten sichtbaren Zeichnen ans Ende; Lagebild zeichnet beim Sichtbarwerden neu und behält den Fokus; Status fehler/abgebrochen/
    zurückgegeben benannt; Notiz mit »…« gekürzt; Zeiten in Berliner Zeit, »Gestern« nach Kalendertag.
+   Bauschritt 3 (13.10.2026): Konto und Arbeitsplatz als zwei Marken (nie in einem Wort), »Konto nicht gemeldet« statt »Claude (Konto offen)«, »Arbeitsplatz« statt »Ort«/»Rechner«,
+   feste Zeilen im Kasten einer Sitzung und des Hintergrunddienstes, »nicht gemeldet« statt nichts, abgemeldete Einträge ohne Kasten — alles nur mit der Lesart (leitstand-lesart.js).
    Alle sichtbaren Texte stehen in KANAL_TEXT, LAGE_TEXT und RICHTWERTE — VORSCHLÄGE, bis LES sie freigibt (Liste: 261009 Neue Texte CL LES.md,
    Kennungen AK1 …, AL1 …, RW1 …). */
 (function () {
@@ -127,6 +129,23 @@
   /* Bauschritt 2: die gemeinsame Lesart (leitstand-lesart.js, Bauvorlage Fassung 2, § 3). Fehlt sie oder hat sie eine andere Fassung, tut diese Datei, was sie vor dem Schritt tat. */
   function lesart() { var l = window.LEITSTAND_LESART; return l && l.fassung === 1 ? l : null; }
   if (lesart()) KANAL_TEXT.ortName = lesart().ortNamen();   // »Schnitt 11«, »VPS«, »Remote«, »LES MacBook (privat)«; andere Arbeitsplätze wie gespeichert
+  /* Bauschritt 3: die zwei Marken (Konto, Arbeitsplatz) und die festen Zeilen (Bauvorlage Fassung 2, § 2.4 und § 4). Fehlt die Lesart, hat sie eine andere Fassung oder kennt sie die Marken nicht (eine ältere
+     leitstand-lesart.js aus dem Zwischenspeicher), tut diese Datei, was sie vor dem Schritt tat — Wörter und Formen eingeschlossen. */
+  function marken() {
+    var l = lesart();
+    return l && typeof l.kennungMarken === "function" && typeof l.markenPaar === "function" && typeof l.abgemeldet === "function" && typeof l.ortDesLaufs === "function" && typeof l.istDienst === "function" ? l : null;
+  }
+  /* Wörter des Schritts: Bauvorlage § 4 (»Arbeitsplatz« statt »Ort«, »Rechner«, »Ziel«; »gewünschter Arbeitsplatz«; »Mensch an der Sitzung«; »Konto nicht gemeldet«), § 2.4 (feste Zeilen), § 2.3 (»nicht gemeldet«,
+     »genaue Fassung nicht gemeldet«) und der statische Entwurf der Bauvorlage (Konto · Arbeitsplatz, Konto je Auftrag, je Auftrag, Anwesenheit nicht gemeldet, keine Helfer, abgemeldet) */
+  var FEST = { ng: "nicht gemeldet", fassungNg: "genaue Fassung nicht gemeldet", keinAuftrag: "kein Auftrag übernommen", nichts: "Modell, Effort, Helfer nicht gemeldet · kein Auftrag übernommen",
+    anwesenheitNg: "Anwesenheit nicht gemeldet", kontoJeAuftrag: "Konto je Auftrag", jeAuftrag: "je Auftrag", keineHelfer: "keine Helfer", helfer: "Helfer",
+    auftrag: "Auftrag", menschSitzung: "Mensch an der Sitzung", abgemeldet: "abgemeldet", dienstWort: "Hintergrunddienst", sitzung: "Sitzung", gesehen: "zuletzt gesehen", konto: "Konto", arbeitsplatz: "Arbeitsplatz",
+    nennt: function (roh) { return "Kennung »" + roh + "« nennt kein Konto"; } };
+  if (marken()) {
+    KANAL_TEXT.ziel = "gewünschter Arbeitsplatz"; KANAL_TEXT.kontoOffen = marken().TEXT.kontoOffen;                 // AK29 »Ort«, AK37 »Claude (Konto offen)«
+    LAGE_TEXT.rechner = FEST.arbeitsplatz; LAGE_TEXT.zoneEgal = "Arbeitsplatz egal"; LAGE_TEXT.zoneOffen = "Arbeitsplatz offen";   // AL24 »Rechner«, AL58, AL59
+    LAGE_TEXT.mensch = "Mensch am Arbeitsplatz"; LAGE_TEXT.spalten = ["Mitarbeiter", "Konto · Arbeitsplatz", "Aufgabe", "Speicher"];   // AL66, AL55
+  }
   var MITARBEITER = ["LES", "JB", "TH", "FS", "TS", "DS"], KONTEN = ["LES", "JB", "Dropout"];
   var MODELLE = ["opus", "sonnet", "haiku"], EFFORTS = ["low", "medium", "high", "xhigh", "max"], ARBEITSWEISEN = ["einzeln", "subagenten", "workflow"];
   var ZUGRIFFE = ["raid-s11", "expansion", "backup-327", "frameio", "repo", "cloud-xml", "lokal"], STAENDE = ["geplant", "in_arbeit", "pausiert"];
@@ -172,6 +191,24 @@
     return "@ " + ortName(k);
   }
   function anName(a) { return anzeige(a || "alle"); }
+  function ngHtml(t) { return '<span class="llFehlt">' + esc(t) + "</span>"; }   // eine fehlende Angabe, ehrlich benannt
+  /* Kennung oder Ziel als HTML: mit den Marken (Bauschritt 3) zwei Marken — Konto und Arbeitsplatz —, sonst der Text von anzeige() wie zuvor */
+  function anzeigeHtml(k) {
+    var L = marken(); k = String(k == null ? "" : k);
+    if (!L || k === "") return esc(anzeige(k));
+    if (/^([^@]+)@(.+)$/.test(k)) return L.kennungMarken(k);
+    if (KANAL_TEXT.anWahl[k]) return esc(KANAL_TEXT.anWahl[k]);
+    if (k === "alle" || k === "egal") return esc(k);
+    return '<span class="llKp">' + L.platzMarke(k) + "</span>";
+  }
+  /* Gewünschter Arbeitsplatz eines Auftrags (`ziel`): egal → die gestrichelte Marke, alle → »alle Agenten«, eine Kennung → zwei Marken, sonst ein Arbeitsplatz */
+  function zielHtml(z) {
+    var L = marken(); z = String(z == null || z === "" ? "egal" : z);
+    if (!L) return esc(anName(z));
+    if (z === "egal") return '<span class="llKp">' + L.platzMarke("egal") + "</span>";
+    if (z === "alle") return esc(KANAL_TEXT.anWahl.agenten);
+    return /@/.test(z) ? L.kennungMarken(z) : '<span class="llKp">' + L.platzMarke(z) + "</span>";
+  }
 
   var db = null, karte, verlaufEl, vorschlagEl, formEl, textEl, anEl, auftragEl, meldungEl, anwEl;
   var letzteId = null, kennungen = [];
@@ -212,15 +249,18 @@
   function zeileNachricht(id, v) {
     var agent = v.rolle === "agent", system = v.rolle === "system", artTxt = v.art && v.art !== "nachricht" ? KANAL_TEXT.art[v.art] || v.art : "";
     var von = agent ? anzeige(v.von) : system ? KANAL_TEXT.system : v.von, eigen = !agent && !system && !!v.von && v.von === ich();
-    var gel = v.gelesen && typeof v.gelesen === "object" ? Object.keys(v.gelesen).sort().map(function (p) { return esc(anzeige(p)) + " " + esc(uhr(v.gelesen[p])); }).join(" · ") : "";
+    var gel = v.gelesen && typeof v.gelesen === "object" ? Object.keys(v.gelesen).sort().map(function (p) { return anzeigeHtml(p) + " " + esc(uhr(v.gelesen[p])); }).join(" · ") : "";
+    var Lm = marken(), vonDa = typeof v.von === "string" && v.von.replace(/\s+/g, "") !== "";
+    var vonH = agent ? (Lm && !vonDa ? ngHtml(FEST.ng) : anzeigeHtml(v.von)) : esc(von), anH = anzeigeHtml(v.an || "alle");   // Bauschritt 3 (»Schritt 3«: jede fehlende Angabe — auch Zeit und Name — heißt »nicht gemeldet«): Agent ohne Absender
+    var zeitH = esc(uhr(v.created) || (Lm ? FEST.ng : ""));                                                                  // … und eine Nachricht ohne lesbare Zeit
     var was = artTxt ? '<div class="akWas">' + esc(artTxt) + (v.titel ? " · <q>" + esc(v.titel) + "</q>" : "") + "</div>" : "";
-    if (system) return '<li class="akMsg akSystem" data-id="' + esc(id) + '"><div class="akPille"><span class="akVon">' + esc(von) + "</span>" + was +
-      '<span class="akAn">' + esc(KANAL_TEXT.an) + " " + esc(anName(v.an || "alle")) + '</span><time class="akUhr">' + esc(uhr(v.created)) + "</time></div></li>";
+    if (system) return '<li class="akMsg akSystem" data-id="' + esc(id) + '"><div class="akPille"><span class="akVon">' + vonH + "</span>" + was +
+      '<span class="akAn">' + esc(KANAL_TEXT.an) + " " + anH + '</span><time class="akUhr">' + zeitH + "</time></div></li>";
     return '<li class="akMsg' + (agent ? " akAgent" : " akTeam") + (eigen ? " akEigen" : "") + '" data-id="' + esc(id) + '">' +
       (eigen ? "" : '<span class="akBild' + (agent ? " akBildAgent" : " " + esc(String(v.von || ""))) + '" aria-hidden="true">' + esc(bildText(v, agent)) + "</span>") +
       '<div class="akBlase"><div class="akMeta">' + (agent ? '<span class="akArt">' + esc(KANAL_TEXT.agent) + "</span>" : "") +
-        (eigen ? "" : '<span class="akVon">' + esc(von) + "</span>") + '<span class="akAn">' + esc(KANAL_TEXT.an) + " " + esc(anName(v.an || "alle")) + "</span></div>" +
-        was + (v.text ? '<div class="akText">' + esc(v.text) + "</div>" : "") + '<time class="akUhr">' + esc(uhr(v.created)) + "</time></div>" +
+        (eigen ? "" : '<span class="akVon">' + vonH + "</span>") + '<span class="akAn">' + esc(KANAL_TEXT.an) + " " + anH + "</span></div>" +
+        was + (v.text ? '<div class="akText">' + esc(v.text) + "</div>" : "") + '<time class="akUhr">' + zeitH + "</time></div>" +
       (gel ? '<div class="akGelesen">✓ ' + esc(KANAL_TEXT.gelesen) + ": " + gel + "</div>" : "") +
       "</li>";
   }
@@ -240,8 +280,8 @@
   }
   function zeileVorschlag(id, v) {
     return '<li class="akVorschlag" data-id="' + esc(id) + '" tabindex="-1">' +   // tabindex -1: »Zum Vorschlag →« der Aufgabenzeile setzt den Fokus auf die Karte, nicht auf einen Knopf
-      '<div class="akMeta">' + (typeof v.vorgeschlagenVon === "string" && v.vorgeschlagenVon.replace(/\s+/g, "") !== "" ? '<span class="akArt">' + esc(KANAL_TEXT.vorschlagVon) + "</span>" + chip(anzeige(v.vorgeschlagenVon)) : '<span class="akArt">' + esc(KANAL_TEXT.absenderUnbekannt) + "</span>") +
-        "<span>" + esc(KANAL_TEXT.ziel) + ": " + esc(anName(v.ziel || "egal")) + "</span><span>" + esc(fmtZeit(v.vorgeschlagenAm || v.created)) + "</span></div>" +
+      '<div class="akMeta">' + (typeof v.vorgeschlagenVon === "string" && v.vorgeschlagenVon.replace(/\s+/g, "") !== "" ? '<span class="akArt">' + esc(KANAL_TEXT.vorschlagVon) + "</span>" + (marken() ? anzeigeHtml(v.vorgeschlagenVon) : chip(anzeige(v.vorgeschlagenVon))) : '<span class="akArt">' + esc(KANAL_TEXT.absenderUnbekannt) + "</span>") +
+        "<span>" + esc(KANAL_TEXT.ziel) + ": " + zielHtml(v.ziel || "egal") + "</span><span>" + esc(fmtZeit(v.vorgeschlagenAm || v.created)) + "</span></div>" +
       '<div class="akTitel">' + esc(v.text) + "</div>" +
       (v.beschreibung ? beschreibungHtml(v.beschreibung) : "") +
       (obj(v.planVorschlag) && planZeile(v.planVorschlag, true) ? '<div class="akPlan">' + esc(KANAL_TEXT.planVorschlag) + ": " + esc(planZeile(v.planVorschlag, true)) + "</div>" : "") +
@@ -367,7 +407,9 @@
     var rows = anwesenheit.filter(function (v) { return v && v.kennung; })
       .sort(function (a, b) { return String(b.zuletzt || "").localeCompare(String(a.zuletzt || "")); });
     var jetztMs = Date.now();
+    var L = marken();
     setzeHtml(anwEl, rows.length ? esc(KANAL_TEXT.zuletzt) + ": " + rows.slice(0, 12).map(function (v) { var z = ms(v.zuletzt), an = z != null && jetztMs - z <= AKTIV_MS;
+      if (L) return '<span class="akAnw' + (an ? " akDa" : "") + '">' + L.kennungMarken(v.kennung) + (L.istDienst(v) ? " " + FEST.dienstWort : "") + " " + esc(fmtZeit(v.zuletzt) || FEST.ng) + (L.abgemeldet(v) ? " · " + FEST.abgemeldet : "") + "</span>";   // Bauschritt 3
       return '<span class="akAnw' + (an ? " akDa" : "") + '">' + esc(anzeige(v.kennung)) + " " + esc(fmtZeit(v.zuletzt)) + "</span>"; }).join(" · ") : "");
     anwEl.hidden = !rows.length;
     kennungen = rows.map(function (v) { return v.kennung; }).filter(function (x, i, a) { return x.indexOf("?@") !== 0 && a.indexOf(x) === i; }).sort();
@@ -457,7 +499,14 @@
   }
   function statusAufgabeAlt(v) {
     var T = LAGE_TEXT, pl = obj(v.plan), claude = (v.typ === "claude" || v.wer === "Claude") && !v.done;
-    if (v.s11status === "laeuft") return { t: T.laeuftAuf + (v.s11kennung ? anzeige(v.s11kennung) : KANAL_TEXT.ortName[v.s11ziel] || v.s11ziel || ""), k: "laeuft" };
+    if (v.s11status === "laeuft") {
+      /* Bauschritt 3: sagt der Lauf nichts, steht dort nur »läuft«. Nichts gesagt heißt auch: Kennung oder s11ziel bestehen aus Leerzeichen; und der Text der Datenbank in s11ziel (»Konto @ Arbeitsplatz«,
+         ohne s11kennung nur in Altbestand) ist keine Ortsangabe — die Seite liest für die Anzeige nie den Text in s11ziel (§ 4) */
+      var L = marken(), kDa = L ? L.textDa(v.s11kennung) : !!v.s11kennung, zDa = L ? L.textDa(v.s11ziel) && !/\s@\s/.test(String(v.s11ziel)) : !!v.s11ziel;
+      var wo = kDa ? anzeige(v.s11kennung) : zDa ? KANAL_TEXT.ortName[v.s11ziel] || v.s11ziel : "";
+      if (L) return { t: wo ? T.laeuftAuf + wo : T.laeuftAuf.replace(/\s+auf\s*$/, ""), k: "laeuft", auf: kDa ? { kennung: v.s11kennung } : zDa ? { ziel: v.s11ziel } : null };
+      return { t: T.laeuftAuf + wo, k: "laeuft" };
+    }
     if (v.s11status === "wartet") return { t: T.wartet + (v.s11fortschritt ? " — " + v.s11fortschritt : ""), k: "wartet" };
     if (claude && (v.s11status === "fehler" || v.s11status === "abgebrochen") && !neuAngefordert(v)) return { t: T.endstand[v.s11status], k: "fehler" };   // tot, bis jemand neu anfordert: kein »wartet«
     if (claude && v.s11status === "zurueckgegeben" && v.angefordert === true) return { t: T.endstand.zurueckgegeben, k: "frei" };
@@ -481,12 +530,18 @@
       if (v) texte(obj(v.plan) && v.plan.zugriff).forEach(function (z) { kante(n.key, speicher(z).key, ""); });
       return n;
     };
-    var gezeigt = {};
-    // 1. Claude-Sitzungen der letzten 12 Stunden
-    anwesenheit.filter(function (a) { var z = ms(a.zuletzt); return a.kennung && z != null && jetztMs - z <= SICHTBAR_MS; })
+    var gezeigt = {}, M = marken();
+    // 1. Claude-Sitzungen der letzten 12 Stunden (mit der Lesart, Bauschritt 3: auch ein Eintrag ohne Zeit — sein Kasten sagt »zuletzt nicht gemeldet« —; abgemeldete Einträge haben keinen Kasten; ein Eintrag mit
+    //    status.dienst ist ein Hintergrunddienst und bekommt den Kasten DIENST, keinen Sitzungskasten)
+    anwesenheit.filter(function (a) { var z = ms(a.zuletzt); return a.kennung && (M ? (z == null || jetztMs - z <= SICHTBAR_MS) && !M.abgemeldet(a) : z != null && jetztMs - z <= SICHTBAR_MS); })
       .sort(function (a, b) { return String(b.zuletzt || "").localeCompare(String(a.zuletzt || "")); })
       .forEach(function (a) {
         var st = obj(a.status) || {}, aktiv = jetztMs - ms(a.zuletzt) <= AKTIV_MS, au = gehaltenerAuftrag(a, st), pl = au && au.v ? obj(au.v.plan) : null;
+        if (M && M.istDienst(a)) {
+          var dz = zone(a.ort || ortVonZiel(a.kennung)), dn = knoten("p:dienst:" + dz, "platz", { sorte: "dienst", zone: dz, ort: dz, laeufe: [] });
+          if (!dn.anw) { dn.anw = a; dn.st = st; dn.aktiv = aktiv; }
+          return;
+        }
         var p = knoten("p:" + a.kennung, "platz", { sorte: "claude", anw: a, st: st, aktiv: aktiv, abw: pl ? abweichungen(a, st, pl) : [], auftrag: au,
           zone: zone(a.ort || ortVonZiel(a.kennung)), wer: MITARBEITER.indexOf(st.mitarbeiter) !== -1 ? st.mitarbeiter : null });
         if (p.wer) kante(mensch(p.wer).key, p.key, aktiv ? "" : "blass");
@@ -500,9 +555,24 @@
       });
     // 2. Aufgaben aus todos: Läufe ohne Kennung (Hintergrunddienst), gehaltene ohne Sitzung im Lagebild, sonst nur mit Absprache
     todos.filter(function (x) { return !x.v.done && typeof x.v.text === "string" && x.v.text && !gezeigt[x.id]; }).forEach(function (x) {
-      var v = x.v, pl = obj(v.plan), claude = v.typ === "claude" || v.wer === "Claude", lauf = v.s11status === "laeuft" || v.s11status === "wartet", p;
-      if (claude && lauf && !v.s11kennung) p = knoten("p:dienst:" + (v.s11ziel || "?"), "platz", { sorte: "dienst", zone: zone(ortVonZiel(v.s11ziel)), ort: v.s11ziel });
-      else if (claude && lauf && v.s11kennung) p = K["p:" + v.s11kennung] || knoten("p:" + v.s11kennung, "platz", { sorte: "claude", anw: { kennung: v.s11kennung }, st: {}, aktiv: false, abw: [], zone: zone(ortVonZiel(v.s11kennung)) });
+      var v = x.v, pl = obj(v.plan), claude = v.typ === "claude" || v.wer === "Claude", lauf = v.s11status === "laeuft" || v.s11status === "wartet", p, kennungDa = M ? M.textDa(v.s11kennung) : !!v.s11kennung;
+      if (claude && lauf && !kennungDa) {
+        if (M) { var oz = zone(M.ortDesLaufs(v)); p = knoten("p:dienst:" + oz, "platz", { sorte: "dienst", zone: oz, ort: oz, laeufe: [] }); (p.laeufe = p.laeufe || []).push(v); }   // E1: sagt der Lauf nichts, gilt das Ziel, wenn es ein fester Arbeitsplatz ist
+        else p = knoten("p:dienst:" + (v.s11ziel || "?"), "platz", { sorte: "dienst", zone: zone(ortVonZiel(v.s11ziel)), ort: v.s11ziel });
+      }
+      else if (claude && lauf && kennungDa) {
+        p = K["p:" + v.s11kennung];
+        if (!p) {   // die Kennung hat oben keinen Kasten bekommen. Mit der Lesart (Bauschritt 3): Gibt es ihren Eintrag der Anwesenheit doch (älter als 12 Stunden oder abgemeldet), zeigt der Kasten, was er meldet — sonst hieße »nicht gemeldet«, was gemeldet ist
+          var ea = M ? anwesenheit.filter(function (a) { return a && a.kennung === v.s11kennung; })[0] : null;
+          /* Runde 3 (§ 2.4, »Schritt 3«): Ein Eintrag mit status.dienst ist ein Hintergrunddienst — auch hier entsteht für ihn kein Sitzungskasten. Die Aufgabe, die unter seiner Kennung läuft, hängt am Kasten DIENST seines Arbeitsplatzes. */
+          if (ea && M.istDienst(ea)) { var ez = zone(ea.ort || ortVonZiel(ea.kennung)); p = knoten("p:dienst:" + ez, "platz", { sorte: "dienst", zone: ez, ort: ez, laeufe: [] }); (p.laeufe = p.laeufe || []).push(v); }
+          else p = knoten("p:" + v.s11kennung, "platz", { sorte: "claude", anw: ea || { kennung: v.s11kennung }, st: (ea && obj(ea.status)) || {}, aktiv: false, abw: [], zone: zone((ea && ea.ort) || ortVonZiel(v.s11kennung)) });
+        }
+        /* Bauschritt 3 (§ 2.4: »nichts gemeldet und nichts übernommen«): Die laufende oder pausierte Aufgabe, die hier an den Kasten gehängt wird, steht auch in seiner Zeile »Auftrag« — der Kasten sagt nicht
+           »kein Auftrag übernommen«, während sie an ihm hängt. Nennt der Status schon einen Auftrag, bleibt der; eine laufende geht einer pausierten vor. */
+        if (M && p.sorte === "claude" && (v.s11status === "laeuft" || !neuAngefordert(v)) && (!p.auftrag || (p.auftragAusLauf && p.auftrag.v.s11status !== "laeuft" && v.s11status === "laeuft"))) { p.auftrag = { id: x.id, v: v, titel: null }; p.auftragAusLauf = true; }
+        if (M && p.auftragAusLauf && p.auftrag.id === x.id) p.abw = pl ? abweichungen(p.anw, p.st, pl) : [];   // Runde 3: Steht die Aufgabe so in der Zeile »Auftrag«, gilt für sie dieselbe Prüfung wie oben — das Ist der Sitzung gegen ihre Absprache (»weicht ab«), ob sie läuft oder pausiert
+      }
       else if (!pl) return;
       else if (claude && statusAufgabe(v).k === "fehler") { aufgabe(x.id, v); return; }   // mit Fehler beendet/abgebrochen und nicht neu angefordert: nur die Aufgabe, kein Platz »wartet«
       else if (claude) {
@@ -532,7 +602,50 @@
   }
 
   /* ---- Kästen und Details ---- */
+  /* Bauschritt 3 (§ 2.4, § 2.3): Modell, Effort und Helfer einer Sitzung oder eines Laufs als Zeilen; was fehlt, heißt »nicht gemeldet« */
+  function modellHtml(d) { var T = LAGE_TEXT; return d.modell_genau ? "<code>" + esc(d.modell_genau) + "</code>" : d.modell ? esc(T.modellName[d.modell] || d.modell) + ' <span class="llFehlt">— ' + esc(FEST.fassungNg) + "</span>" : ngHtml(FEST.ng); }
+  function effortHtml(d) { return d.effort ? esc(d.effort) : ngHtml(FEST.ng); }
+  function helferKurz(d) { return d.helfer ? (d.helfer.length ? d.helfer.length + " " + FEST.helfer : FEST.keineHelfer) : d.arbeitsweise === "einzeln" ? FEST.keineHelfer : ""; }
+  function helferDaten(st) { return { modell_genau: typeof st.modell_genau === "string" ? st.modell_genau : "", modell: st.modell || "", effort: st.effort || "", arbeitsweise: st.arbeitsweise || "", helfer: Array.isArray(st.helfer) ? st.helfer.filter(obj) : null }; }
+  function dienstLauf(v) {   // was ein Lauf des Hintergrunddienstes über sich meldet (s11lauf, schreibt der Dienst erst mit Bauschritt 10); sonst nichts
+    var l = obj(v.s11lauf) || {}, L = marken();
+    return { konto: L.textDa(l.konto) && l.konto !== "offen" ? String(l.konto) : "?", modell_genau: typeof l.modell_genau === "string" ? l.modell_genau : "", modell: typeof l.modell === "string" ? l.modell : "", effort: typeof l.effort === "string" ? l.effort : "" };
+  }
+  function zeileKasten(label, html, extra) { return '<span class="llZeile' + (extra ? " " + extra : "") + '"><span class="llLb">' + esc(label) + "</span> " + html + "</span>"; }
+  function zustandWort(st) { return st.zustand ? LAGE_TEXT.zustand[st.zustand] || st.zustand : "Zustand " + FEST.ng; }
+  function sitzungTeile(n, L) {   // Kasten einer Sitzung: Konto-Marke, Arbeitsplatz-Marke, Zustand oder »zuletzt …«, dann vier feste Zeilen — Modell, Effort, Auftrag, Helfer
+    var T = LAGE_TEXT, st = n.st || {}, a = n.anw || {}, kt = L.kennungTeile(a.kennung), au = n.auftrag, sd = helferDaten(st), hk = helferKurz(sd), nichts = !au && !sd.modell_genau && !sd.modell && !sd.effort && !hk;
+    var held = au ? (au.v && au.v.text) || au.titel || au.id : "";
+    return { neu: true, kopf: "", kp: L.markenPaar(kt.konto, n.zone, false), klein: n.aktiv ? zustandWort(st) : T.zuletzt + " " + (a.zuletzt && fmtZeit(a.zuletzt) ? fmtZeit(a.zuletzt) : FEST.ng),   // Runde 3: nicht von heute → Tag und Uhrzeit, wie »Zuletzt gesehen« und die Einzelheiten (fmtZeit); von heute nur die Uhrzeit
+      zeilenH: nichts ? ['<span class="llZeile">' + ngHtml(FEST.nichts) + "</span>"]
+        : [zeileKasten(T.modell, modellHtml(sd)), zeileKasten(T.effort, effortHtml(sd)), zeileKasten(FEST.auftrag, held ? esc(held) : ngHtml(FEST.keinAuftrag), "llAuftrag"), zeileKasten(FEST.helfer, hk ? esc(hk) : ngHtml(FEST.ng))],
+      marke: n.abw && n.abw.length ? T.abweichung + ": " + n.abw.join(", ") : "", zst: null };
+  }
+  function dienstKonten(n) { var laeufe = (n.laeufe || []).map(dienstLauf); return { laeufe: laeufe, konten: laeufe.map(function (d) { return d.konto; }).filter(function (k, i, arr) { return arr.indexOf(k) === i; }) }; }
+  /* Modell oder Effort des Dienstes (§ 2.4): bei einem Lauf, was er meldet; bei mehreren »je Auftrag« — aber nur, wenn überhaupt ein Lauf etwas gemeldet hat. Meldet keiner etwas, heißt es »nicht gemeldet«.
+     Kein Verweis auf Einzelheiten: je Lauf zeigen sie Modell und Konto erst mit den Schritten 6 und 9. */
+  function dienstWie(d, effort) {
+    var eine = d.laeufe.length === 1 ? d.laeufe[0] : null, gemeldet = d.laeufe.some(function (l) { return effort ? !!l.effort : !!(l.modell_genau || l.modell); });
+    return eine ? (effort ? effortHtml(eine) : modellHtml(eine)) : gemeldet ? ngHtml(FEST.jeAuftrag) : ngHtml(FEST.ng);
+  }
+  function dienstTeile(n, L) {   // Kasten des Hintergrunddienstes: Konto-Marke des Laufs (Quadrat) oder »Konto nicht gemeldet« / »Konto je Auftrag«, Arbeitsplatz-Marke, Anwesenheit, Modell und Effort
+    var T = LAGE_TEXT, a = n.anw, d = dienstKonten(n), st = n.st || {};
+    return { neu: true, kopf: T.dienst, kp: d.konten.length === 1 ? L.markenPaar(d.konten[0], n.zone, true) : d.konten.length > 1 ? '<span class="llKp">' + ngHtml(FEST.kontoJeAuftrag) + " " + L.platzMarke(n.zone) + "</span>" : L.markenPaar("?", n.zone, true),
+      klein: a ? zustandWort(st) + " · " + T.zuletzt + " " + (a.zuletzt && uhr(a.zuletzt) ? uhr(a.zuletzt) : FEST.ng) : FEST.anwesenheitNg,
+      zeilenH: [zeileKasten(T.modell, dienstWie(d, false)), zeileKasten(T.effort, dienstWie(d, true))],
+      marke: "", zst: null };
+  }
   function kastenTeile(n) {
+    var L = marken(), t;
+    if (L && n.art === "platz" && n.sorte === "claude") return sitzungTeile(n, L);
+    if (L && n.art === "platz" && n.sorte === "dienst") return dienstTeile(n, L);
+    t = kastenTeileAlt(n);
+    if (L && n.art === "platz" && n.sorte === "warte") { t.neu = true; t.kp = /@/.test(String(n.ziel)) ? L.kennungMarken(n.ziel) : '<span class="llKp">' + L.platzMarke(n.zone) + "</span>"; t.zeilenH = []; t.klein = ""; }   // §4: der gewünschte Arbeitsplatz als Marke statt »Ort: …«
+    else if (L && n.art === "platz" && n.sorte === "mensch") { var ko = n.konto && n.konto !== "egal" && n.konto !== "ohne"; t.neu = true; t.kp = ko ? '<span class="llKp">' + L.kontoMarke(n.konto, false) + "</span>" : ""; t.zeilenH = ko || !n.konto ? [] : [ '<span class="alKZeile">' + esc(kontoText(n.konto)) + "</span>" ]; t.klein = ""; }
+    else if (L && n.art === "aufgabe" && n.v) t.auf = statusAufgabe(n.v).auf || null;   // auch ohne Zustand der Lesart (eine laufende Chat-Nachricht): der Ort des Laufs als die zwei Marken
+    return t;
+  }
+  function kastenTeileAlt(n) {
     var T = LAGE_TEXT, st = n.st || {}, z = [], kopf = "", klein = "", marke = "", zst = null;
     if (n.art === "mitarbeiter") { kopf = n.wer; if (n.praesenz) z.push(n.praesenz); if (n.ohneMeldung) marke = T.ohneMeldung; }
     else if (n.art === "platz" && n.sorte === "claude") {
@@ -554,25 +667,81 @@
     else if (n.art === "speicher") { kopf = T.zugriffName[n.z] || n.z; }
     return { kopf: kopf, klein: klein, zeilen: z.filter(Boolean), marke: marke, zst: zst };
   }
+  /* »auf …« hinter »läuft«: der Ort, an dem der Lauf steht, als die zwei Marken (Kennung) oder die Arbeitsplatz-Marke (Ort des Dienstes); sonst der Text, wie ihn der Lauf meldet */
+  function aufHtml(auf, L) {
+    return esc(LAGE_TEXT.laeuftAuf.trim().split(/\s+/).slice(1).join(" ")) + " " +
+      (auf.kennung ? L.kennungMarken(auf.kennung) : /^[a-z0-9-]+$/.test(String(auf.ziel)) ? '<span class="llKp">' + L.platzMarke(auf.ziel) + "</span>" : esc(KANAL_TEXT.ortName[auf.ziel] || auf.ziel));
+  }
   function kleinHtml(t) {   // mit der Lesart: die Marke des Zustands, dahinter, was die Seite schon sagte (Ort, Fortschritt); sonst der Text wie zuvor
-    var L = lesart(), s = t.zst ? (t.marke || t.klein) : "";
+    var L = lesart(), s = t.zst ? (t.marke || t.klein) : "", M = marken();
+    if (M && !t.zst && t.auf) return '<span class="alKKlein">' + standHtml({ auf: t.auf }) + "</span>";   // Bauschritt 3: »läuft auf« und die zwei Marken auch dort, wo kein Zustand der Lesart steht (laufende Chat-Nachricht) — nie »Konto @ Arbeitsplatz« als ein Wort
     if (!L || !t.zst) return t.klein ? '<span class="alKKlein">' + esc(t.klein) + "</span>" : "";
-    return '<span class="alKKlein">' + L.markeHtml(t.zst) + esc(s.indexOf(t.zst.wort) === 0 ? s.slice(t.zst.wort.length) : "") + "</span>";
+    var rest = s.indexOf(t.zst.wort) === 0 ? s.slice(t.zst.wort.length) : "";
+    if (M) {   // Bauschritt 3: die Zeile hinter der Marke beginnt mit keinem Komma und keinem anderen Trennzeichen; die Wörter bleiben. Läuft die Aufgabe, stehen dort die zwei Marken des Ortes.
+      rest = rest.replace(/^(?:[\s,;:·•\u2010-\u2015\-]|\.{2,}|\.(?![A-Za-z0-9\u00c0-\u024f]))+/, "");   // ein Punkt, der zu einem Wort gehört (».env«), ist kein Trennzeichen und bleibt; mehrere Punkte hintereinander sind eines (Runde 3)
+      if (t.auf && t.zst.nr === 3) return '<span class="alKKlein">' + L.markeHtml(t.zst) + " " + aufHtml(t.auf, L) + "</span>";
+      return '<span class="alKKlein">' + L.markeHtml(t.zst) + (rest ? " " + esc(rest).replace(/ ([·•\u2010-\u2015\-]) /g, "\u00a0$1 ") : "") + "</span>";   // ein Strich mitten im Text bleibt am Wort davor (geschütztes Leerzeichen): auch eine umbrochene Zeile beginnt mit keinem Trennzeichen
+    }
+    return '<span class="alKKlein">' + L.markeHtml(t.zst) + esc(rest) + "</span>";
   }
   function kastenHtml(n, breite) {
     var t = kastenTeile(n), kl = "alKasten alArt-" + n.art + (n.sorte ? " alSorte-" + n.sorte : "") + (n.wer && n.art === "mitarbeiter" ? " alWer-" + n.wer : "") +
       (n.art === "platz" && n.sorte === "claude" && !n.aktiv ? " alBlass" : "") + (t.marke ? " alWarn" : "");
+    if (t.neu) return '<button type="button" class="' + esc(kl) + '" data-key="' + esc(n.key) + '" aria-pressed="false"' + (breite ? ' style="width:' + breite + 'px"' : "") + ">" +   // Bauschritt 3: Sitzung, Dienst, Warte- und Mensch-Platz mit den zwei Marken
+      '<span class="alSigel" aria-hidden="true">' + esc(LAGE_TEXT.sigel[n.sorte] || "") + "</span>" + (t.kopf ? '<span class="alKKopf">' + esc(t.kopf) + "</span>" : "") + (t.kp || "") +
+      (t.klein ? '<span class="alKKlein">' + esc(t.klein) + "</span>" : "") + t.zeilenH.join("") + (t.marke ? '<span class="alKMarke">' + esc(t.marke) + "</span>" : "") + "</button>";
     return '<button type="button" class="' + esc(kl) + '" data-key="' + esc(n.key) + '" aria-pressed="false"' + (breite ? ' style="width:' + breite + 'px"' : "") + ">" +
       '<span class="alSigel" aria-hidden="true">' + esc(LAGE_TEXT.sigel[n.art === "platz" || n.sorte === "thema" ? n.sorte : n.art] || "") + "</span>" +
       '<span class="alKKopf">' + esc(t.kopf) + "</span>" + kleinHtml(t) +
       t.zeilen.map(function (x) { return '<span class="alKZeile">' + esc(x) + "</span>"; }).join("") + (t.marke && !t.zst ? '<span class="alKMarke">' + esc(t.marke) + "</span>" : "") + "</button>";
   }
+  function zoneMarke(o) { return o === "offen" ? '<span class="llPlatz egal">' + esc(LAGE_TEXT.zoneOffen) + "</span>" : marken().platzMarke(o); }
+  function kurzNameH(n) {   // wie kurzName, mit den Marken: die Sitzung als Konto und Arbeitsplatz, Dienst und Mensch-Platz mit der Marke des Arbeitsplatzes
+    var L = marken();
+    if (!L || n.art !== "platz" || n.sorte === "warte") return esc(kurzName(n));
+    if (n.sorte === "claude") return L.markenPaar(L.kennungTeile(n.anw.kennung).konto, n.zone, false);
+    return esc(kastenTeile(n).kopf) + " " + zoneMarke(n.zone);
+  }
   function kurzName(n) { var t = kastenTeile(n); return n.art === "platz" && n.sorte === "claude" ? anzeige(n.anw.kennung) : n.art === "platz" && n.sorte !== "warte" ? t.kopf + " @ " + zoneName(n.zone) : t.kopf; }
   function zoneName(o) { return o === "egal" ? LAGE_TEXT.zoneEgal : o === "offen" ? LAGE_TEXT.zoneOffen : ortName(o); }
+  function zeileH(label, html) { return html ? '<div class="alZeile"><span class="alLabel">' + esc(label) + "</span> " + html + "</div>" : ""; }   // wie zeile, der Wert ist schon HTML
+  function standHtml(s) { var L = marken(); return L && s.auf ? esc(LAGE_TEXT.laeuftAuf.trim().split(/\s+/)[0]) + " " + aufHtml(s.auf, L) : esc(s.t); }
+  /* Einzelheiten einer Sitzung (Bauschritt 3, AK 553–566): Konto und Arbeitsplatz als Marken; jede fehlende Angabe heißt »nicht gemeldet« */
+  function sitzungDetail(n, L) {
+    var T = LAGE_TEXT, st = n.st || {}, a = n.anw || {}, au = n.auftrag, pl = au && au.v ? obj(au.v.plan) : null, kt = L.kennungTeile(a.kennung), sd = helferDaten(st), hk = helferKurz(sd);
+    var quelle = function (q) { return q ? " (" + (T.quelle[q] || q) + ")" : ""; };
+    return zeileH(FEST.konto, L.kontoMarke(kt.konto, false) + (kt.roh ? " " + ngHtml("— " + FEST.nennt(kt.roh)) : "")) +
+      zeileH(FEST.arbeitsplatz, L.platzMarke(n.zone) + (!n.aktiv ? " " + ngHtml("· " + FEST.gesehen + " " + (a.zuletzt && fmtZeit(a.zuletzt) ? fmtZeit(a.zuletzt) : FEST.ng)) : "")) +
+      zeileH(FEST.menschSitzung, st.mitarbeiter ? esc(st.mitarbeiter + quelle(st.mitarbeiter_quelle)) : ngHtml(FEST.ng)) +
+      zeileH(FEST.sitzung, st.sitzung ? "<code>" + esc(st.sitzung) + "</code>" : ngHtml("Kennung " + FEST.ng)) +
+      zeileH(T.zustandWort, st.zustand ? esc(T.zustand[st.zustand] || st.zustand) : ngHtml(FEST.ng)) + zeileH(T.zuletzt, a.zuletzt && fmtZeit(a.zuletzt) ? esc(fmtZeit(a.zuletzt)) : ngHtml(FEST.ng)) +
+      zeileH(T.modell, modellHtml(sd) + (sd.modell && st.modell_quelle ? " " + esc("(" + T.modell + " " + (T.quelle[st.modell_quelle] || st.modell_quelle) + ")") : "")) + zeileH(T.effort, effortHtml(sd)) +
+      zeileH(T.arbeitsweise, sd.arbeitsweise ? esc(T.arbeitsweiseName[sd.arbeitsweise] || sd.arbeitsweise) : "") + zeileH(FEST.helfer, hk ? esc(hk) : ngHtml(FEST.ng)) +
+      zeileH(T.aufgabe, au ? esc((au.v && au.v.text) || au.titel || au.id) : ngHtml(FEST.keinAuftrag)) + zeile(T.thema, st.thema || "") +
+      (pl ? '<div class="alZeile' + (n.abw.length ? " alAbweichung" : "") + '"><span class="alLabel">' + esc(T.absprache) + "</span> " + esc(planZeile(pl, true)) +
+        (n.abw.length ? ' <span class="alMarke">' + esc(T.abweichung + ": " + n.abw.join(", ")) + "</span>" : "") + "</div>" : "") +
+      zeile(T.material, texte(st.material).join("; ")) + zeile(T.zugriff, zugriffText(st.zugriff)) +
+      zeile(T.erreichbar, Array.isArray(st.zugriff_verfuegbar) ? zugriffText(st.zugriff_verfuegbar) || "—" : "") +
+      zeile(T.premiere, st.premiere ? st.premiere + (st.premiere_quelle ? " (" + (T.quelle[st.premiere_quelle] || st.premiere_quelle) + ")" : "") : "") +
+      zeile(T.projekt, st.projekt || "") + (st.details ? '<div class="alZeile"><span class="alLabel">' + esc(T.details) + '</span><div class="akText">' + esc(st.details) + "</div></div>" : "");
+  }
+  function platzDetail(n, L) {   // Hintergrunddienst, Platz »wartet auf Übernahme« und Mensch am Arbeitsplatz
+    var T = LAGE_TEXT, a = n.anw, st = n.st || {};
+    if (n.sorte === "dienst") {
+      var d = dienstKonten(n);
+      return zeileH(T.art, esc(T.dienst)) + zeileH(FEST.konto, d.konten.length === 1 ? L.kontoMarke(d.konten[0], true) : d.konten.length > 1 ? ngHtml(FEST.kontoJeAuftrag) : L.kontoMarke("?", true)) + zeileH(FEST.arbeitsplatz, zoneMarke(n.zone)) +
+        (a ? zeileH(T.zustandWort, esc(zustandWort(st))) + zeileH(T.zuletzt, a.zuletzt && fmtZeit(a.zuletzt) ? esc(fmtZeit(a.zuletzt)) : ngHtml(FEST.ng)) : zeileH(T.zustandWort, ngHtml(FEST.anwesenheitNg))) +
+        zeileH(T.modell, dienstWie(d, false)) + zeileH(T.effort, dienstWie(d, true));
+    }
+    return zeileH(T.art, esc(n.sorte === "mensch" ? (n.konto ? kontoText(n.konto) : T.mensch) : T.warteTitel)) + zeileH(T.rechner, zoneMarke(n.zone)) +
+      (n.sorte === "warte" ? zeileH(KANAL_TEXT.ziel, zielHtml(n.ziel)) : "") + (n.sorte === "mensch" ? zeile(T.mitarbeiter, n.wer || "") : "");
+  }
   function detailHtml(n) {
-    var T = LAGE_TEXT, M = lage.modell, h = "", knopf = null;
-    var namen = function (keys) { return keys.map(function (k) { return kurzName(M.knoten[k]); }).join(" · "); };
+    var T = LAGE_TEXT, M = lage.modell, h = "", knopf = null, L = marken();
+    var namen = function (keys) { return keys.map(function (k) { return kurzNameH(M.knoten[k]); }).join(" · "); };
     if (n.art === "mitarbeiter") h = zeile(T.mitarbeiter, n.wer) + zeile(T.praesenzWort, n.praesenz || "") + (n.ohneMeldung ? zeile("", T.ohneMeldung) : "");
+    else if (L && n.art === "platz" && n.sorte === "claude") { h = sitzungDetail(n, L); if (n.auftrag && n.auftrag.v && !n.auftrag.v.done) knopf = n.auftrag.id; }
+    else if (L && n.art === "platz") h = platzDetail(n, L);
     else if (n.art === "platz" && n.sorte === "claude") {
       var st = n.st || {}, a = n.anw || {}, au = n.auftrag, pl = au && au.v ? obj(au.v.plan) : null;
       var ist = wieText(st.modell, st.effort, st.arbeitsweise); if (ist && st.modell && st.modell_quelle) ist += " (" + T.modell + " " + (T.quelle[st.modell_quelle] || st.modell_quelle) + ")";
@@ -591,18 +760,19 @@
       zeile(T.rechner, zoneName(n.zone)) + (n.sorte === "warte" ? zeile(KANAL_TEXT.ziel, anName(n.ziel)) : "") + (n.sorte === "mensch" ? zeile(T.mitarbeiter, n.wer || "") : "");
     else if (n.art === "aufgabe" && n.v) {
       var v = n.v, s = statusAufgabe(v);
-      h = zeile(T.aufgabe, v.text) + zeile(T.stand, s.t) + (s.k === "fehler" && v.s11ergebnis ? zeile(T.ergebnis, kuerzen(v.s11ergebnis, 600)) : "") +
+      h = zeile(T.aufgabe, v.text) + zeileH(T.stand, standHtml(s)) + (s.k === "fehler" && v.s11ergebnis ? zeile(T.ergebnis, kuerzen(v.s11ergebnis, 600)) : "") +
         zeile(T.absprache, planZeile(v.plan, true)) + (v.planVon ? zeile(T.festgelegt, v.planVon + (v.planAm ? " " + fmtZeit(v.planAm) : "")) : "") +
         (v.beschreibung ? '<div class="alZeile"><span class="alLabel">' + esc(KANAL_TEXT.beschreibung) + '</span><div class="akText">' + esc(String(v.beschreibung).slice(0, 1200)) + "</div></div>" : "");
       knopf = n.id;
     }
     else if (n.art === "aufgabe") h = zeile(T.thema, n.titel);
     else if (n.art === "speicher") h = zeile(T.zugriff, T.zugriffName[n.z] || n.z) +
-      zeile(T.erreichbar, (M.erreichbar[n.z] || []).map(function (k) { return anzeige(k); }).join(" · ") || "—");
+      (L ? zeileH(T.erreichbar, (M.erreichbar[n.z] || []).map(function (k) { return L.kennungMarken(k); }).join(" · ") || "—")   // Bauschritt 3: je Sitzung die zwei Marken, nicht »Konto @ Arbeitsplatz« als ein Wort
+        : zeile(T.erreichbar, (M.erreichbar[n.z] || []).map(function (k) { return anzeige(k); }).join(" · ") || "—"));
     var st = strang(n.key), nh = Object.keys(st.hoch).length, nr = Object.keys(st.runter).length;
-    h += zeile(T.links + " (" + n.links.length + ")", namen(n.links)) + zeile(T.rechts + " (" + n.rechts.length + ")", namen(n.rechts)) +
+    h += zeileH(T.links + " (" + n.links.length + ")", namen(n.links)) + zeileH(T.rechts + " (" + n.rechts.length + ")", namen(n.rechts)) +
       zeile(T.reichweite, T.aufwaerts + " " + nh + " · " + T.abwaerts + " " + nr);
-    return '<div class="alDetailKopf"><span class="alKKopf">' + esc(kurzName(n)) + '</span><button type="button" class="akBtn akNein" data-act="schliessen">' + esc(T.schliessen) + "</button></div>" + h +
+    return '<div class="alDetailKopf"><span class="alKKopf' + (L ? " llKopfMarken" : "") + '">' + kurzNameH(n) + '</span><button type="button" class="akBtn akNein" data-act="schliessen">' + esc(T.schliessen) + "</button></div>" + h +
       (knopf ? '<div class="akKnoepfe"><button type="button" class="akBtn akNein" data-act="absprache" data-id="' + esc(knopf) + '">' + esc(T.aendern) + "</button></div>" : "");
   }
 

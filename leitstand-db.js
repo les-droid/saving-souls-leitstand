@@ -793,8 +793,8 @@
         if (!rows.length) { ul.innerHTML = '<li class="empty">Keine laufenden oder kürzlich erledigten Claude-Aufgaben.</li>'; return; }
         ul.innerHTML = rows.map(function (v) {
           var st = v.s11status || (v.done ? "fertig" : "wartet");
-          var L = lesart(), wort = L ? L.zustand(v).wort : st;   /* Bauschritt 2: das Wort der gemeinsamen Lesart (Bauvorlage Fassung 2, § 3.2); ohne sie der Rohwert wie zuvor */
-          return '<li><div style="display:flex;justify-content:space-between;gap:8px"><span style="font-size:13px;color:var(--muted)">' + esc(v.angefordertVon || v.wer || "") + " · " + fmt(v.angefordertAm || v.created) + '</span><span class="s11st" data-s="' + esc(st) + '">' + esc(wort) + "</span></div>" +
+          var L = lesart(), z = L ? L.zustand(v) : null, wort = z ? z.wort : st;   /* Bauschritt 2: das Wort der gemeinsamen Lesart (Bauvorlage Fassung 2, § 3.2); ohne sie der Rohwert wie zuvor. Bauschritt 3: dazu data-ll, die Klasse der Lesart — nach ihr färbt leitstand-lesart.css das Wort wie die Marke im Reiter */
+          return '<li><div style="display:flex;justify-content:space-between;gap:8px"><span style="font-size:13px;color:var(--muted)">' + esc(v.angefordertVon || v.wer || "") + " · " + fmt(v.angefordertAm || v.created) + '</span><span class="s11st" data-s="' + esc(st) + '"' + (z ? ' data-ll="' + esc(z.klasse) + '"' : "") + ">" + esc(wort) + "</span></div>" +
             '<div style="margin:4px 0">' + esc(v.text) + "</div>" +
             (st === "laeuft" && v.s11fortschritt ? "<pre>" + esc(v.s11fortschritt) + "</pre>" : "") +
             ((st === "fertig" || st === "fehler") && v.s11ergebnis ? "<details><summary>Ergebnis" + (v.s11beendetAm ? " (" + fmt(v.s11beendetAm) + ")" : "") + "</summary><pre>" + esc(v.s11ergebnis) + "</pre></details>" : "") +

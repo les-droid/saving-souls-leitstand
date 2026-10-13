@@ -1,6 +1,6 @@
 /* Saving Souls Leitstand — Marken der Lesart (Bauschritt 2). Gehört zu leitstand-lesart.js.
    Das Wort der Marke nennt den Zustand einer Claude-Aufgabe, Farbe und Form die Stufe. Dieselbe Marke im Reiter »Aufgaben« und im Lagebild.
-   Aufgaben für Menschen tragen sie nicht. Gestaltung wie im Entwurf der Bauvorlage Fassung 2. */
+   Aufgaben für Menschen tragen sie nicht. Gestaltung wie im Entwurf der Bauvorlage Fassung 2. (Bauschritt 3: dazu unten die Marken für Konto und Arbeitsplatz und die Farbe der Wörter im Panel.) */
 
 /* »läuft« ist überall grün: Marke, Chat-Blase, Panel »Schnitt 11« und die Meldung des Projekt-Austauschs lesen --laeuft. Nur wenn die Lesart da ist (data-lesart
    setzt sie selbst, mit ihrer Fassung): fehlt leitstand-lesart.js oder hat sie eine andere Fassung, bleibt die Seite beim bisherigen Farbton. */
@@ -28,3 +28,41 @@
 .tclaude .llHinweis { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
 /* im Kasten des Lagebilds */
 #page-claude .alKKlein .llMarke { font-size: 10px; margin-right: 4px; letter-spacing: normal; text-transform: none; }   /* wie im Reiter: ohne die Großschreibung und Sperrung der Zeile, in der sie steht */
+
+/* ===== Bauschritt 3: Konto und Arbeitsplatz — zwei eigene Marken, nie in einem Wort verschmolzen (Bauvorlage Fassung 2, § 4; Form wie im Entwurf).
+   Konto = Pille mit Punkt (wer); Quadrat statt Punkt für den Lauf des Hintergrunddienstes; gestrichelt mit Ring: nicht gemeldet.
+   Arbeitsplatz = Rechteck mit Bildschirm (wo); »Arbeitsplatz egal« gestrichelt ohne Bildschirm. ===== */
+.llKp { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 3px 4px; vertical-align: middle; min-width: 0; max-width: 100%; }
+.llKonto { --kf: var(--muted); display: inline-flex; align-items: center; gap: 5px; font: 600 11px/1.5 var(--font-ui, inherit); padding: 0 8px 0 6px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--kf) 60%, transparent); color: var(--kf); white-space: nowrap; max-width: 100%; }
+.llKonto i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+.llKonto.LES { --kf: var(--chip-les); } .llKonto.Dropout { --kf: var(--chip-dropout, #DDA8F0); } .llKonto.JB { --kf: var(--chip-jb); }
+.llKonto.offen { border-style: dashed; } .llKonto.offen i { background: none; box-shadow: inset 0 0 0 1.5px currentColor; }
+.llKonto.dienst i, .llKonto.dienstkonto i { border-radius: 1.5px; }
+.llKonto.dienstkonto { border-style: dotted; }
+.llPlatz { display: inline-flex; align-items: center; gap: 5px; font: 600 11px/1.5 var(--font-ui, inherit); padding: 0 7px 0 5px; border-radius: 4px; border: 1px solid var(--field-edge, var(--line)); background: var(--surface2); color: var(--ink); white-space: nowrap; max-width: 100%; }
+.llPlatz i { width: 10px; height: 8px; border: 1.5px solid currentColor; border-radius: 2px; flex: none; box-shadow: 0 2.5px 0 -1px currentColor; }
+.llPlatz.egal { border-style: dashed; background: none; color: var(--muted); }
+/* im Kasten des Lagebilds (dunkler Grund, rund 121 px breit am Rechner): die Marken brechen um statt über den Rand zu ragen oder abgeschnitten zu werden */
+#page-claude .alKasten .llKp { justify-content: center; }
+#page-claude .alKasten .llKonto, #page-claude .alKasten .llPlatz, #page-claude .alKasten .llMarke { font-size: 10.5px; white-space: normal; overflow-wrap: anywhere; text-align: left; letter-spacing: normal; text-transform: none; }
+#page-claude .alKasten .llKonto { border-radius: 10px; }
+#page-claude .alKasten .llPlatz { background: #1E293B; border-color: #475569; color: #E2E8F0; }
+#page-claude .alKasten .llPlatz.egal { background: none; color: #94A3B8; }
+#page-claude .alKasten .llMarke { max-width: 100%; }
+#page-claude .alKKlein .llRest { font: 400 10.5px var(--font-mono); letter-spacing: normal; text-transform: none; color: #94A3B8; overflow-wrap: anywhere; }
+#page-claude .alKasten .llZeile { max-width: 100%; color: #E2E8F0; overflow-wrap: anywhere; hyphens: auto; }
+#page-claude .alKasten .llZeile .llLb { color: #94A3B8; }
+#page-claude .alKasten .llZeile .llFehlt { color: #94A3B8; font-style: italic; }
+#page-claude .alKasten .llZeile code { font: inherit; white-space: normal; overflow-wrap: anywhere; }
+#page-claude .alKasten .llZeile.llAuftrag { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+#page-claude .alKKopf.llKopfMarken { display: block; -webkit-line-clamp: unset; overflow: visible; }
+#page-claude .alDetail .llKp { vertical-align: baseline; }
+#page-claude .alDetail .llFehlt { color: var(--muted); font-style: italic; }
+#page-claude .akMeta .llKp, #page-claude .akPille .llKp, #page-claude .akAnwesenheit .llKp { vertical-align: middle; }
+
+/* Panel »Schnitt 11«: das Wort des Zustands in der Farbe der Klasse aus der Lesart, wie die Marke im Reiter (die Seite setzt data-ll nur mit der Lesart) */
+:root[data-lesart="1"] #schnitt11 .s11st[data-ll="abgelehnt"], :root[data-lesart="1"] #schnitt11 .s11st[data-ll="fertig"], :root[data-lesart="1"] #schnitt11 .s11st[data-ll="vorschlag"], :root[data-lesart="1"] #schnitt11 .s11st[data-ll="nichtfrei"] { color: var(--muted); }
+:root[data-lesart="1"] #schnitt11 .s11st[data-ll="bereit"], :root[data-lesart="1"] #schnitt11 .s11st[data-ll="neuang"], :root[data-lesart="1"] #schnitt11 .s11st[data-ll="zurueck"] { color: var(--accent); }
+:root[data-lesart="1"] #schnitt11 .s11st[data-ll="laeuft"] { color: var(--laeuft); }
+:root[data-lesart="1"] #schnitt11 .s11st[data-ll="pausiert"] { color: var(--signal); }
+:root[data-lesart="1"] #schnitt11 .s11st[data-ll="fehler"], :root[data-lesart="1"] #schnitt11 .s11st[data-ll="abgebrochen"] { color: var(--danger, var(--fehler)); }

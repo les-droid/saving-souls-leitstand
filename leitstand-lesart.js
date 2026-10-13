@@ -4,7 +4,8 @@
      · die Lesart: elf Zustände mit Wort, Stufe, Knopf und »Warten auf dich« (§ 3.2),
      · die Liste »Warten auf dich« als Funktion (§ 3.3),
      · den einen Schreibweg `freigeben` (§ 3.4) — außer ihm schreibt kein Knopf `angefordert`,
-     · Namen der Arbeitsplätze, ihre Reihenfolge und die Marke als HTML (§ 4).
+     · Namen der Arbeitsplätze, ihre Reihenfolge und die Marke als HTML (§ 4),
+     · (Bauschritt 3) die zwei Marken für Konto (wer) und Arbeitsplatz (wo), nie in einem Wort verschmolzen, und die Regel, wann ein Eintrag der Anwesenheit abgemeldet ist.
    Rückfall: Fehlt diese Datei oder hat sie eine andere `fassung`, fragen die vier Aufrufer (index.html, agenten-kanal.js, leitstand-db.js,
    claude-chat.js) `window.LEITSTAND_LESART` ab und tun, was sie vor dem Schritt taten. Die Datei kennt keine Datenbank von sich aus: Der Schreibweg
    bekommt sie über `verbinde`. Sichtbarer Text: nur Wortlaut der Bauvorlage oder der veröffentlichten Seite. */
@@ -20,8 +21,12 @@
     zurueckgeholt: "zurückgeholt — läuft nicht noch einmal, dafür eine neue Aufgabe anlegen",       // Bauvorlage § 3.1
     herkunft: "Hier wird dieser Auftrag nicht freigegeben — seine Herkunft ist nicht erkennbar. Neu anlegen, dann »Jetzt erledigen«.",   // Bauvorlage § 3.2
     alsText: "»angefordert« ist als Text gespeichert — kein Hintergrunddienst nimmt es so",         // Bauvorlage § 3.2
-    knopf: { zum: "Zum Vorschlag →", jetzt: "Jetzt erledigen", neu: "Neu anfordern" }
+    knopf: { zum: "Zum Vorschlag →", jetzt: "Jetzt erledigen", neu: "Neu anfordern" },
+    kontoOffen: "Konto nicht gemeldet",                                                             // Bauvorlage § 4 (Tabelle »Konto«), Schritt 3
+    dienst: "Dienst"                                                                                // Name des Zustell-Wächters am VPS als Konto der Kennung »Dienst@…« (Entwurf der Bauvorlage, kennungChips)
   };
+  /* Konten (§ 4): »LES Claude«, »Dropout Claude«, »JB Claude«; andere Kürzel mit »Claude« dahinter wie bisher (agenten-kanal.js, anzeige); fehlt die Angabe: »Konto nicht gemeldet« */
+  var KONTO_NAMEN = { LES: "LES Claude", Dropout: "Dropout Claude", JB: "JB Claude" };
 
   /* Die elf Zustände (§ 3.2). Das Wort nennt den Zustand, Klasse und Stufe die Farbe und Form. */
   var STUFEN = { vor: "Vor Freigabe", bereit: "Bereit", laeuft: "Läuft", haengt: "Hängt", erledigt: "Erledigt" };
@@ -111,8 +116,13 @@
   /* ---- Arbeitsplatz einer Aufgabe, Namen, Reihenfolge der Zonen (§ 4) ---- */
   function ortVonZiel(z) { z = String(z == null ? "" : z); var m = /@(.+)$/.exec(z); return m ? m[1] : FESTE_ORTE.indexOf(z) !== -1 || /^[a-z0-9-]+$/.test(z) && z !== "egal" && z !== "alle" ? z : "egal"; }
   function laeuftOderPausiert(v) { return v.s11status === "laeuft" || (v.s11status === "wartet" && !neuAngefordert(v)); }
-  /* Läuft oder pausiert eine Aufgabe, zählt, wo sie läuft (Kennung oder Ort des Dienstes); sonst, wohin sie soll */
-  function arbeitsplatz(v) { v = v || {}; return laeuftOderPausiert(v) ? ortVonZiel(v.s11kennung || v.s11ziel) : ortVonZiel(v.ziel || "egal"); }
+  /* Wo ein Lauf steht (E1, Bauschritt 3): was der Lauf selbst meldet — die Kennung der Sitzung, sonst der Ort des Dienstes (s11ziel). Meldet er nichts (beide fehlen oder bestehen
+     aus nichts), steht er am Arbeitsplatz seines `ziel`, wenn das ein fester ist (ein Auftrag mit festem Ziel wird nur dort übernommen: Listener `istOffen`, SQL `kanal_darf`);
+     ist das Ziel egal, alle oder fehlt es, steht er unter »Arbeitsplatz egal«. Der Text der Datenbank in s11ziel (»Konto @ Arbeitsplatz«; ohne s11kennung nur in Altbestand) ist keine Meldung des Ortes:
+     Die Seite liest für die Anzeige nie den Text in s11ziel (§ 4). */
+  function ortDesLaufs(v) { v = v || {}; return ortVonZiel(textDa(v.s11kennung) ? v.s11kennung : textDa(v.s11ziel) && !/\s@\s/.test(String(v.s11ziel)) ? v.s11ziel : (v.ziel || "egal")); }
+  /* Läuft oder pausiert eine Aufgabe, zählt, wo sie läuft (Kennung oder Ort des Dienstes, sonst das Ziel: E1); sonst, wohin sie soll */
+  function arbeitsplatz(v) { v = v || {}; return laeuftOderPausiert(v) ? ortDesLaufs(v) : ortVonZiel(v.ziel || "egal"); }
   function arbeitsplatzName(o) { return o === "egal" ? "Arbeitsplatz egal" : Object.prototype.hasOwnProperty.call(ORT_NAMEN, o) ? ORT_NAMEN[o] : String(o); }   // kein fester Arbeitsplatz: »Arbeitsplatz egal«
   function ortNamen() { var a = {}; Object.keys(ORT_NAMEN).forEach(function (k) { a[k] = ORT_NAMEN[k]; }); return a; }
   /* feste Arbeitsplätze in fester Reihenfolge, andere nach dem Alphabet, zuletzt »egal« und »offen« */
@@ -120,6 +130,42 @@
     var rest = Object.keys(zonen).filter(function (o) { return FESTE_ORTE.indexOf(o) === -1 && o !== "egal" && o !== "offen"; }).sort();
     return FESTE_ORTE.concat(rest).concat(["egal", "offen"]).filter(function (o) { return zonen[o]; });
   }
+
+  /* ---- Die zwei Marken (§ 4, Bauschritt 3): Konto = wer, Arbeitsplatz = wo. Überall dieselben zwei, nie in einem Wort verschmolzen. ---- */
+  function hat(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+  function kontoName(k) { return textDa(k) && k !== "?" ? (hat(KONTO_NAMEN, k) ? KONTO_NAMEN[k] : String(k).trim() + " Claude") : TEXT.kontoOffen; }
+  function kontoKlasse(k) { return !textDa(k) || k === "?" ? "offen" : hat(KONTO_NAMEN, k) ? String(k) : "andere"; }
+  /* Pille mit Punkt; Quadrat statt Punkt für den Lauf des Hintergrunddienstes; gestrichelt mit Ring: nicht gemeldet */
+  function kontoMarke(k, dienst) {
+    if (k === TEXT.dienst) return '<span class="llKonto dienstkonto" data-konto="' + esc(TEXT.dienst) + '"><i aria-hidden="true"></i>' + esc(TEXT.dienst) + "</span>";   // das Konto »Dienst« (Zustell-Wächter am VPS) ist keine Claude-Sitzung — überall dasselbe Wort, auch in den Einzelheiten
+    var kl = kontoKlasse(k);
+    return '<span class="llKonto ' + esc(kl) + (dienst ? " dienst" : "") + '" data-konto="' + esc(kl === "offen" ? "" : String(k).trim()) + '"><i aria-hidden="true"></i>' + esc(kontoName(k)) + "</span>";
+  }
+  /* Rechteck mit Bildschirm; kein fester Arbeitsplatz: »Arbeitsplatz egal« (gestrichelt, ohne Bildschirm) */
+  function platzMarke(o) {
+    return o === "egal" ? '<span class="llPlatz egal" data-platz="egal">' + esc(arbeitsplatzName("egal")) + "</span>"
+      : '<span class="llPlatz" data-platz="' + esc(o) + '"><i aria-hidden="true"></i>' + esc(arbeitsplatzName(o)) + "</span>";
+  }
+  /* Eine Kennung (»Konto@arbeitsplatz«) in ihre zwei Teile; ohne »@« kennt sie kein Konto (»Konto nicht gemeldet«), der Rest ist der Arbeitsplatz */
+  function kennungTeile(k) {
+    var s = String(k == null ? "" : k).trim(), m = /^([^@]+)@(.+)$/.exec(s);
+    return m ? { konto: m[1].trim(), ort: m[2].trim() } : { konto: "?", ort: ortVonZiel(s), roh: s };
+  }
+  /* Die zwei Marken nebeneinander. `lauf`: das Konto gehört einem Lauf des Hintergrunddienstes (Quadrat). Zwischen den zwei Marken steht ein Leerzeichen: Mit leitstand-lesart.css trägt es nichts auf
+     (die Marken stehen in einer Flex-Zeile mit Abstand); ohne sie — ältere Stildatei aus dem Zwischenspeicher, Stildatei nicht geladen — kleben Konto und Arbeitsplatz sonst zu einem Wort zusammen. */
+  function markenPaar(konto, ort, lauf) {
+    return '<span class="llKp">' + kontoMarke(konto, lauf) + " " + platzMarke(ort) + "</span>";
+  }
+  function kennungMarken(k) { var t = kennungTeile(k); return markenPaar(t.konto, t.ort, false); }
+  /* Abgemeldet (§ 4): `abgemeldet` nicht vor `zuletzt`, und `abgemeldetSitzung` ist die Sitzung des Status (`status.sitzung`). Nennt der Eintrag eine andere Sitzung, oder fehlt
+     eine der beiden Angaben, bleibt er; meldet sich die Kennung danach wieder, ist `zuletzt` jünger, und der Kasten ist wieder da. Nichts wird gelöscht. */
+  function abgemeldet(a) {
+    a = a && typeof a === "object" ? a : {};
+    var st = a.status && typeof a.status === "object" ? a.status : {}, ab = ms(a.abgemeldet), z = ms(a.zuletzt);
+    return ab != null && (z == null || ab >= z) && textDa(a.abgemeldetSitzung) && textDa(st.sitzung) && a.abgemeldetSitzung === st.sitzung;
+  }
+  /* Ein Eintrag der Anwesenheit mit `status.dienst` ist ein Hintergrunddienst, keine Sitzung (§ 2.4) */
+  function istDienst(a) { var st = a && typeof a === "object" && a.status && typeof a.status === "object" ? a.status : {}; return typeof st.dienst === "string" && textDa(st.dienst); }
 
   /* ---- § 3.3: Warten auf dich ---- */
   var quellFn = null;
@@ -171,7 +217,8 @@
     istAufgabe: istAufgabe, istChat: istChat, claudeAuftrag: claudeAuftrag, erledigt: erledigt, art: art,
     claudeArt: claudeArt, ausKanal: ausKanal, vorschlagKarte: vorschlagKarte, istVorschlag: istVorschlag, jetztErlaubt: jetztErlaubt, neuErlaubt: neuErlaubt, neuAngefordert: neuAngefordert,
     zustand: zustand, hinweisText: hinweisText, markeHtml: markeHtml,
-    ortVonZiel: ortVonZiel, arbeitsplatz: arbeitsplatz, arbeitsplatzName: arbeitsplatzName, ortNamen: ortNamen, zonenReihe: zonenReihe,
+    ortVonZiel: ortVonZiel, ortDesLaufs: ortDesLaufs, arbeitsplatz: arbeitsplatz,
+    kontoName: kontoName, kontoKlasse: kontoKlasse, kontoMarke: kontoMarke, platzMarke: platzMarke, markenPaar: markenPaar, kennungTeile: kennungTeile, kennungMarken: kennungMarken, abgemeldet: abgemeldet, istDienst: istDienst, arbeitsplatzName: arbeitsplatzName, ortNamen: ortNamen, zonenReihe: zonenReihe,
     quelle: quelle, wartenAufDich: wartenAufDich, verbinde: verbinde, anmeldeKuerzel: anmeldeKuerzel, freigeben: freigeben
   };
   root.LEITSTAND_LESART = API;
