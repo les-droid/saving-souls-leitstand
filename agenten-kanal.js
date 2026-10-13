@@ -48,6 +48,7 @@
     keineVerbindung: "Keine Verbindung zur Datenbank — kurz warten und noch einmal senden.",    // AK21 (wie im Chat)
     sendenFehler: "Senden fehlgeschlagen — kurz warten und noch einmal versuchen.",             // AK22 (wie im Chat)
     nurEditoren: "Nur LES und JB schreiben in den Kanal und bestätigen Aufträge.",              // AK23
+    absenderUnbekannt: "Absender unbekannt",                                                    // Bauschritt 1a: Vorschlag ohne vorgeschlagenVon (Wortlaut: Vorgabe 261012, vom Editor frei zu geben)
     bestaetigtMeldung: "Bestätigt — der Auftrag ist freigegeben.",                              // AK24
     abgelehntMeldung: "Abgelehnt.",                                                             // AK25
     aktionFehler: "Nicht gespeichert — kurz warten und noch einmal versuchen.",                 // AK26
@@ -235,8 +236,8 @@
       (t[1] ? '<details class="akMehr"><summary>' + esc(KANAL_TEXT.mehr) + " (" + t[1].length + " " + esc(KANAL_TEXT.zeichen) + ')</summary><div class="akText">' + esc(t[1]) + "</div></details>" : "") + "</div>";
   }
   function zeileVorschlag(id, v) {
-    return '<li class="akVorschlag" data-id="' + esc(id) + '">' +
-      '<div class="akMeta"><span class="akArt">' + esc(KANAL_TEXT.vorschlagVon) + "</span>" + chip(anzeige(v.vorgeschlagenVon)) +
+    return '<li class="akVorschlag" data-id="' + esc(id) + '" tabindex="-1">' +   // tabindex -1: »Zum Vorschlag →« der Aufgabenzeile setzt den Fokus auf die Karte, nicht auf einen Knopf
+      '<div class="akMeta">' + (typeof v.vorgeschlagenVon === "string" && v.vorgeschlagenVon.replace(/\s+/g, "") !== "" ? '<span class="akArt">' + esc(KANAL_TEXT.vorschlagVon) + "</span>" + chip(anzeige(v.vorgeschlagenVon)) : '<span class="akArt">' + esc(KANAL_TEXT.absenderUnbekannt) + "</span>") +
         "<span>" + esc(KANAL_TEXT.ziel) + ": " + esc(anName(v.ziel || "egal")) + "</span><span>" + esc(fmtZeit(v.vorgeschlagenAm || v.created)) + "</span></div>" +
       '<div class="akTitel">' + esc(v.text) + "</div>" +
       (v.beschreibung ? beschreibungHtml(v.beschreibung) : "") +
@@ -284,8 +285,12 @@
     if (verlaufRoll.offen) { verlaufSichtbar(); return; }
     if (neu !== letzteId || amEnde) { letzteId = neu; verlaufEl.scrollTop = verlaufEl.scrollHeight; } else verlaufEl.scrollTop = stelle;
   }
+  function angefordertWahr(v) { return /^[^\p{L}\p{N}]*(?:t|tr|tru|true|y|ye|yes|on|1)[^\p{L}\p{N}]*$/iu.test(v.angefordert == null ? "" : String(v.angefordert)); }
   function offenerVorschlag(v) {
-    return v && v.typ === "claude" && v.quelle === "kanal" && v.vorgeschlagenVon && v.angefordert !== true && !v.done && !v.abgelehntVon;
+    /* Bauschritt 1a: Vorschlag = Auftrag aus dem Kanal (quelle »kanal« oder ein vorgeschlagenVon mit irgendeinem Wert außer fehlend/null — auch leer, nur Leerzeichen oder eine Liste), nicht angefordert, nicht erledigt — ohne Pflicht
+       vorgeschlagenVon (dann »Absender unbekannt«) und ohne Ausschluss abgelehntVon (ein zurückgeholter Vorschlag steht wieder hier). Jede Zeile, die in
+       index.html »Zum Vorschlag →« trägt (istVorschlag), hat hier ihre Karte; dazu bleibt die Karte eines schon einmal bestätigten Eintrags stehen. */
+    return v && (v.typ === "claude" || (!v.typ && v.wer === "Claude")) && (/^[^\p{L}\p{N}]*kanal[^\p{L}\p{N}]*$/iu.test(v.quelle == null ? "" : String(v.quelle)) || v.vorgeschlagenVon != null) && !angefordertWahr(v) && !v.done;
   }
   function renderVorschlaege() {
     if (!vorschlagEl) return;
@@ -374,7 +379,7 @@
       if (mehr && vorschlagGelesen[id] !== v.beschreibung) { mehr.open = true; var sm = mehr.querySelector("summary"); if (sm) sm.focus(); meldung(KANAL_TEXT.erstLesen); return; }
     }
     var patch = b.dataset.act === "ja"
-      ? { angefordert: true, angefordertVon: k, angefordertAm: jetzt, bestaetigtVon: k, bestaetigtAm: jetzt }   // wie „Jetzt erledigen“, dazu wer bestätigt hat
+      ? { angefordert: true, angefordertVon: k, angefordertAm: jetzt, bestaetigtVon: k, bestaetigtAm: jetzt, abgelehntVon: "", abgelehntAm: "" }   // wie „Jetzt erledigen“, dazu wer bestätigt hat; eine frühere Ablehnung wird geleert (Bauschritt 1a)
       : { done: true, abgelehntVon: k, abgelehntAm: jetzt };
     if (b.dataset.act === "ja" && obj(v.planVorschlag) && !obj(v.plan)) { patch.plan = v.planVorschlag; patch.planVon = k; patch.planAm = jetzt; }   // was LES/JB bestätigen, gilt als Absprache
     var knoepfe = [].slice.call(li.querySelectorAll("button[data-act]")); knoepfe.forEach(function (x) { x.disabled = true; });
@@ -879,10 +884,33 @@
     anOptionen();
     formEl.addEventListener("submit", senden);
     textEl.addEventListener("keydown", taste); textEl.addEventListener("input", hoehe);
+    vorschlagEl.addEventListener("click", sprungSchutz, true);   // vor aktion und vor dem Aufklappen: der Folgeklick eines Doppelklicks auf »Zum Vorschlag →« zählt nicht
     vorschlagEl.addEventListener("click", aktion); vorschlagEl.addEventListener("toggle", mehrUmgeschaltet, true);
     if (typeof ResizeObserver === "function") new ResizeObserver(verlaufSichtbar).observe(verlaufEl); window.addEventListener("hashchange", function () { setTimeout(verlaufSichtbar, 0); });
     lageVerdrahten();
   }
+
+  /* Bauschritt 1a: »Zum Vorschlag →« in der Aufgabenzeile (index.html) meldet leitstand:zeige {art:"vorschlag", id}; die Karte kommt ins Fenster und
+     bekommt den Fokus (tabindex -1) — nie ein Knopf. Gibt es die Karte nicht, bleibt der Reiter stehen; die Liste sagt dort selbst, was wartet. */
+  /* Sperre nach dem Sprung: Der zweite Klick eines Doppelklicks (oder Doppeltipps) auf »Zum Vorschlag →« landet nach dem Reiterwechsel dort, wo vorher die
+     Aufgabenzeile stand — bei schmalem Fenster auf »Bestätigen« oder »Ablehnen« der Karte. Darum nimmt die Liste der Vorschläge SPRUNG_SPERRE_MS lang nach
+     dem Sprung keinen Klick an (auch kein Aufklappen von »mehr«), und ein Klick, dessen Druck (Maus oder Finger) vor dem Sprung begann, zählt nicht — gleich,
+     wie spät er endet; ein Klick über die Tastatur hat keinen Druck und fällt nur unter die Sperrzeit. 700 ms: über der üblichen Doppelklick-Grenze der
+     Systeme (500 ms) und der Doppeltipp-Grenze (um 300 ms), unter der Sekunde, nach der ein bewusster Klick kommt. */
+  var SPRUNG_SPERRE_MS = 700, sprungAm = -Infinity, druckAb = -Infinity;
+  ["pointerdown", "mousedown", "touchstart"].forEach(function (n) { document.addEventListener(n, function () { druckAb = performance.now(); }, { capture: true, passive: true }); });
+  function sprungSchutz(ev) {
+    var jetztMs = performance.now(), vorDemSprung = sprungAm > -Infinity && ev.detail > 0 && druckAb <= sprungAm;
+    if (vorDemSprung) druckAb = jetztMs;   // genau dieser eine Klick zählt nicht; der nächste beginnt mit einem neuen Druck
+    if (jetztMs - sprungAm < SPRUNG_SPERRE_MS || vorDemSprung) { ev.preventDefault(); ev.stopPropagation(); }
+  }
+  document.addEventListener("leitstand:zeige", function (ev) {
+    var d = ev && ev.detail; if (!d || d.art !== "vorschlag" || !vorschlagEl) return;
+    sprungAm = performance.now();
+    var li = [].filter.call(vorschlagEl.querySelectorAll("li.akVorschlag"), function (x) { return x.dataset.id === String(d.id); })[0]; if (!li) return;
+    try { li.scrollIntoView({ block: "center" }); } catch (e) {}
+    li.focus({ preventScroll: true });
+  });
 
   function init() {
     var host = document.getElementById("page-claude");

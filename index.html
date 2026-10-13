@@ -799,7 +799,7 @@
 <link rel="stylesheet" href="claude-chat.css?v=260923a">
 <link rel="stylesheet" href="baukasten.css?v=v2844935910">
 <link rel="stylesheet" href="vision-board.css?v=v820809728">
-<link rel="stylesheet" href="agenten-kanal.css?v=k3597153008">
+<link rel="stylesheet" href="agenten-kanal.css?v=k261012a">
 <link rel="stylesheet" href="leitstand-thema.css?v=t3358641517">
 
 <div id="whoModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="whoTitle">
@@ -1380,7 +1380,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
   function ansagen(t) { if (!t || !ansageEl) return; ansageEl.textContent = ""; clearTimeout(ansageUhr); ansageUhr = setTimeout(function () { ansageEl.textContent = t; }, 60); }
   function ansagenImFenster(t) { if (performance.now() > 5000) ansagen(t); }   // nur im offenen Fenster: beim Laden liest VoiceOver die Seite ohnehin (sonst stünde etwa der Warnsatz zweimal im DOM)
   ["notizMeldung", "todoMeldung"].forEach(function (id) { var m = document.getElementById(id); if (m) { m.removeAttribute("role"); m.removeAttribute("aria-live"); } });   // Prüfrunde 1 (H-08): sie sagt #ansage an, nicht doppelt
-  /* Paket 6 Teil 3b, KO-7 (Entscheidung LES 07.10.; HIG feedback:22): der Reiter Claude (claude-chat.js, Bauplan 5 — die Datei bleibt unverändert) zeigt
+  /* Paket 6 Teil 3b, KO-7 (Entscheidung LES 07.10.; HIG feedback:22): der Reiter Claude (claude-chat.js, Bauplan 5 — daran ändert Bauschritt 1a nur Absender und »Abbrechen«, die jetzt aus der Anmeldung kommen; Anzeige und Statuswechsel bleiben) zeigt
      Statuswechsel nur als Text in der Sprechblase und Meldungen in #ccStatus; die Seite sagt sie über #ansage an — derselbe Text (wartet, läuft seit …,
      fertig, Fehler, abgebrochen bzw. die Meldung), kein neuer. Neue Nachrichten und der erste Aufbau werden nicht angesagt, nur der Wechsel. */
   (function () {
@@ -1988,7 +1988,11 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     anderes: "anderes Kürzel …",
     kuerzelUngueltig: "",   // WORTLAUT FEHLT: Meldung, wenn »anderes Kürzel …« nicht 2 bis 8 Buchstaben bzw. Ziffern hat (K 5.2: die Seite nimmt es nur nicht an)
     erledigt: "Erledigt.",                           // Meldung nach dem Abhaken, mit »Rückgängig« (K 3.5: »Abhaken wie gebaut«)
-    archiv: "Ins Archiv gelegt."                     // »×« legt ins Archiv, mit »Rückgängig«
+    archiv: "Ins Archiv gelegt.",                    // »×« legt ins Archiv, mit »Rückgängig«
+    zumVorschlag: "Zum Vorschlag →",                 // Bauschritt 1a: statt »Jetzt erledigen« an einem Vorschlag aus dem Kanal (Wortlaut: Bauvorlage Fassung 2, Schritt 1, 1a (a)); der Pfeil wird nicht vorgelesen (pfeil())
+    nichtFreigegeben: "nicht freigegeben",           // Bauschritt 1a: Marke statt Knopf, wenn die Positivregel nicht erfüllt ist (Wortlaut: Bauvorlage Fassung 2, § 3.2 Nr. 11)
+    nurLesJb: "Nur LES und JB können Aufträge freigeben — die Anmeldung hat kein Kürzel.",   // Bauschritt 1a: Meldung an der Zeile, wenn die Anmeldung kein Editor mit Kürzel LES oder JB ist (Wortlaut: Bauvorlage Fassung 2, § 3.4 Nr. 4; der Chat behält den Satz der veröffentlichten Seite)
+    speichernFehl: "Speichern fehlgeschlagen — kurz warten und noch einmal versuchen."   // Bauschritt 1a: Meldung an der Zeile, wenn das Lesen oder das Schreiben beim Klick scheitert (Wortlaut der veröffentlichten Seite: Formular »+ Aufgabe«) — kein neuer Satz
   };
   var WER_FEST = ["alle", "Editoren", "LES", "JB", "Claude"];   // Zuständig, in dieser Reihenfolge; danach bekannte Kürzel, dann »anderes Kürzel …«
   var RUECKFRAGE_AN = ["alle", "Editoren", "LES", "JB"], NUR_EDITOREN_MIT = ["Editoren", "LES", "JB"];   // Regeln des Formulars (K 5.2; Prüfbericht Nr. 19 (1))
@@ -2004,7 +2008,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     var extra = "";
     if (typ === "frage" && !v.done && !gast) extra = '<form class="tantwort" data-act="antwort"><input type="text" placeholder="Antwort …" maxlength="1000"><button type="submit">Antworten</button></form>';
     if (typ === "frage" && v.antwort) extra += '<div class="tantwort-text">Antwort (' + esc(v.antwortVon || "") + '): ' + esc(v.antwort) + "</div>";
-    if (typ === "claude" && !v.done) {
+    if (typ === "claude" && !v.done) {   // wie am veröffentlichten Stand: Zeilen unter »Bei Claude«, die keine Claude-Aufgabe nach typ/wer sind, bekommen weder Marke noch Zusatz
       var nurS11 = v.ziel === "schnitt11";
       var ORT = { schnitt11: "Schnitt 11", vps: "dem VPS", cloud: "Claude in der Cloud" };
       var lauf = v.s11status === "laeuft" ? "— läuft gerade auf " + esc(ORT[v.s11ziel] || v.s11ziel || "Schnitt 11")
@@ -2012,9 +2016,12 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
         : v.s11status === "wartet" && v.s11wiederAb ? "— pausiert, " + esc(v.s11fortschritt || ("geht von selbst weiter ab " + new Date(v.s11wiederAb).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })))
         : nurS11 ? "— wartet auf Schnitt 11 (braucht RAID/Premiere; läuft nur, wenn der Rechner an ist)"
         : "— Schnitt 11 oder der VPS nehmen es in Sekunden (VPS läuft rund um die Uhr)";
-      extra = v.angefordert
+      extra = wahrWert(v.angefordert)
         ? '<div class="tclaude"><span class="warte">Angefordert' + (v.angefordertVon ? " von " + esc(v.angefordertVon) : "") + '</span><span>' + lauf + '</span></div>'
-        : istGast ? "" : '<div class="tclaude"><button type="button" data-act="jetzt">Jetzt erledigen</button><span>' + (nurS11 ? "startet auf Schnitt 11" : "startet sofort auf Schnitt 11 oder dem VPS") + '</span></div>';
+        : istGast ? ""
+        : istVorschlag(v) ? '<div class="tclaude"><button type="button" data-act="vorschlag">' + pfeil(T.zumVorschlag) + '</button></div>'
+        : jetztErlaubt(v) ? '<div class="tclaude"><button type="button" data-act="jetzt">Jetzt erledigen</button><span>' + (nurS11 ? "startet auf Schnitt 11" : "startet sofort auf Schnitt 11 oder dem VPS") + '</span></div>'
+        : '<div class="tclaude"><span data-marke="gesperrt">' + esc(T.nichtFreigegeben) + '</span></div>';   // weder Vorschlag noch nach der Positivregel freigebbar: sichtbare Marke, nie nichts
     }
     var von = v.geaendert_von ? '<span class="tvon">' + (v.done ? "abgehakt" : "zurückgeholt") + " von " + esc(v.geaendert_von) + (v.geaendert_rolle === "gast" ? " (Gast)" : "") + (v.geaendert_am ? ", " + new Date(v.geaendert_am).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "") + "</span>" : "";
     var tid = "aufgT-" + (item.coll === "intern" ? "i-" : "t-") + String(item.id).replace(/[^\w-]/g, function (c) { return "_" + c.charCodeAt(0).toString(16); });   // GP-S09: Haken heißt wie die Aufgabe (wie auf Heute)
@@ -2884,6 +2891,33 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
   function istChat(v) { return merkmal(v.quelle, "chat"); }
   function claudeAuftrag(v) { return merkmal(v.typ, "claude") || merkmal(v.wer, "claude") || istChat(v) || merkmal(v.angefordert, "t|tr|tru|true|y|ye|yes|on|1") || v.s11status != null; }
   function istAufgabe(v) { return !!v && typeof v === "object" && "text" in v; }   // ein Dokument ohne text ist keine Aufgabe
+  /* ---- Bauschritt 1a (CL LES): wer »Jetzt erledigen« sehen und auslösen darf. Eine Stelle für Zeile, Klick und Meldung. ----
+     Vorschlag = Eintrag aus dem Kanal, nicht angefordert, nicht erledigt, noch von keinem Menschen bestätigt (§ 3.2 Zeile 10; ohne Pflicht vorgeschlagenVon,
+     ohne Ausschluss abgelehntVon — auch zurückgeholt oder aus einer alten Seite bleibt es ein Vorschlag). Freigeben darf ihn nur der Kanal, nach dem Lesen.
+     Aus dem Kanal = quelle »kanal« oder ein vorgeschlagenVon mit irgendeinem Wert außer fehlend/null (gleich, was sonst in quelle steht).
+     »Jetzt erledigen« gilt nur nach der Positivregel — Claude-Aufgabe, nicht erledigt, nicht angefordert, kein Vorschlag, und die Herkunft ist bekannt:
+     das Feld quelle fehlt ganz (so legten Formular und Chat bisher an), oder quelle ist »formular« (schreibt das Formular dieser Seite) oder
+     »repo-eingang« (legt der Eingangsdienst an); oder aus dem Kanal, von LES bzw. JB bestätigt und nicht abgelehnt. Jede andere Herkunft bekommt keinen Knopf,
+     dafür die Marke (kein Rückfall); ein quelle mit null oder leerem Text gilt wie ein fehlendes Feld, jedes andere Wort ist eine andere Herkunft, »formular« und
+     »repo-eingang« zählen nur buchstabengenau. Die Regel liest keine Zeit: wann der Eintrag angelegt wurde, spielt keine Rolle. */
+  var FREIGEBER = ["LES", "JB"];
+  function wahrWert(x) { return merkmal(x, "t|tr|tru|true|y|ye|yes|on|1"); }
+  function textDa(x) { return x != null && String(x).replace(/\s+/g, "") !== ""; }
+  function claudeArt(v) { return v.typ === "claude" || (!v.typ && v.wer === "Claude"); }
+  function quelleFehlt(v) { return v.quelle == null || (typeof v.quelle === "string" && v.quelle.replace(/\s+/g, "") === ""); }   // fehlt, null oder ein Text aus nichts oder nur Leerzeichen; jeder andere Typ (Liste, Zahl, Objekt) ist ein »anderes Wort«
+  function ausKanal(v) { return merkmal(v.quelle, "kanal") || v.vorgeschlagenVon != null; }   // vorgeschlagenVon mit irgendeinem Wert außer fehlend/null (auch leer, nur Leerzeichen, eine Liste)
+  function vonMenschBestaetigt(v) { return FREIGEBER.indexOf(v.bestaetigtVon) !== -1 && !textDa(v.abgelehntVon); }
+  function istVorschlag(v) { return !!v && typeof v === "object" && claudeArt(v) && ausKanal(v) && !wahrWert(v.angefordert) && !v.done && !vonMenschBestaetigt(v); }
+  function jetztErlaubt(v) {
+    if (!istAufgabe(v) || !claudeArt(v) || v.done || wahrWert(v.angefordert)) return false;
+    if (ausKanal(v)) return vonMenschBestaetigt(v);   // aus dem Kanal: nur bestätigt und nicht abgelehnt — sonst ist es ein Vorschlag
+    return quelleFehlt(v) || v.quelle === "formular" || v.quelle === "repo-eingang";   // fehlt, null oder leerer Text = Herkunft unbekannt wie bisher (Knopf); »formular«/»repo-eingang« nur buchstabengenau; jedes andere Wort: nicht freigegeben
+  }
+  function anmeldeKuerzel() {   // Kürzel der ANMELDUNG (wie AK ich()), nie die Auswahl »Ich bin« (me); nur für einen Editor (Rolle admin) mit LES oder JB, sonst null
+    var c = window.claude || {}, k = null, r = null;
+    try { r = c.rolle ? c.rolle() : null; k = r && r.rolle === "admin" ? ((c.kuerzel && c.kuerzel()) || r.kuerzel || null) : null; } catch (e) { k = null; }
+    return FREIGEBER.indexOf(k) !== -1 ? k : null;
+  }
   /* Zuständig: ohne Angabe »alle« (wie die Liste im Reiter Aufgaben); Groß-/Kleinschreibung zählt nicht */
   function zustaendig(v) { var w = v.wer == null ? "" : String(v.wer).trim(), l = w.toLowerCase(); return !w || l === "alle" ? "alle" : l === "editoren" ? "Editoren" : w; }
   /* K 3.5: offen, für Menschen, zuständig das eigene Kürzel, »Editoren« (nur Admins) bzw. »alle«; Rückfragen nur bei Admins */
@@ -3136,18 +3170,55 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
   /* ---- Reiter Aufgaben (B1): Haken, »Zurückholen«, »Jetzt erledigen«, »×« (ins Archiv) und Antworten an einer Stelle; Gäste lösen nichts aus ---- */
   var aufgabenKarte = document.getElementById("aufgabenKarte");
   function aufgabeRef(li) { return db.collection(li.dataset.coll === "intern" ? "intern" : "todos").doc(li.dataset.id); }
+  /* Bauschritt 1a: Zurückholen einer ABGELEHNTEN Claude-Aufgabe (Haken oder »Zurückholen«) macht sie wieder zum offenen Vorschlag — Ablehnung und eine
+     frühere Bestätigung werden geleert, damit nichts davon die Positivregel füttert. Alles andere: nur done falsch, wie gebaut. */
+  function zurueckPatch(li) {
+    var d = li.dataset.coll === "intern" ? null : cache.todos.filter(function (x) { return x.id === li.dataset.id; })[0], v = d && d.data();
+    return v && textDa(v.abgelehntVon) ? { done: false, abgelehntVon: "", abgelehntAm: "", bestaetigtVon: "", bestaetigtAm: "" } : { done: false };
+  }
+  /* »Jetzt erledigen«: Der Klick liest die Aufgabe unmittelbar vor dem Schreiben frisch aus der Datenbankschicht und entscheidet an diesem Stand — nicht an
+     der Zeile im Bild und nicht am zuletzt empfangenen Stand der Seite (beide können älter sein). Scheitert das Lesen oder das Schreiben, oder gibt es den
+     Eintrag nicht mehr, steht die Meldung an der geklickten Zeile (auch ein Fehler schon beim Aufruf der Datenbankschicht landet dort). */
+  function jetztFreigeben(li) {
+    var id = li.dataset.id, ref = null, fehl = function () { zeilenMeldung(id, li, AUFGABEN_TEXT.speichernFehl); };
+    Promise.resolve().then(function () { ref = db.collection("todos").doc(id); return ref.get(); }).then(function (s) {
+      var v = s && s.exists ? s.data() : null;
+      if (!v) { fehl(); return; }
+      if (!jetztErlaubt(v)) { if (istVorschlag(v)) zumVorschlag(id); return; }   // nicht freigebbar: nichts schreiben; ein Vorschlag springt in den Kanal
+      var k = anmeldeKuerzel();
+      if (!k) { zeilenMeldung(id, li, AUFGABEN_TEXT.nurLesJb); return; }   // keine Freigabe ohne Editor-Anmeldung mit Kürzel LES oder JB; kein Rückfall auf »Ich bin«
+      return ref.update({ angefordert: true, angefordertVon: k, angefordertAm: new Date().toISOString() });
+    }).catch(fehl);
+  }
+  /* Meldung dort, wo geklickt wurde: in der Zeile neben dem Knopf, ins Fenster geholt; Bildschirmleser bekommen sie über #ansage (wie die übrigen Meldungen der Seite).
+     Die Zeile wird nach dem Lesen neu gesucht (die Liste kann inzwischen neu gezeichnet sein); gibt es sie nicht mehr, steht die Meldung in der Statuszeile der Seite. */
+  function zeilenMeldung(id, li, t) {
+    if (!li || !li.isConnected) li = [].filter.call(aufgabenKarte.querySelectorAll('li[data-id][data-coll="todos"]'), function (x) { return x.dataset.id === id; })[0] || null;
+    if (!li) { showStatus(t); ansagen(t); return; }
+    var z = li.querySelector(".tclaude") || li.querySelector(".tbody") || li, m = z.querySelector("[data-meldung]");
+    if (!m) { m = document.createElement("span"); m.className = "warte"; m.setAttribute("data-meldung", ""); z.appendChild(m); }
+    m.textContent = t;
+    try { m.scrollIntoView({ block: "nearest" }); } catch (e) {}
+    ansagen(t);
+  }
+  /* »Zum Vorschlag →«: Reiter »Claude«, dort holt agenten-kanal.js die Karte ins Fenster und setzt den Fokus auf die Karte (nie auf einen Knopf, der freigibt). */
+  function zumVorschlag(id) {
+    showPage("claude");
+    document.dispatchEvent(new CustomEvent("leitstand:zeige", { detail: { art: "vorschlag", id: id } }));
+  }
   aufgabenKarte.addEventListener("change", function (ev) {
     var box = ev.target, li = box && box.type === "checkbox" ? box.closest("li[data-id]") : null; if (!li) return;
     if (istGast || !db) { box.checked = !box.checked; return; }
     var ref = aufgabeRef(li), neu = box.checked;   // Vermerk »abgehakt von …« bzw. »zurückgeholt von …« wie gebaut
-    ref.update(Object.assign({ done: neu }, statusVermerk())).then(function () {
+    ref.update(Object.assign(neu ? { done: true } : zurueckPatch(li), statusVermerk())).then(function () {
       if (neu) toastUndo(AUFGABEN_TEXT.erledigt, function () { ref.update(Object.assign({ done: false }, statusVermerk())).catch(function () {}); });
     }).catch(function () { box.checked = !neu; });
   });
   aufgabenKarte.addEventListener("click", function (ev) {
     var b = ev.target.closest("button"), li = b && b.closest("li[data-id]"); if (!li || !db || istGast) return;
-    if (b.dataset.act === "undo") aufgabeRef(li).update(Object.assign({ done: false }, statusVermerk())).catch(function () {});
-    else if (b.dataset.act === "jetzt") db.collection("todos").doc(li.dataset.id).update({ angefordert: true, angefordertVon: me, angefordertAm: new Date().toISOString() }).catch(function () {});
+    if (b.dataset.act === "undo") aufgabeRef(li).update(Object.assign(zurueckPatch(li), statusVermerk())).catch(function () {});
+    else if (b.dataset.act === "jetzt") jetztFreigeben(li);
+    else if (b.dataset.act === "vorschlag") zumVorschlag(li.dataset.id);
     else if (b.classList.contains("del")) {   // »×« löscht nicht mehr, sondern legt ins Archiv (K 5.2, Anhang II.4)
       b.disabled = true;
       archivLegen(li.dataset.coll === "intern" ? "intern" : "todos", li.dataset.id).then(function (r) {
@@ -3188,6 +3259,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     if ((typ === "frage" && RUECKFRAGE_AN.indexOf(wer) === -1) || (intern && (NUR_EDITOREN_MIT.indexOf(wer) === -1 || typ === "claude"))) return;   // lässt das Formular nicht zu
     var e = { text: t, beschreibung: beschr.value.trim(), prio: Number(document.getElementById("todoPrio").value) || 2, wer: wer, typ: typ, ziel: typ === "claude" ? (document.getElementById("todoZiel").value || "egal") : undefined, done: false, created: new Date().toISOString() };
     if (/^\d{4}-\d{2}-\d{2}$/.test(fd.value)) e.faellig = fd.value;
+    if (typ === "claude") e.quelle = "formular";   // Bauschritt 1a: die Positivregel für »Jetzt erledigen« erkennt den Menschen daran
     if (intern) e.art = "aufgabe";
     db.collection(intern ? "intern" : "todos").add(e)
       .then(function () { inp.value = ""; beschr.value = ""; fd.value = ""; kf.value = ""; absendenPruefen(); if (WER_FEST.indexOf(wer) === -1) formMeldung(AUFGABEN_TEXT.angelegtFuer[0] + wer + AUFGABEN_TEXT.angelegtFuer[1]); notizAufgabeAngelegt(); })   // B3: »Aufgabe daraus«
@@ -4882,5 +4954,5 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
 })();
 </script>
 <script src="leitstand-zeit.js?v=261007a"></script>
-<script src="claude-chat.js?v=261007a"></script>
-<script src="agenten-kanal.js?v=k3597153008"></script>
+<script src="claude-chat.js?v=261012a"></script>
+<script src="agenten-kanal.js?v=k261013a"></script>

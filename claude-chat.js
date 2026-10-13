@@ -10,7 +10,12 @@
   "use strict";
 
   var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
-  var me = function () { try { return localStorage.getItem("ss-wer") || "?"; } catch (e) { return "?"; } };
+  /* Bauschritt 1a: Absender ist das Kürzel der ANMELDUNG (wie AK ich()), nie die frei wählbare Auswahl »Ich bin«; nur für einen Editor (Rolle admin) mit LES oder JB, sonst null */
+  var me = function () {
+    var c = window.claude || {}, k = null, r = null;
+    try { r = c.rolle ? c.rolle() : null; k = r && r.rolle === "admin" ? ((c.kuerzel && c.kuerzel()) || r.kuerzel || null) : null; } catch (e) { k = null; }
+    return k === "LES" || k === "JB" ? k : null;
+  };
   var iso = function () { return new Date().toISOString(); };
 
   var TEMPLATE =
@@ -73,7 +78,7 @@
     if ((st === "fertig" || st === "fehler") && v.s11ergebnis) {
       btns += '<button type="button" class="ccBtn ccNachfrage" data-act="nachfrage">Nachfrage</button>';
     }
-    if ((st === "wartet" || st === "laeuft") && v.angefordertVon === me()) {
+    if ((st === "wartet" || st === "laeuft") && me() && v.angefordertVon === me()) {
       btns += '<button type="button" class="ccBtn ccAbbrechen" data-act="abbrechen">Abbrechen</button>';
     }
     if (btns) html += '<div class="ccBtnRow">' + btns + "</div>";
@@ -98,7 +103,7 @@
   function senden(chatNachricht, beschreibung, ziel) {
     if (!db) { ccStatus("Keine Verbindung zur Datenbank — kurz warten und noch einmal senden."); return; }
     var wer = me();
-    if (wer !== "LES" && wer !== "JB") { ccStatus("Nur LES und JB können Claude hier Aufgaben geben."); return; }
+    if (!wer) { ccStatus("Nur LES und JB können Claude hier Aufgaben geben."); return false; }   // Bauschritt 1a: kein Auftrag ohne Editor-Anmeldung mit Kürzel LES oder JB; false = der getippte Text bleibt stehen
     var jetzt = iso();
     db.collection("todos").add({
       text: kurztitel(chatNachricht),
@@ -122,8 +127,7 @@
       ev.preventDefault();
       var t = inputEl.value.trim(); if (!t) return;
       var beschr = replyTo ? mitKontext(t, replyTo) : t;
-      senden(t, beschr, zielEl.value, replyTo);
-      inputEl.value = "";
+      if (senden(t, beschr, zielEl.value, replyTo) !== false) inputEl.value = "";
     });
     document.getElementById("claudeChatCard").querySelectorAll(".ccQuickBtn").forEach(function (b) {
       b.addEventListener("click", function () {
