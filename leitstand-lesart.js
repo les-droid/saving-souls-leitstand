@@ -5,7 +5,9 @@
      · die Liste »Warten auf dich« als Funktion (§ 3.3),
      · den einen Schreibweg `freigeben` (§ 3.4) — außer ihm schreibt kein Knopf `angefordert`,
      · Namen der Arbeitsplätze, ihre Reihenfolge und die Marke als HTML (§ 4),
-     · (Bauschritt 3) die zwei Marken für Konto (wer) und Arbeitsplatz (wo), nie in einem Wort verschmolzen, und die Regel, wann ein Eintrag der Anwesenheit abgemeldet ist.
+     · (Bauschritt 3) die zwei Marken für Konto (wer) und Arbeitsplatz (wo), nie in einem Wort verschmolzen, und die Regel, wann ein Eintrag der Anwesenheit abgemeldet ist,
+     · (Bauschritt 4) die Liste »Warten auf dich« mit den Nachrichten an das Kürzel (über die Schnittstelle des Kanals, window.LEITSTAND_KANAL), der Zustand einer laufenden oder pausierten Chat-Nachricht
+       und die erste Zeile einer Nachricht (kern).
    Rückfall: Fehlt diese Datei oder hat sie eine andere `fassung`, fragen die vier Aufrufer (index.html, agenten-kanal.js, leitstand-db.js,
    claude-chat.js) `window.LEITSTAND_LESART` ab und tun, was sie vor dem Schritt taten. Die Datei kennt keine Datenbank von sich aus: Der Schreibweg
    bekommt sie über `verbinde`. Sichtbarer Text: nur Wortlaut der Bauvorlage oder der veröffentlichten Seite. */
@@ -13,6 +15,7 @@
   "use strict";
 
   var FASSUNG = 1;
+  var SCHRITT = 4;   // Bauschritt 4: wer die Lesart mit der Liste der Nachrichten und dem Chat-Zustand braucht, fragt `schritt`; die Fassung bleibt 1, damit die vier Dateien aus Paket 2 sie weiter annehmen
   var FREIGEBER = ["LES", "JB"];
 
   var TEXT = {
@@ -171,8 +174,17 @@
   var quellFn = null;
   function quelle(fn) { quellFn = typeof fn === "function" ? fn : null; }
   function anAm(v, z) { return ms(z.nr === 5 ? v.vorgeschlagenAm || v.created : z.nr === 11 ? v.created : v.s11beendetAm || v.angefordertAm || v.created); }
-  /* Aufgaben in den Zuständen Vorschlag, Fehler, abgebrochen, nicht freigegeben — für LES und JB, am längsten Wartendes zuerst; Gäste und alle anderen: leer.
-     Nachrichten an das Kürzel (Teil 2 der Festlegung) liefert der Kanal erst mit Bauschritt 4; bis dahin hat die Liste nur Aufgaben. */
+  /* Nachrichten an das Kürzel (Teil 2 der Festlegung, § 3.3): sie kommen über die Schnittstelle des Kanals (window.LEITSTAND_KANAL.wartendeNachrichten, Bauschritt 4). Sie liefert eine leere Liste, bis der Kanal
+     »Antworten« und »Gesehen« schreibt. Fehlt die Schnittstelle, wirft sie oder liefert sie etwas anderes als eine Liste von Einträgen mit Kennung, bleibt die Liste leer — es entsteht nie eine halbe Zeile. */
+  function nachrichtenFuer(kuerzel) {
+    var K = root.LEITSTAND_KANAL, aus = [], gesehen = Object.create(null);   // Runde 2 (Prüfbericht Bedienung, Befund 6): ohne geerbte Namen — eine Nachricht mit einer Kennung wie »constructor« gilt sonst als schon gesehen
+    try {
+      var l = K && typeof K.wartendeNachrichten === "function" ? K.wartendeNachrichten(kuerzel) : [];
+      if (Array.isArray(l)) l.forEach(function (m) { if (m && typeof m === "object" && !Array.isArray(m) && typeof m.id === "string" && m.id && !gesehen[m.id]) { gesehen[m.id] = true; aus.push({ art: "nachricht", id: m.id, v: m, seit: ms(m.created) }); } });
+    } catch (e) { aus = []; }
+    return aus;
+  }
+  /* Aufgaben in den Zuständen Vorschlag, Fehler, abgebrochen, nicht freigegeben — für LES und JB — und die Nachrichten an das Kürzel; am längsten Wartendes zuerst; Gäste und alle anderen: leer. */
   function wartenAufDich(kuerzel, liste) {
     if (FREIGEBER.indexOf(kuerzel) === -1) return [];
     var quellen = liste || (quellFn ? quellFn() : []), aus = [];
@@ -181,8 +193,18 @@
       var z = zustand(x.v);
       if (z.warten) aus.push({ art: "aufgabe", id: x.id, v: x.v, zustand: z, seit: anAm(x.v, z) });
     });
-    return aus.sort(function (a, b) { return (a.seit == null) - (b.seit == null) || (a.seit || 0) - (b.seit || 0) || String(a.id).localeCompare(String(b.id)); });
+    return aus.concat(nachrichtenFuer(kuerzel)).sort(function (a, b) { return (a.seit == null) - (b.seit == null) || (a.seit || 0) - (b.seit || 0) || String(a.id).localeCompare(String(b.id)); });
   }
+  /* Chat-Nachricht (Bauschritt 4, § 2.4): nur solange sie läuft oder pausiert ein eigener Kasten, mit dem Wort ihres Zustands; sonst null. Sie zählt nicht als Claude-Aufgabe. */
+  function chatZustand(v) {
+    if (art(v) !== "chat" || erledigt(v) || !laeuftOderPausiert(v)) return null;
+    var z = {}, k, q = ZUSTAENDE[v.s11status === "laeuft" ? 3 : 4];
+    for (k in q) z[k] = q[k];
+    z.knopf = null; z.hinweis = null; z.zusatz = null;
+    return z;
+  }
+  /* Die erste Zeile einer Nachricht, höchstens 90 Zeichen, an einer Wortgrenze gekürzt (Entwurf der Bauvorlage, `kern`) */
+  function kern(t) { t = String(t == null ? "" : t).split("\n")[0].trim(); if (t.length <= 90) return t; t = t.slice(0, 90); var i = t.lastIndexOf(" "); return (i > 40 ? t.slice(0, i) : t) + " …"; }
 
   /* ---- § 3.4: ein Schreibweg ---- */
   var wege = { db: null, meldung: null, vorschlag: null };
@@ -212,15 +234,15 @@
   }
 
   var API = {
-    fassung: FASSUNG, TEXT: TEXT, STUFEN: STUFEN, FREIGEBER: FREIGEBER.slice(),
+    fassung: FASSUNG, schritt: SCHRITT, TEXT: TEXT, STUFEN: STUFEN, FREIGEBER: FREIGEBER.slice(),
     merkmal: merkmal, wahrWert: wahrWert, textDa: textDa,
     istAufgabe: istAufgabe, istChat: istChat, claudeAuftrag: claudeAuftrag, erledigt: erledigt, art: art,
     claudeArt: claudeArt, ausKanal: ausKanal, vorschlagKarte: vorschlagKarte, istVorschlag: istVorschlag, jetztErlaubt: jetztErlaubt, neuErlaubt: neuErlaubt, neuAngefordert: neuAngefordert,
     zustand: zustand, hinweisText: hinweisText, markeHtml: markeHtml,
-    ortVonZiel: ortVonZiel, ortDesLaufs: ortDesLaufs, arbeitsplatz: arbeitsplatz,
+    ortVonZiel: ortVonZiel, ortDesLaufs: ortDesLaufs, arbeitsplatz: arbeitsplatz, laeuftOderPausiert: laeuftOderPausiert, chatZustand: chatZustand, kern: kern,
     kontoName: kontoName, kontoKlasse: kontoKlasse, kontoMarke: kontoMarke, platzMarke: platzMarke, markenPaar: markenPaar, kennungTeile: kennungTeile, kennungMarken: kennungMarken, abgemeldet: abgemeldet, istDienst: istDienst, arbeitsplatzName: arbeitsplatzName, ortNamen: ortNamen, zonenReihe: zonenReihe,
     quelle: quelle, wartenAufDich: wartenAufDich, verbinde: verbinde, anmeldeKuerzel: anmeldeKuerzel, freigeben: freigeben
   };
   root.LEITSTAND_LESART = API;
-  try { if (root.document && root.document.documentElement) root.document.documentElement.setAttribute("data-lesart", String(FASSUNG)); } catch (e) {}
+  try { if (root.document && root.document.documentElement) { root.document.documentElement.setAttribute("data-lesart", String(FASSUNG)); root.document.documentElement.setAttribute("data-lesart-schritt", String(SCHRITT)); } } catch (e) {}
 })(typeof window !== "undefined" ? window : globalThis);

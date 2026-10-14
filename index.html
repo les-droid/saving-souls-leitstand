@@ -799,7 +799,7 @@
 <link rel="stylesheet" href="claude-chat.css?v=260923a">
 <link rel="stylesheet" href="baukasten.css?v=v2844935910">
 <link rel="stylesheet" href="vision-board.css?v=v820809728">
-<link rel="stylesheet" href="agenten-kanal.css?v=k261012a">
+<link rel="stylesheet" href="agenten-kanal.css?v=k261014a">
 <link rel="stylesheet" href="leitstand-lesart.css?v=261013b">
 <link rel="stylesheet" href="leitstand-thema.css?v=t3358641517">
 
@@ -1232,7 +1232,7 @@ if (/[?&]demo=gast(&|$)/.test(location.search) && (location.protocol === "file:"
 // ?demo=1: erfundene Einträge der Sammlung redaktion (demo-redaktion.js, Paket 5) — nur in der Editor-Demo, nur lokal.
 if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname))) document.write('<script src="demo-redaktion.js"><\/script>');
 </script>
-<script src="leitstand-lesart.js?v=261013b"></script>
+<script src="leitstand-lesart.js?v=261014a"></script>
 <script src="leitstand-db.js?v=261013b"></script>
 <script src="redaktion.js?v=261007d"></script>
 <script src="baukasten.js?v=v2844935910"></script>
@@ -3220,6 +3220,16 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     showPage("claude");
     document.dispatchEvent(new CustomEvent("leitstand:zeige", { detail: { art: "vorschlag", id: id } }));
   }
+  /* Bauschritt 4: eine Sache unter »Warten auf dich« im Kanal und der Titel einer Zeile mit Verweisfeld (agenten-kanal.js) melden leitstand:zeige {art:"aufgabe", id}: Reiter »Aufgaben«, die Zeile ins Fenster, der Fokus auf die Zeile selbst — nie auf einen Knopf, der freigibt. */
+  document.addEventListener("leitstand:zeige", function (ev) {
+    var d = ev && ev.detail; if (!d || d.art !== "aufgabe" || typeof d.id !== "string") return;
+    var li = [].filter.call(aufgabenKarte.querySelectorAll('li[data-id][data-coll="todos"]'), function (x) { return x.dataset.id === d.id; })[0];
+    showPage("aufgaben");
+    if (!li || !li.isConnected) return;
+    for (var dt = li.closest("details"); dt; dt = dt.parentElement && dt.parentElement.closest("details")) dt.open = true;   // »Bei Claude« und »Fertig« sind zugeklappt
+    li.setAttribute("tabindex", "-1"); li.scrollIntoView({ block: "center" }); li.focus({ preventScroll: false });
+  });
+  window.leitstandZeigeAufgabe = true;   // Runde 2: sagt agenten-kanal.js, dass diese Seite den Sprung in die Aufgaben hört; fehlt das (eine index.html von vor dem Schritt aus dem Zwischenspeicher), zeichnet agenten-kanal.js wie vor dem Schritt
   if (lesartDa()) {   // Bauschritt 2: Datenbank, Meldung an der Zeile und Sprung in den Kanal für den einen Schreibweg; die Liste »Warten auf dich« liest den Stand der Aufgaben
     lesartDa().verbinde({ db: function () { return db; }, meldung: zeilenMeldung, vorschlag: zumVorschlag });
     lesartDa().quelle(function () { return cache.todos.map(function (d) { return { id: d.id, v: d.data() }; }); });
@@ -3737,9 +3747,17 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
   function fokusUnterKopf(ev) {
     var e = ev.target; if (!e || e === document.body || !e.getBoundingClientRect || !e.closest) return;
     if (e.closest("header.top, #notizFeld, #toast, #tourCard, #transViewer, #boardLightbox, #whoModal, #introOffer, #liveLogin")) return;
+    if (zeigerGedrueckt) { zeigerNachrollen = e; return; }   // Bauschritt 4 (Auflage A2): Holt ein Mausdruck oder Fingerdruck den Fokus (Kasten des Lagebilds, dessen Oberkante unter dem Kopf liegt), wird erst nach dem Klick nachgerollt — sonst rollt die Seite unter dem Zeiger weg und der Klick geht verloren
     var oben = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--kopfhoehe")) || 0, r = e.getBoundingClientRect();
     if (r.height && r.top < oben + 8) window.scrollBy(0, r.top - oben - 8);
   }
+  var zeigerGedrueckt = false, zeigerNachrollen = null;
+  ["pointerdown", "mousedown"].forEach(function (n) { document.addEventListener(n, function () { zeigerGedrueckt = true; }, { capture: true, passive: true }); });
+  ["pointerup", "pointercancel", "mouseup", "dragend"].forEach(function (n) { document.addEventListener(n, function () {
+    setTimeout(function () {   // nach dem Klick (er folgt dem Loslassen im selben Zug): erst jetzt wird nachgerollt
+      zeigerGedrueckt = false; var e = zeigerNachrollen; zeigerNachrollen = null;
+      if (e && e.isConnected && e === document.activeElement) fokusUnterKopf({ target: e });
+    }, 0); }, { capture: true, passive: true }); });
   document.addEventListener("focusin", fokusUnterKopf);
   function notizOeffnen(anfang) {
     if (!nz.bereit) return;
@@ -4974,4 +4992,4 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
 </script>
 <script src="leitstand-zeit.js?v=261007a"></script>
 <script src="claude-chat.js?v=261013a"></script>
-<script src="agenten-kanal.js?v=k261013c"></script>
+<script src="agenten-kanal.js?v=k261014a"></script>
