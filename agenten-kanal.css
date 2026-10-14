@@ -233,3 +233,8 @@
 :root[data-lesart-schritt="4"] #page-claude .alKasten.alKlein .llMarke { overflow-wrap: normal; }
 /* Grün heißt nur »läuft«: ruhende und hängende Aufgaben tragen den neutralen Rand (Prüfbericht Entwurf im Browser, Befund 4) */
 :root[data-lesart-schritt="4"] #page-claude .alKasten.alArt-aufgabe[data-kl]:not([data-kl="laeuft"]) { --kat: var(--al-ext); --fl: var(--al-ext-f); }
+/* Bauschritt 5 (Entscheidung B7): Die Erklärzeile am Platz »Warten auf dich« (freigeben, bestätigen, neu anfordern oder antworten) wird bei 121 px Kastenbreite nicht mit »…« gekürzt, sie bricht um */
+:root[data-lesart-schritt="4"] #page-claude .alKasten.alSorte-dran .alKZeile { display: block; -webkit-line-clamp: unset; overflow: visible; }
+/* Bauschritt 5: der Satz am Sendefeld, wer den Auftrag übernimmt (nur mit dem Brett) */
+#page-claude .akUebernimmt { margin: 6px 0 0; font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
+#page-claude .akUebernimmt.akWarn { color: var(--signal); }

@@ -1,6 +1,6 @@
 /* Saving Souls Leitstand — Marken der Lesart (Bauschritt 2). Gehört zu leitstand-lesart.js.
    Das Wort der Marke nennt den Zustand einer Claude-Aufgabe, Farbe und Form die Stufe. Dieselbe Marke im Reiter »Aufgaben« und im Lagebild.
-   Aufgaben für Menschen tragen sie nicht. Gestaltung wie im Entwurf der Bauvorlage Fassung 2. (Bauschritt 3: dazu unten die Marken für Konto und Arbeitsplatz und die Farbe der Wörter im Panel.) */
+   Aufgaben für Menschen tragen sie nicht. Gestaltung wie im Entwurf der Bauvorlage Fassung 2. (Bauschritt 3: dazu unten die Marken für Konto und Arbeitsplatz und die Farbe der Wörter im Panel; Bauschritt 5: das Brett.) */
 
 /* »läuft« ist überall grün: Marke, Chat-Blase, Panel »Schnitt 11« und die Meldung des Projekt-Austauschs lesen --laeuft. Nur wenn die Lesart da ist (data-lesart
    setzt sie selbst, mit ihrer Fassung): fehlt leitstand-lesart.js oder hat sie eine andere Fassung, bleibt die Seite beim bisherigen Farbton. */
@@ -66,3 +66,200 @@
 :root[data-lesart="1"] #schnitt11 .s11st[data-ll="laeuft"] { color: var(--laeuft); }
 :root[data-lesart="1"] #schnitt11 .s11st[data-ll="pausiert"] { color: var(--signal); }
 :root[data-lesart="1"] #schnitt11 .s11st[data-ll="fehler"], :root[data-lesart="1"] #schnitt11 .s11st[data-ll="abgebrochen"] { color: var(--danger, var(--fehler)); }
+
+/* ===== Bauschritt 5: das Brett (Bauvorlage Fassung 2, § 2.1, § 2.2, § 2.5, § 2.6). Alles hängt an html[data-spalten="1"]: das setzt die Seite erst, wenn der Schalter an ist UND diese Datei da ist
+   (die Seite fragt die Eigenschaft --ll-brett). Gestaltung wie der Entwurf der Bauvorlage; Maße dort gemessen oder als »gesetzt« gekennzeichnet. ===== */
+:root { --ll-brett: 1; }
+
+/* der Reiter »Aufgaben« nutzt die ganze Fensterbreite (heute begrenzt: .wrap, .grid) — nur dieser Reiter; Notizen, Zettel und Archiv stehen unter den Feldern */
+html[data-spalten="1"][data-seite="aufgaben"] .wrap { max-width: none; }
+html[data-spalten="1"] #page-aufgaben .grid { grid-template-columns: minmax(0, 1fr); }
+html[data-spalten="1"] #page-aufgaben .grid > div:nth-child(2) { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 12px; align-items: start; margin-top: 16px; }
+html[data-spalten="1"] #page-aufgaben .grid > div:nth-child(2) > section.card { margin-top: 0; }
+html[data-spalten="1"] #aufgabenKarte.brettkarte { --zstb: 124px; padding: 0; background: none; border: none; box-shadow: none; border-radius: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }   /* das Brett steht ohne Karte um sich auf der ganzen Breite (Entwurf: Felder direkt auf dem Grund); Spalte der Marke 124 px: gesetzt nach Messung (breiteste der elf Marken »nicht freigegeben« 122,8 px) */   /* Spalte der Marke: gesetzt nach Messung (breiteste der elf Marken »nicht freigegeben« 122,8 px) */
+html[data-spalten="1"] #aufgabenKarte h2 .hint { margin-left: auto; }
+.llvh { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Sprunglink: erster Halt der Seite */
+.sprunglink { position: absolute; left: -9999px; top: 6px; z-index: 100; display: inline-flex; align-items: center; min-height: 44px; padding: 8px 14px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); font-weight: 600; text-decoration: none; }
+.sprunglink:focus { left: 8px; }
+
+/* Formular im Brett: eine Zeile, »mehr Angaben« klappt den Rest auf; am Telefon hinter »+ Neu« */
+html[data-spalten="1"] #todoForm { margin-bottom: 8px; align-items: center; }
+html[data-spalten="1"] #todoForm #todoInput { flex: 1 1 180px; }
+html[data-spalten="1"] #todoForm #todoZiel { flex: 0 1 250px; }
+html[data-spalten="1"] #todoForm .neumehr { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+html[data-spalten="1"] #todoForm .neumehr[hidden] { display: none; }
+html[data-spalten="1"] #todoForm .orthinweis { flex: 1 1 100%; margin: -2px 0 0; font-size: 12px; color: var(--muted); }
+html[data-spalten="1"] #todoForm .orthinweis[hidden] { display: none; }
+html[data-spalten="1"] #todoForm .orthinweis .lnk, html[data-spalten="1"] #brett .lnk, html[data-spalten="1"] #brettStatus .lnk { background: none; border: none; color: var(--accent); font: inherit; font-size: 12px; padding: 2px 0; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent); text-underline-offset: 3px; cursor: pointer; }
+html[data-spalten="1"] #neuMehrKnopf { background: none; border: none; color: var(--accent); font-size: 12.5px; padding: 6px 2px; cursor: pointer; }
+html[data-spalten="1"] #neuAuf { display: none; align-items: center; font: 600 12.5px var(--font-ui); color: var(--accent); background: none; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 999px; padding: 5px 12px; min-height: 34px; margin-left: auto; cursor: pointer; }
+html.gast #neuAuf, html.gast #neuMehrKnopf { display: none !important; }
+
+/* Statuszeile über dem Brett (Leistenregel) */
+#brettStatus { display: flex; align-items: center; gap: 12px; margin: -2px 0 8px; min-height: 24px; font-size: 12px; color: var(--signal); }
+#brettStatus[hidden] { display: none; }
+#brettStatus > span { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#brettStatus > button { flex: none; }
+
+/* Lagezeile und Feldwähler: nur, wenn die Felder gewischt werden (Telefon, schmale Fenster) */
+#lagezeile { display: none; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 6px; }
+#aufgabenKarte #lagezeile .stufen { display: contents; }
+#lagezeile .stufen button { padding: 1px 7px; }
+#lagezeile > .chip { margin-right: 2px; }
+#lagezeile > .zahl { font: 600 12px var(--font-ui); color: var(--muted); margin-right: 2px; }
+#lagezeile .br { flex-basis: 100%; height: 0; }   /* »Warten auf dich« steht zuerst, im Bild und in der Tab-Reihenfolge; die vier Stufen folgen in der zweiten Zeile */
+#feldtabs { display: none; gap: 6px; overflow-x: auto; margin: 0 -12px 8px; padding: 2px 12px; scrollbar-width: none; }
+#feldtabs::-webkit-scrollbar { display: none; }
+#feldtabs button { flex: none; display: inline-flex; align-items: center; gap: 6px; font: 600 12.5px var(--font-ui); color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; min-height: 36px; cursor: pointer; }
+#feldtabs button b { font-weight: 600; font-feature-settings: "tnum" 1; }
+#feldtabs button[aria-pressed="true"] { color: var(--ink); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+#feldtabs .dranpunkt { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+html[data-spalten="1"].brett-eng #feldtabs { display: flex; }
+html[data-spalten="1"].brett-eng:not(.gast) #lagezeile { display: flex; }
+
+/* Das Brett: Felder nebeneinander, am Rechner ohne Querrollen */
+#brett { display: flex; align-items: flex-start; gap: 12px; --leisteh: 320px; overflow-anchor: none; }   /* Runde 2 (H2): kein Rollanker im Brett — es wird beim Neuzeichnen neu geschrieben; der Anker liegt so darunter, und was der Mensch dort liest, bleibt an seiner Stelle */
+#brett .feld { position: relative; min-width: 0; background: var(--material); border: 1px solid var(--material-edge); border-radius: 16px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22); padding: 9px 12px 7px; }
+#brett .feld.du { flex: 0 0 244px; }
+#brett .feld.claude { flex: 1 1 0; min-width: 240px; }
+#brett .feld.k { flex: 0 0 184px; }
+html.gast #brett:not(.eng) { flex-wrap: wrap; }
+html.gast #brett:not(.eng) .feld.du, html.gast #brett:not(.eng) .feld.k { flex: 1 1 240px; max-width: 420px; }
+#brett .feldkopf { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-height: 28px; margin-bottom: 3px; }
+#brett .feldkopf h3 { font: 650 15px var(--font-display); letter-spacing: -0.01em; margin: 0; white-space: nowrap; }
+#brett .feldkopf .chip { margin-top: 0; align-self: auto; }
+#brett .feldkopf .zahl { font: 600 12px var(--font-ui); color: var(--muted); font-feature-settings: "tnum" 1; white-space: nowrap; }
+#brett .kopfende { margin-left: auto; display: inline-flex; gap: 4px; }
+#brett .feld.claude .feldkopf { flex-wrap: nowrap; align-items: flex-start; }
+#brett .feld.claude .feldkopf > .chip, #brett .feld.claude .feldkopf > .zahl { margin-top: 4px; }
+#brett .feld.claude .stufen { flex: 1 1 auto; }
+#brett .plus, #brett .zuklapp { flex: none; width: 26px; height: 26px; border-radius: 999px; border: 1px solid var(--line); background: none; color: var(--muted); font-size: 15px; line-height: 1; padding: 0; cursor: pointer; }
+#brett .zuklapp { font-size: 11px; letter-spacing: -1px; }
+#brett .plus:hover, #brett .zuklapp:hover { color: var(--ink); border-color: var(--muted); }
+html.gast #brett .plus { display: none !important; }
+/* Leiste: ein eingeklapptes Kürzel-Feld — Kürzel, Zahl der offenen Aufgaben, Punkt bei Überfälligem; ein Klick klappt genau dieses Feld auf */
+#brett .leiste { flex: 0 0 44px; align-self: flex-start; height: var(--leisteh); display: flex; flex-direction: column; align-items: center; gap: 7px; min-height: 120px; padding: 10px 0; background: var(--material); border: 1px solid var(--material-edge); border-radius: 14px; color: var(--muted); cursor: pointer; }
+#brett .leiste:hover { border-color: var(--muted); color: var(--ink); }
+#brett .leiste .chip { padding: 1px 5px; max-width: 40px; }
+#brett .leiste .chip.hoch { writing-mode: vertical-rl; padding: 5px 1px; max-width: none; letter-spacing: 0.04em; }   /* Kürzel mit 5 bis 8 Zeichen (so viele nimmt die Seite an) stehen senkrecht statt abgeschnitten */
+#brett .leiste b { font: 600 13px var(--font-ui); color: var(--ink); font-feature-settings: "tnum" 1; }
+#brett .leiste .sig { width: 7px; height: 7px; border-radius: 50%; background: var(--signal); }
+#brett .leiste .auf { margin-top: auto; font-size: 11px; letter-spacing: -1px; }
+#brett ul.todos { list-style: none; margin: 0; padding: 0; }
+#brett ul.todos > li.empty { color: var(--muted); font-size: 12.5px; }
+/* Aufgaben für Menschen im Feld: wie die Zeile der Seite, Angabe, Kürzel und Marke in der zweiten Zeile */
+#brett ul.todos > li { flex-wrap: wrap; row-gap: 4px; }
+#brett ul.todos .tbody { flex: 1 1 calc(100% - 60px); }
+#brett ul.todos .tbody + * { margin-left: 36px; }
+html.gast #brett ul.todos .tbody + * { margin-left: 19px; }
+#brett details.donebox { margin-top: 4px; padding-top: 2px; border-top: 1px solid var(--line); }
+
+/* Stufen */
+#aufgabenKarte .stufen { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+#aufgabenKarte .stufen button { display: inline-flex; align-items: center; gap: 5px; font: 600 11.5px var(--font-ui); color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; min-height: 24px; white-space: nowrap; cursor: pointer; }
+#aufgabenKarte .stufen button b { color: var(--ink); font-weight: 600; font-feature-settings: "tnum" 1; }
+#aufgabenKarte .stufen button[aria-pressed="true"] { color: var(--ink); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+#aufgabenKarte .stufen i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+#aufgabenKarte .stufen .s-vor i { box-shadow: inset 0 0 0 1.5px var(--muted); }
+#aufgabenKarte .stufen .s-bereit i { background: linear-gradient(to top, var(--accent) 50%, transparent 50%); box-shadow: inset 0 0 0 1.5px var(--accent); }
+#aufgabenKarte .stufen .s-laeuft i { background: var(--laeuft); }
+#aufgabenKarte .stufen .s-haengt i { border-radius: 1px; background: linear-gradient(to right, var(--signal) 2.5px, transparent 2.5px, transparent 4.5px, var(--signal) 4.5px); }
+#aufgabenKarte .stufen .s-haengt i + i { margin-left: -1px; background: var(--danger); transform: rotate(45deg) scale(0.86); }   /* »Hängt« zeigt die zwei Formen dieser Stufe: Balken (pausiert) und Raute (Fehler, abgebrochen) */
+#aufgabenKarte .stufen .s-dran { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+
+/* Feld »Claude«: dichte Zeilen, nach Arbeitsplatz geordnet wie die Zonen des Lagebilds, bei Bedarf in Spalten */
+#brett .spalten { display: flex; align-items: flex-start; gap: 16px; }
+#brett .spalte { flex: 1 1 0; min-width: 0; container-type: inline-size; }
+#brett .ortgruppe > h4 { display: flex; align-items: center; gap: 6px; margin: 5px 0 0; padding: 0 2px 3px; min-height: 25px; border-bottom: 1px solid var(--line); font: 650 12px var(--font-ui); letter-spacing: 0.01em; white-space: nowrap; text-transform: none; color: var(--ink); }
+#brett .ortgruppe:first-child > h4 { margin-top: 1px; }
+#brett .ortgruppe > h4 .gz { font-weight: 600; color: var(--muted); font-feature-settings: "tnum" 1; }
+#brett .ortgruppe > h4 .weiter { font-weight: 400; color: var(--muted); }
+#brett .ortgruppe > h4 .sitzung { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font: 400 11.5px var(--font-ui); color: var(--muted); }   /* kein Punkt vor »… arbeitet«: der grüne Punkt gehört allein der Marke »läuft« */
+#brett .wnote { margin: 2px 2px 4px; font-size: 12px; color: var(--accent); }
+#brett .feld.claude > .empty { margin: 6px 2px; color: var(--muted); font-size: 12.5px; }
+#brett ul.cl { list-style: none; margin: 0; padding: 0; }
+#brett li.cl { border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
+#brett li.cl:first-child { border-top: none; }
+#brett li.cl.aus { display: none; }
+#brett .ortgruppe.leer { display: none; }
+#brett .crow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 6px; min-height: 28px; }
+#brett .ctitel { display: grid; grid-template-columns: minmax(var(--zstb), max-content) minmax(0, 1fr) auto; align-items: center; column-gap: 8px; width: 100%; min-height: 28px; padding: 0 2px; background: none; border: 0; border-radius: 6px; text-align: left; color: var(--ink); font: inherit; cursor: pointer; }
+#brett .ctitel .ttext { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#brett .ctitel:hover .ttext { text-decoration: underline; text-decoration-color: var(--muted); text-underline-offset: 3px; }
+#brett .zk { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+#brett .zk .llMarke { margin: 0; }
+#brett .zwei .ctitel { align-items: start; padding-top: 5px; padding-bottom: 5px; }   /* Titel zweizeilig, wenn dafür Platz ist (Platzregel) */
+#brett .zwei .ctitel .ttext { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.38; }
+#brett .zwei .ctitel .cmeta { margin-top: 1px; }
+#brett .ctitel[aria-expanded="true"] .ttext { display: block; white-space: normal; overflow: visible; font-weight: 600; }
+#brett .ctitel .cmeta { display: inline-flex; align-items: center; gap: 5px; max-width: 190px; font-size: 11.5px; color: var(--muted); white-space: nowrap; font-feature-settings: "tnum" 1; }
+#brett .ctitel .cmeta .mt { overflow: hidden; text-overflow: ellipsis; }
+#brett .ctitel .cmeta.liegt { color: var(--signal); font-weight: 600; }
+#brett li.cl.done .ttext { color: var(--muted); }
+#brett .btn { font: 600 12px var(--font-ui); padding: 2px 11px; border-radius: 999px; min-height: 28px; white-space: nowrap; background: none; cursor: pointer; }
+#brett .btn.ja { color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); }
+#brett li.cl .knoepfe { display: inline-flex; padding: 1px 0; }
+#brett .dupill { display: none; align-items: center; justify-content: center; font: 700 11px var(--font-ui); color: var(--accent); background: none; border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--line)); border-radius: 999px; padding: 0 8px; min-height: 22px; cursor: pointer; }
+#brett .dupill.immer { display: inline-flex; }
+/* Schwellen gesetzt (Bauvorlage § 2.2): ab 420 px Spaltenbreite steht der Knopf in der Zeile, darunter die Marke »du«; unter 300 px steht der Titel über der Marke */
+@container (width < 420px) {   /* schmale Spalte: rechts nur, was nicht warten kann — »du« oder »liegt seit …«; der Knopf steht dann im Aufgeklappten */
+  #brett .ctitel .cmeta:not(.liegt) { display: none; }
+  #brett li.cl .knoepfe .btn { display: none; }
+  #brett li.cl .dupill { display: inline-flex; }
+}
+@container (min-width: 420px) { #brett li.cl .cpanel .paktion { display: none; } }   /* breite Spalte: der Knopf steht schon in der Zeile */
+@container (width < 300px) {   /* sehr schmale Spalte (Kürzel-Felder von Hand daneben aufgeklappt): Titel über Marke */
+  #brett .ctitel { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "t t" "z m"; row-gap: 1px; padding: 4px 2px; align-items: center; }
+  #brett .ctitel .ttext { grid-area: t; } #brett .ctitel .zk { grid-area: z; flex-wrap: wrap; gap: 2px 6px; } #brett .ctitel .cmeta { grid-area: m; justify-self: end; }
+}
+#brett li.cl.blitz { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
+#brett .ctitel:focus-visible, #brett .leiste:focus-visible, #brett .dupill:focus-visible, #brett .btn:focus-visible, #brett .plus:focus-visible, #brett .zuklapp:focus-visible, #brett .stufen button:focus-visible,
+#brett .cpanel:focus, #brett li.cl:focus, #brett h3[tabindex="-1"]:focus, #feldtabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+/* Aufgeklapptes einer Claude-Zeile */
+#brett .cpanel { margin: 2px 0 8px; padding: 8px 10px 6px; border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, var(--bg) 70%, var(--surface)); font-size: 12px; overflow-wrap: break-word; max-height: min(46vh, 380px); overflow: auto; color: var(--ink); }   /* gesetzt: 46 % der Fensterhöhe, höchstens 380 px; darin wird gerollt */
+#brett .cpanel[hidden] { display: none; }
+#brett .cpanel p { margin: 0 0 4px; }
+#brett .cpanel .pstand { color: var(--ink); }
+#brett .cpanel .pnaechst { color: var(--muted); }
+#brett .cpanel .pnaechst.du { color: var(--accent); }
+#brett .cpanel .pnaechst.warn { color: var(--signal); }
+#brett .cpanel .pklein { color: var(--muted); }
+#brett .cpanel .pmono { white-space: pre-wrap; font-feature-settings: "tnum" 1; color: var(--muted); }
+#brett .cpanel h5 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; margin: 8px 0 3px; font: 600 11px var(--font-ui); letter-spacing: 0.03em; color: var(--muted); text-transform: none; }
+#brett .cpanel .fehlt { color: var(--muted); font-style: italic; }
+#brett .cpanel .llPlatz, #brett .cpanel .llKonto { vertical-align: baseline; }
+#brett .llPlatz, #brett .llKonto { white-space: normal; overflow-wrap: anywhere; }   /* Runde 3 (N3): ein sehr langer Name ohne Leerzeichen (Kennung, Konto, Arbeitsplatz) bricht an der Stelle um, das Brett rollt nicht quer — wie die Marken im Lagebild */
+#brett .ortgruppe > h4 > .llPlatz { flex-shrink: 0; }   /* im Kopf der Gruppe gibt zuerst der Text rechts nach (»… arbeitet«), nicht der Name des Arbeitsplatzes */
+
+/* Gast: lesen und Notizen (kein Formular, kein Haken, kein ×, kein Antwortfeld, kein Feld »Claude«, kein Reiter »Claude«) */
+/* schmale Fenster und Telefon: Felder wischen (ein Feld je Bildschirm), keine Leisten — für Editoren und für Gäste */
+#brett.eng { overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 8px; }
+#brett.eng .feld { scroll-snap-align: start; }
+#brett.eng .feld.du { flex: 0 0 300px; } #brett.eng .feld.claude { flex: 0 0 420px; } #brett.eng .feld.k { flex: 0 0 260px; }   /* drei Breiten gesetzt; unter 700 px Fensterbreite gilt stattdessen 88 % */
+#brett.eng .zuklapp { display: none; }
+#brett.eng .feld.claude .feldkopf { flex-wrap: wrap; align-items: center; } #brett.eng .feld.claude .feldkopf > .chip, #brett.eng .feld.claude .feldkopf > .zahl { margin-top: 0; }
+#brett.eng .ctitel { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "t t" "z m"; row-gap: 2px; padding: 5px 2px; align-items: center; }
+#brett.eng .ctitel .ttext { grid-area: t; white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; } #brett.eng .ctitel .zk { grid-area: z; flex-wrap: wrap; gap: 2px 6px; } #brett.eng .ctitel .cmeta { grid-area: m; justify-self: end; max-width: none; }
+#brett.eng .ctitel .cmeta:not(.liegt) { display: inline-flex; }
+#brett.eng .cpanel { max-height: none; overflow: visible; }   /* gewischte Felder: der Aufgeklappte rollt mit der Seite, nicht in sich */
+@media (max-width: 700px) {
+  html[data-spalten="1"] #todoForm { display: none; }
+  html[data-spalten="1"] #todoForm.auf { display: flex; }
+  html[data-spalten="1"] #neuAuf { display: inline-flex; }
+  html[data-spalten="1"] #page-aufgaben h2 .hint { display: none; }
+  #brett { gap: 10px; margin: 0 -12px; padding: 0 12px 8px; scroll-padding-left: 12px; }
+  #brett.eng .feld.du, #brett.eng .feld.claude, #brett.eng .feld.k { flex: 0 0 calc((100vw - 24px) * 0.88); }   /* 88 % der Fensterbreite abzüglich der Ränder (gesetzt, wie im Entwurf: 322 px bei 390 px): das nächste Feld schaut am Rand hervor und zeigt, dass gewischt wird */
+  #brett .ctitel .cmeta, #brett .ctitel .zm, #brett .cpanel, #brett .cpanel .pklein { font-size: 12px; }
+  #brett .ctitel .cmeta.liegt { font-size: 12px; }
+}
+@media (pointer: coarse) {
+  html[data-spalten="1"] #todoForm input[type="text"], html[data-spalten="1"] #todoForm select, html[data-spalten="1"] #neuAuf, html[data-spalten="1"] #neuMehrKnopf, html[data-spalten="1"] #todoForm .neumehr label, #feldtabs button { min-height: 44px; }
+  #brett .btn, #brett .stufen button, #brett .lnk, #brett .zuklapp, #brett .leiste, #brett .crow, #brett .ctitel, #brett .dupill, #lagezeile .stufen button, #brettStatus > button { min-height: 44px; }
+  #brett .plus, #brett .zuklapp { width: 44px; height: 44px; }
+  #brett .dupill { min-width: 44px; }
+  html[data-spalten="1"] #aufgabenKarte details.donebox > summary { min-height: 44px; display: flex; align-items: center; }
+}
+@media (prefers-reduced-motion: no-preference) { #brett.eng { scroll-behavior: smooth; } }

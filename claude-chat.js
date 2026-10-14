@@ -32,7 +32,7 @@
       '<form class="add ccForm" id="ccForm">' +
         '<textarea id="ccInput" placeholder="Nachricht an Claude — auch per Diktat über die Handy-Tastatur …" maxlength="4000"></textarea>' +
         '<select id="ccZiel" aria-label="Wo soll Claude arbeiten" title="Wo soll Claude arbeiten">' +
-          '<option value="egal">Ort egal (Repo, Texte)</option>' +
+          '<option value="egal">Arbeitsplatz egal (Repo, Texte)</option>' +
           '<option value="schnitt11">nur Schnitt 11 (RAID, Premiere)</option>' +
         '</select>' +
         '<button class="primary" type="submit">Senden</button>' +

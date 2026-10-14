@@ -20,6 +20,8 @@
    Bauschritt 4 (14.10.2026): das Lagebild zeigt jede offene Claude-Aufgabe, genau einen Kasten je Aufgabe und nur für offene (Plätze »wartet auf Übernahme« und »Warten auf dich« je Arbeitsplatz, Ruhendes klein,
    Chat-Nachricht als eigener Kasten, Legende zählt getrennt, Einzelheiten haften unten oder stehen unter dem Kasten); »Warten auf dich« heißt und zählt im Kanal, im Lagebild und in der Sprungzeile gleich;
    Sprungzeile im Reiter »Claude«; Schnittstelle window.LEITSTAND_KANAL und Ereignis leitstand:kanal — alles nur mit der Lesart von Bauschritt 4.
+   Bauschritt 5 (14.10.2026): der Satz am Sendefeld, wer den Auftrag übernimmt (nur mit dem Brett: window.leitstandSpalten, gesetzt von index.html); Kennung des Laufs vor Status einer Sitzung (Auflage aus Bauschritt 4);
+   ein Neuzeichnen rollt die Seite nicht zurück, wenn der Mensch sie weggerollt hat.
    Alle sichtbaren Texte stehen in KANAL_TEXT, LAGE_TEXT und RICHTWERTE — VORSCHLÄGE, bis LES sie freigibt (Liste: 261009 Neue Texte CL LES.md,
    Kennungen AK1 …, AL1 …, RW1 …). */
 (function () {
@@ -156,6 +158,8 @@
     if (window.leitstandZeigeAufgabe !== true) return null;   // Runde 2 (Prüfbericht Bedienung, Befund 1): eine index.html von vor dem Schritt (aus dem Zwischenspeicher) hört den Sprung in die Aufgaben nicht — mit ihr tut diese Datei, was sie vor dem Schritt tat
     return l && l.schritt >= 4 && typeof l.chatZustand === "function" && typeof l.laeuftOderPausiert === "function" && typeof l.kern === "function" && typeof l.wartenAufDich === "function" ? l : null;
   }
+  /* Bauschritt 5: der Satz am Sendefeld gehört zum Brett — nur mit dem Schalter (index.html setzt window.leitstandSpalten, wenn das Brett steht) und einer Lesart, die den Satz liefert (nimmt). Sonst tut diese Datei, was sie vorher tat. */
+  function fuenf() { var l = marken(); return window.leitstandSpalten === true && l && l.brett === 1 && typeof l.nimmt === "function" ? l : null; }
   /* Wörter des Schritts, alle aus der Bauvorlage Fassung 2 (§ 2.4, § 2.7, § 3.3, »Schritt 4«) oder ihrem statischen Entwurf: »Warten auf dich« (Name überall gleich), »Nichts wartet auf dich.«, »Nachricht an dich«,
      »in den Aufgaben zeigen«, »Aufgabe nicht mehr vorhanden«, »jetzt« vor der Marke, die Kennzeichen BEREIT, DU, CHAT, die Legende und die Sprungzeile */
   var FEST4 = { warten: "Warten auf dich", nichtsWartet: "Nichts wartet auf dich.", nachrichtAnDich: "Nachricht an dich", inAufgaben: "in den Aufgaben zeigen", nichtMehr: "Aufgabe nicht mehr vorhanden", jetzt: "jetzt",
@@ -199,7 +203,7 @@
   function istAgent(v, upd) { return v.rolle === "agent" || /^agent:/.test(String(upd || "")); }
   function chip(wer) { return '<span class="chip ' + (wer === "LES" || wer === "JB" ? esc(wer) : "Claude") + '">' + esc(wer || "?") + "</span>"; }
   /* Anzeige einer Kennung oder eines Ziels — dieselbe Regel wie kanal_anzeige (SQL) und kanal CL LES.mjs */
-  function ortName(o) { return KANAL_TEXT.ortName[o] || o; }
+  function ortName(o) { return (Object.prototype.hasOwnProperty.call(KANAL_TEXT.ortName, o) && KANAL_TEXT.ortName[o]) || o; }   // Runde 3 (C7): nur eigene Namen — eine Zone »constructor« hieß sonst »function Object() …«
   function anzeige(k) {
     k = String(k == null ? "" : k);
     var m = /^([^@]+)@(.+)$/.exec(k);
@@ -248,7 +252,12 @@
       if (f.key) return e.dataset.key === f.key;
       var li = e.closest("li[data-id]"); return !!li && li.dataset.id === f.id && (e.dataset.act || null) === f.act;
     })[0];
-    if (k && k !== document.activeElement && k.focus) k.focus({ preventScroll: true });
+    if (k && k !== document.activeElement && k.focus) {
+      /* Auflage aus Bauschritt 4: Das Neuzeichnen holt den Fokus nur zurück, es rollt nichts — hat der Mensch die Seite weggerollt, bleibt sie dort, in jeder Richtung. Die Hörer, die einen Fokus ins Fenster holen
+         (index.html fokusUnterKopf, der Hörer für die Tastatur unten), lassen dieses eine Fokussieren aus. Ein Kasten, den die Tastatur gerade erreicht, wird weiter ins Fenster geholt. */
+      window.leitstandFokusWieder = true;
+      try { k.focus({ preventScroll: true }); } finally { window.leitstandFokusWieder = false; }
+    }
   }
 
   /* Verlauf wie ein Messenger: eigene Nachrichten rechts (Kürzel der Anmeldung), Team und Agenten links mit Kürzel-Bild, Meldungen des Leitstands
@@ -460,6 +469,13 @@
     if (!setzeHtml(anEl, feste.map(function (a) { return '<option value="' + esc(a) + '">' + esc(anzeige(a)) + "</option>"; }).join(""))) return;   // unverändert: Auswahl, Fokus und offene Liste bleiben
     if (wahl && feste.indexOf(wahl) !== -1) anEl.value = wahl;
   }
+  /* Bauschritt 5 (Schritt 5 der Bauvorlage: »derselbe Satz am Sendefeld des Kanals«): zum gewählten Empfänger sagt ein Satz, wer den Auftrag übernimmt — nur an Schnitt 11, am VPS und bei »alle Agenten« ein Hintergrunddienst,
+     sonst nur eine Sitzung, die dort gerade läuft. An LES oder JB geht kein Auftrag. Der Satz kommt aus der Lesart (nimmt), derselbe wie im Aufgeklappten einer Claude-Zeile. */
+  function uebernimmtZeigen() {
+    var el = karte && karte.querySelector("#akUebernimmt"), F = fuenf(); if (!el || !F || !anEl) return;
+    var w = anEl.value, n = w === "LES" || w === "JB" ? { warn: true, t: "Ein Auftrag geht an einen Arbeitsplatz, eine Kennung oder alle Agenten — nicht an LES oder JB." } : F.nimmt({ ziel: !w || w === "agenten" ? "alle" : w }, { anwesenheit: anwesenheit, jetzt: Date.now() });
+    el.textContent = n.t; el.className = "akUebernimmt" + (n.warn ? " akWarn" : "");
+  }
   function renderAnwesenheit() {
     var rows = anwesenheit.filter(function (v) { return v && v.kennung; })
       .sort(function (a, b) { return String(b.zuletzt || "").localeCompare(String(a.zuletzt || "")); });
@@ -470,7 +486,7 @@
       return '<span class="akAnw' + (an ? " akDa" : "") + '">' + esc(anzeige(v.kennung)) + " " + esc(fmtZeit(v.zuletzt)) + "</span>"; }).join(" · ") : "");
     anwEl.hidden = !rows.length;
     kennungen = rows.map(function (v) { return v.kennung; }).filter(function (x, i, a) { return x.indexOf("?@") !== 0 && a.indexOf(x) === i; }).sort();
-    anOptionen();
+    anOptionen(); uebernimmtZeigen();
   }
   function zeigeAufgabe(id) { if (typeof id === "string" && id) document.dispatchEvent(new CustomEvent("leitstand:zeige", { detail: { art: "aufgabe", id: id } })); }   // index.html wechselt in den Reiter »Aufgaben« und setzt den Fokus auf die Zeile
   function aktion(ev) {
@@ -580,7 +596,7 @@
   }
 
   function lageModell(jetztMs) {
-    var T = LAGE_TEXT, K = {}, kanten = [], kSet = {}, zonen = {}, erreichbar = {};
+    var T = LAGE_TEXT, K = {}, kanten = [], kSet = {}, zonen = Object.create(null), erreichbar = {};   // Runde 3 (C7): Zonen ohne Vorfahren — ein Arbeitsplatz »constructor« oder »__proto__« bekommt seine Zone wie seine Gruppe im Brett
     var knoten = function (key, art, d) { if (!K[key]) { K[key] = d || {}; K[key].key = key; K[key].art = art; K[key].links = []; K[key].rechts = []; } return K[key]; };
     var kante = function (von, zu, art) {
       var k = von + ">" + zu, e = kSet[k];
@@ -612,6 +628,9 @@
           if (aart === "chat" && V.erledigt(au.v)) aart = "erledigt";
           if (aart === "erledigt" || aart === "keine") { genannt = { titel: au.v && V.textDa(au.v.text) ? String(au.v.text) : au.titel || au.id }; au = null; }
           else ruht = aart === "chat" ? !V.chatZustand(au.v) : aart === "offen" && !V.laeuftOderPausiert(au.v);
+          /* Bauschritt 5 (Auflage aus Bauschritt 4, Entscheidung B2): Widersprechen sich der Status dieser Sitzung und die Kennung des Laufs der Aufgabe (s11kennung), gilt die Kennung des Laufs: Zone und Platz der Aufgabe
+             kommen aus ihr (unten, Teil 2), diese Sitzung nennt sie nur in ihrer Zeile »Auftrag«. */
+          if (!ruht && aart === "offen" && V.laeuftOderPausiert(au.v) && V.textDa(au.v.s11kennung) && String(au.v.s11kennung) !== String(a.kennung)) ruht = true;
         }
         var pl = au && au.v ? obj(au.v.plan) : null;
         if (M && M.istDienst(a)) {
@@ -915,10 +934,13 @@
       "|" + zr.map(function (o) { return o + M.zonen[o].badge; }).join("|");
     if (!erzwingen && sig === lage.sig) { hervorheben(); detailZeigen(); return; }
     lage.sig = sig;
-    var V = vier(), fk = fokusVon(lageEl), dfk = V ? detailHeim() : null, fertig = function () { hervorheben(); detailZeigen(dfk); fokusZurueck(lageEl, fk); };   // ein fokussierter Kasten behält den Fokus über das Neuzeichnen; Bauschritt 4: die Einzelheiten gehen vorher an ihren Platz zurück
+    var y0 = window.pageYOffset;   // Runde 2 (M2, zu B3): der Rollstand vor dem Neuschreiben des Bildes
+    var V = vier(), fk = fokusVon(lageEl), dfk = V ? detailHeim() : null, fertig = function () { hervorheben(); detailZeigen(dfk);
+      if (Math.abs(window.pageYOffset - y0) > 1) window.scrollTo(0, y0);   // Runde 2 (M2, zu B3): beim Neuschreiben ist das Bild kurz kürzer (schmal gehen die Einzelheiten unter dem Kasten heraus und wieder hinein, breit wird erst eingesetzt, dann gemessen) — der Browser rückt die Seite dabei nach; sie bleibt, wo der Mensch sie hatte
+      fokusZurueck(lageEl, fk); };   // ein fokussierter Kasten behält den Fokus über das Neuzeichnen; Bauschritt 4: die Einzelheiten gehen vorher an ihren Platz zurück
     if (!alle.length) { lageEl.innerHTML = '<p class="alLeer">' + esc(T.leer) + "</p>"; detailZeigen(dfk); return; }
     var kopf = function (i) { return '<div class="alSpKopf"' + (breit ? ' style="left:' + (PAD + i * (BW + GX)) + "px;width:" + BW + 'px"' : "") + ">" + esc(T.spalten[i]) + "</div>"; };
-    var zahlJeZone = {}; if (V) alle.forEach(function (n) { if (n.cl && n.zone) zahlJeZone[n.zone] = (zahlJeZone[n.zone] || 0) + 1; });   // Bauschritt 4: die Zahl der Claude-Aufgaben je Arbeitsplatz-Gruppe (die Summe ist die Zahl in der Legende)
+    var zahlJeZone = Object.create(null); if (V) alle.forEach(function (n) { if (n.cl && n.zone) zahlJeZone[n.zone] = (zahlJeZone[n.zone] || 0) + 1; });   // Bauschritt 4: die Zahl der Claude-Aufgaben je Arbeitsplatz-Gruppe (die Summe ist die Zahl in der Legende)
     var zoneHtml = function (o) { var z = M.zonen[o], zn = zahlJeZone[o] || 0; return '<div class="alZone" data-ort="' + esc(o) + '"><div class="alZoneKopf"><span>' + esc(zoneName(o)) + "</span>" + (V ? '<span class="alZoneZahl" data-n="' + zn + '">' + zn + esc(zn === 1 ? FEST4.aufgabe1 : FEST4.aufgabeN) + "</span>" : "") + (z.badge ? '<span class="alZoneMarke">' + esc(z.badge) + "</span>" : "")+ "</div>"; };
     if (!breit) {   // schmal: Liste je Spalte, Arbeitsplätze in ihren Zonen
       lageEl.innerHTML = '<div class="alGraph alSchmal">' + ["mitarbeiter", "platz", "aufgabe", "speicher"].map(function (art, i) {
@@ -1189,7 +1211,7 @@
        holt ein Maus- oder Fingerdruck den Fokus, rollt nichts, sonst ginge der Klick verloren (Auflage A2). */
     lageEl.addEventListener("focusin", function (ev) {
       var k = ev.target && ev.target.closest ? ev.target.closest(".alKasten") : null, d = karte.querySelector("#alDetail"), taste = false;
-      if (!k || !d.classList.contains("alHaftet") || !d.classList.contains("alOffen")) return;
+      if (!k || !d.classList.contains("alHaftet") || !d.classList.contains("alOffen") || window.leitstandFokusWieder === true) return;
       try { taste = k.matches(':focus-visible'); } catch (e) { taste = false; }
       if (taste) kastenInsFenster(k);
     });
@@ -1263,6 +1285,7 @@
       '<select id="akAn" aria-label="' + esc(KANAL_TEXT.an) + '"></select>' +
       '<label class="akAuftrag"><input type="checkbox" id="akAlsAuftrag"> ' + esc(KANAL_TEXT.alsAuftrag) + "</label>" +
       '<button class="primary akSenden" type="submit">' + esc(KANAL_TEXT.senden) + "</button></form>" +
+      (fuenf() ? '<p class="akUebernimmt" id="akUebernimmt" role="status"></p>' : "") +
       '<p class="akHinweis akFussHinweis">' + esc(KANAL_TEXT.hinweis) + "</p>" +
       '<div id="akMeldung" role="status" hidden></div></section></div>' +
       '<div class="akSpalteLage">' + lageKarteHtml() + "</div>";
@@ -1271,7 +1294,7 @@
     verlaufEl = karte.querySelector("#akVerlauf"); vorschlagEl = karte.querySelector("#akVorschlaege");
     formEl = karte.querySelector("#akForm"); textEl = karte.querySelector("#akText"); anEl = karte.querySelector("#akAn"); meldungEl = karte.querySelector("#akMeldung");
     auftragEl = karte.querySelector("#akAlsAuftrag"); anwEl = karte.querySelector("#akAnwesenheit");
-    anOptionen();
+    anOptionen(); uebernimmtZeigen(); anEl.addEventListener("change", uebernimmtZeigen);
     verlaufEl.addEventListener("click", function (ev) { var b = ev.target.closest && ev.target.closest('button[data-act="zeige"]'); if (b) zeigeAufgabe(b.dataset.id); });   // Bauschritt 4: der Titel einer Zeile mit Verweisfeld führt in die Aufgaben
     formEl.addEventListener("submit", senden);
     textEl.addEventListener("keydown", taste); textEl.addEventListener("input", hoehe);
@@ -1295,6 +1318,10 @@
     if (vorDemSprung) druckAb = jetztMs;   // genau dieser eine Klick zählt nicht; der nächste beginnt mit einem neuen Druck
     if (jetztMs - sprungAm < SPRUNG_SPERRE_MS || vorDemSprung) { ev.preventDefault(); ev.stopPropagation(); }
   }
+  document.addEventListener("leitstand:zeige", function (ev) {   // Bauschritt 5: der Satz am Formular und die Zeile der Nachrichten im Claude-Feld führen auf das Sendefeld bzw. zu »Warten auf dich« im Kanal
+    var d = ev && ev.detail; if (!d || !fuenf()) return;
+    if (d.art === "senden" && anEl) springeZiel(anEl); else if (d.art === "warten") springeZu("warten");
+  });
   document.addEventListener("leitstand:zeige", function (ev) {
     var d = ev && ev.detail; if (!d || d.art !== "vorschlag" || !vorschlagEl) return;
     sprungAm = performance.now();

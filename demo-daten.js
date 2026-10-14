@@ -383,6 +383,132 @@
   store.intern["hinweis--" + fp("hinweise/demo-alt-h9")] = { art: "hinweis", kategorie: "hinweis", titel: "Vertraulicher Beispiel-Hinweis (erfunden)", text: "Nur für Editoren.", created: vor(TAG), gilt_bis: tag(JETZT + 5 * TAG), ziel: "aufgaben" };
   store.intern["link--" + fp("links/demo-vertraulich")] = { art: "link", name: "Vertraulicher Beispiel-Link (erfunden)", url: "https://example.org/demo/vertraulich", created: vor(40 * TAG) };
 
+  /* ---- Bauschritt 5: Datensätze für Messungen am Brett — der Adress-Zusatz &claude=7|14|21 (offene Claude-Aufgaben) und &kuerzel=3|6 (weitere Kürzel: JB, XA, GST — mit 6 dazu XB, XC, XD) ersetzt todos,
+     den vertraulichen Teil (intern), kanal und kanal_anwesenheit durch dieselben Beispieldaten wie der statische Entwurf der Bauvorlage Fassung 2 (ALLES ERFUNDEN: Titel, Sitzungen, Helfer, Nachrichten;
+     Kürzel LES und JB wie die Seite, GST das Kürzel der Gast-Demo, XA bis XD erfunden). Zeiten im Entwurf: Uhrzeit bei 10:41 als »jetzt« und Tage vor dem 12.10.; hier relativ zu jetzt (Minuten bzw. Tage zurück).
+     Ohne den Zusatz bleibt der Bestand dieser Datei, wie er ist. */
+  (function () {
+    var mc = /[?&]claude=(7|14|21)(?:&|$)/.exec(location.search), mk = /[?&]kuerzel=(3|6)(?:&|$)/.exec(location.search);
+    if (!mc && !mk) return;
+    var N = mc ? +mc[1] : 14, KZ = mk ? +mk[1] : 3;
+    function z(s) {   // »10:38« → so viele Minuten vor jetzt wie im Entwurf vor 10:41; »07.10.« → so viele Tage vor dem 12.10. zurück
+      var m = /^(\d\d):(\d\d)$/.exec(String(s)), d = /^(\d\d)\.(\d\d)\.$/.exec(String(s));
+      if (m) return vor(((10 * 60 + 41) - (+m[1] * 60 + +m[2])) * MIN);
+      if (d) return vor((12 - +d[1]) * TAG + STD);
+      return undefined;
+    }
+    function tg(n) { return tag(JETZT + n * TAG); }   // ein Berliner Tag relativ zu heute
+    var POOL = [
+      { id: "c1", text: "Kapitelübersicht Musterfilm entwerfen und gegenprüfen", prio: 1, ziel: "schnitt11", quelle: "kanal", created: "09:40", angefordert: true, angefordertVon: "LES", angefordertAm: "09:58", s11status: "laeuft", s11kennung: "LES@schnitt11", s11gestartetAm: "10:02",
+        s11fortschritt: "Beispielausgabe: Entwurf steht, Gegenprüfung läuft (Schritt 3 von 4).", beschreibung: "Aus den Beispielnotizen eine Kapitelübersicht mit sechs bis acht Kapiteln bauen, je Kapitel ein Satz. Danach von einem zweiten Blick gegenlesen lassen.",
+        plan: { mitarbeiter: "LES", konto: "LES", modell: "opus", effort: "high", arbeitsweise: "subagenten", ort: "schnitt11", zugriff: ["repo"] } },
+      { id: "c2", text: "Projektdatei Muster auslesen", prio: 2, ziel: "schnitt11", quelle: "kanal", created: "08:10", angefordert: true, angefordertVon: "LES", angefordertAm: "08:12", s11status: "fehler", s11beendetAm: "08:31",
+        s11ergebnis: "Beispielmeldung: Die Datei ließ sich nicht öffnen.", beschreibung: "Bins, Sequenzen und Bildrate der Musterdatei als Liste ausgeben. Nur lesen." },
+      { id: "c3", text: "Clipliste Beispieltag B gegenzählen", prio: 2, ziel: "schnitt11", quelle: "kanal", created: "09:45", angefordert: true, angefordertVon: "JB", angefordertAm: "09:48", s11status: "laeuft", s11kennung: "Dropout@schnitt11", s11gestartetAm: "10:20",
+        beschreibung: "Die Clipliste von Beispieltag B gegen den Musterordner zählen und Abweichungen als Tabelle melden." },
+      { id: "c4", text: "Linkliste auf tote Adressen prüfen", prio: 2, ziel: "egal", quelle: "formular", created: "10:15", angefordert: true, angefordertVon: "JB", angefordertAm: "10:18", s11status: "laeuft", s11ziel: "vps", s11gestartetAm: "10:20",
+        s11lauf: { weg: "les-api", art: "api", konto: "LES", modell: "sonnet", modell_genau: "claude-sonnet-5-5", gemeldet: "10:20" }, s11fortschritt: "Beispielausgabe: 14 von 40 Adressen geprüft." },
+      { id: "c5", text: "Wochenübersicht Musterfilm zusammenstellen", prio: 2, ziel: "vps", quelle: "formular", created: "07:28", angefordert: true, angefordertVon: "LES", angefordertAm: "07:30", s11status: "wartet", s11ziel: "vps", s11beendetAm: "07:52", s11wiederAb: "11:30" },
+      { id: "c6", text: "Prüflauf Beispielseite nach dem Umbau", prio: 2, ziel: "cloud", quelle: "kanal", created: "09:55", vorgeschlagenVon: "JB@cloud", vorgeschlagenAm: "09:55",
+        beschreibung: "Nach dem Umbau der Beispielseite einmal alle Reiter öffnen und prüfen, ob jede Liste lädt. Dazu die drei Musteraufgaben anlegen, abhaken und zurückholen, eine Notiz schreiben und im Archiv nachsehen, ob sie dort ankommt. Am Telefon dieselbe Runde im Hoch- und Querformat. Auffälliges mit Reiter, Schritt und Uhrzeit notieren, nichts reparieren. Am Ende eine Liste: was ging, was nicht, was unklar blieb.",
+        planVorschlag: { modell: "sonnet", effort: "medium", ort: "cloud" } },
+      { id: "c7", text: "Beispieltext für die Anleitung kürzen", prio: 3, ziel: "egal", quelle: "formular", created: "07.10.", beschreibung: "Den Beispieltext auf die Hälfte kürzen, ohne dass ein Schritt fehlt." },
+      { id: "c8", text: "Musterordner auf doppelte Dateien prüfen", prio: 2, ziel: "schnitt11", quelle: "kanal", created: "08:38", angefordert: true, angefordertVon: "JB", angefordertAm: "08:40", s11status: "zurueckgegeben", s11zurueckVon: "LES@schnitt11", s11zurueckAm: "09:20",
+        s11zurueckGrund: "Limit erreicht, gebe ab", plan: { konto: "Dropout", modell: "opus", effort: "high", ort: "schnitt11" } },
+      { id: "c9", text: "Beispielliste der Musiktitel abgleichen", prio: 2, ziel: "vps", quelle: "formular", created: "09:02", angefordert: true, angefordertVon: "JB", angefordertAm: "10:35", s11status: "fehler", s11ziel: "vps", s11beendetAm: "09:31", s11ergebnis: "Beispielmeldung: Die Liste war leer." },
+      { id: "c10", text: "Untertitel-Rohfassung Musterszene erzeugen", prio: 2, ziel: "schnitt11", quelle: "formular", created: "08:48", angefordert: true, angefordertVon: "LES", angefordertAm: "08:50", s11status: "abgebrochen", s11ziel: "schnitt11", s11beendetAm: "09:05",
+        s11ergebnis: "Beispielmeldung: Der Hintergrunddienst wurde neu gestartet." },
+      { id: "c11", text: "Beispielseite auf Tippfehler lesen", prio: 3, ziel: "cloud", quelle: "kanal", created: "10:10", angefordert: true, angefordertVon: "JB", angefordertAm: "10:10" },
+      { id: "c12", text: "Beispieltabelle der Musterorte ordnen", prio: 2, ziel: "macbook-les", quelle: "kanal", created: "09:44", angefordert: true, angefordertVon: "LES", angefordertAm: "09:44", s11status: "laeuft", s11kennung: "LES@macbook-les", s11gestartetAm: "10:31",
+        beschreibung: "Die Beispieltabelle nach Arbeitsplatz und Datum ordnen und doppelte Zeilen markieren." },
+      { id: "c13", text: "Musterglossar auf Dopplungen prüfen", prio: 3, ziel: "alle", quelle: "kanal", created: "10:08", angefordert: true, angefordertVon: "LES", angefordertAm: "10:08" },
+      { id: "c14", text: "Beispielsequenz im Schnittprogramm nachbauen", prio: 2, ziel: "LES@schnitt11", quelle: "formular", created: "09:15" },
+      { id: "c15", text: "Nachtlauf: Beispielberichte zusammenfassen", prio: 3, ziel: "vps", quelle: "kanal", created: "10:02", vorgeschlagenVon: "LES@schnitt11", vorgeschlagenAm: "10:02", abgelehntVon: "JB", abgelehntAm: "10:12",
+        beschreibung: "Jede Nacht die Beispielberichte des Tages lesen und in fünf Zeilen zusammenfassen. Nur lesen, nichts ändern." },
+      { id: "c16", text: "Beispielnotizen nach Themen ordnen", prio: 3, ziel: "macbook12", quelle: "formular", created: "10:35", angefordert: true, angefordertVon: "JB", angefordertAm: "10:36", s11status: "laeuft", s11kennung: "JB@macbook12", s11gestartetAm: "10:37", s11frist: "11:07" },
+      { id: "c17", text: "Probeauftrag für einen neuen Arbeitsplatz", prio: 3, ziel: "testplatz", created: "08.10." },
+      { id: "c18", text: "Beispielskript in drei Schritten umbauen und prüfen", prio: 1, ziel: "vps", quelle: "kanal", created: "10:24", angefordert: true, angefordertVon: "LES", angefordertAm: "10:25", s11status: "laeuft", s11kennung: "Dropout@vps", s11gestartetAm: "10:27",
+        s11fortschritt: "Beispielausgabe: Schritt 1 fertig, Schritt 2 läuft." },
+      { id: "c19", text: "Musterbericht als Tabelle ausgeben", prio: 2, ziel: "vps", quelle: "formular", created: "08:55", angefordert: true, angefordertVon: "LES", angefordertAm: "08:56", s11status: "fehler", s11ziel: "vps", s11beendetAm: "09:12", s11ergebnis: "Beispielmeldung: Die Zeit reichte nicht." },
+      { id: "c20", text: "Beispielfassung für die Abnahme vorbereiten", prio: 1, ziel: "schnitt11", quelle: "kanal", created: "10:00", angefordert: true, angefordertVon: "LES", angefordertAm: "10:01", s11status: "laeuft", s11kennung: "LES@schnitt11", s11gestartetAm: "10:06" },
+      { id: "c21", text: "Beispielordner mit der Liste abgleichen", prio: 2, ziel: "schnitt11", quelle: "formular", created: "07:40", angefordert: true, angefordertVon: "JB", angefordertAm: "07:41", s11status: "wartet", s11ziel: "schnitt11", s11beendetAm: "08:02", s11wiederAb: "12:00" }
+    ].slice(0, N);
+    var FERTIG = [
+      { id: "d1", text: "Dateinamen im Musterordner prüfen", ziel: "cloud", quelle: "kanal", created: "09:10", done: true, angefordert: true, angefordertVon: "JB", angefordertAm: "09:12", s11status: "fertig", s11beendetAm: "09:40", s11ergebnis: "Beispielmeldung: 212 Namen geprüft, keine Auffälligkeit." },
+      { id: "d2", text: "Beispielarchiv umbenennen", ziel: "egal", quelle: "kanal", created: "08:58", done: true, vorgeschlagenVon: "JB@cloud", vorgeschlagenAm: "08:58", abgelehntVon: "LES", abgelehntAm: "09:10" },
+      { id: "d3", text: "Beispielliste alphabetisch sortieren", ziel: "vps", quelle: "formular", created: "07:05", done: false, angefordert: true, angefordertVon: "LES", angefordertAm: "07:06", s11status: "fertig", s11ziel: "vps", s11beendetAm: "07:20", s11ergebnis: "Beispielmeldung: 48 Zeilen sortiert." }
+    ];
+    var CHAT = [
+      { id: "ch1", ab: 14, text: "Stand?", angefordert: true, angefordertVon: "LES", angefordertAm: "10:39", s11status: "laeuft", s11ziel: "schnitt11", s11gestartetAm: "10:39" },
+      { id: "ch2", text: "Was läuft gerade?", angefordert: false, angefordertVon: "LES", angefordertAm: "08:58", s11status: "abgebrochen", s11beendetAm: "09:02" },
+      { id: "ch3", ab: 21, text: "Wie weit ist die Wochenübersicht?", angefordert: true, angefordertVon: "JB", angefordertAm: "10:22", s11status: "wartet", s11ziel: "vps", s11beendetAm: "10:23", s11wiederAb: "11:30" }
+    ].filter(function (c) { return !c.ab || c.ab <= N; });
+    var ZEITFELDER = ["created", "angefordertAm", "s11gestartetAm", "s11beendetAm", "s11wiederAb", "s11zurueckAm", "vorgeschlagenAm", "abgelehntAm", "s11frist"];
+    function dok(x) { var d = {}, k; for (k in x) if (k !== "id" && k !== "ab") d[k] = ZEITFELDER.indexOf(k) !== -1 && typeof x[k] === "string" ? z(x[k]) : x[k]; d.typ = "claude"; d.wer = "Claude"; if (x.done == null) d.done = false; return d; }
+    var T = {};
+    POOL.concat(FERTIG).forEach(function (x) { T[x.id] = dok(x); });
+    CHAT.forEach(function (x) { var d = dok(x); d.quelle = "chat"; T[x.id] = d; });
+    /* Aufgaben für Menschen: Fälligkeit und Alter relativ zu heute (12.10. im Entwurf = heute) */
+    var MENSCHEN = [
+      { id: "m1", wer: "LES", prio: 1, text: "Untertitel Musterfilm gegenlesen", faellig: -2 }, { id: "m2", wer: "LES", prio: 1, typ: "frage", text: "Rückfrage: Welche Fassung geht an den Musterkunden?", alter: 3 },
+      { id: "m3", wer: "LES", prio: 2, text: "Schnittplan Beispielwoche eintragen", faellig: 3, plan: { mitarbeiter: "LES", stand: "in_arbeit" } }, { id: "m4", wer: "Editoren", prio: 2, intern: true, text: "Ordnerstruktur Musterprojekt prüfen", alter: 4 },
+      { id: "m5", wer: "alle", prio: 3, text: "Abwesenheiten im Beispielkalender eintragen", faellig: 6, plan: { mitarbeiter: "JB", stand: "geplant" } }, { id: "m6", wer: "JB", prio: 1, text: "Angebot Tonmischung Musterfilm einholen", faellig: 2, plan: { mitarbeiter: "JB", stand: "in_arbeit" } },
+      { id: "m7", wer: "JB", prio: 2, text: "Musikliste Beispielfassung vervollständigen", alter: 5 }, { id: "m8", wer: "JB", prio: 3, text: "Titelgrafik Musterfilm freigeben", alter: 3 },
+      { id: "m9", wer: "XA", prio: 2, text: "Kameratest Beispieloptik auswerten", alter: 4, plan: { mitarbeiter: "XA", stand: "geplant" } }, { id: "m10", wer: "XA", prio: 3, text: "Akkuliste Beispielgerät aktualisieren", alter: 7 },
+      { id: "m11", wer: "GST", prio: 2, text: "Logo-Varianten Musterkunde liefern", faellig: 4 }, { id: "m12", wer: "GST", prio: 3, text: "Beispielfotos vom Musterdreh sortieren", alter: 3 },
+      { id: "m13", wer: "XB", mehr: true, prio: 2, text: "Tonprotokoll Beispieltag abtippen", faellig: -3 }, { id: "m14", wer: "XB", mehr: true, prio: 3, text: "Kabelliste Mustergerät prüfen", alter: 6 },
+      { id: "m15", wer: "XC", mehr: true, prio: 2, text: "Beispielplakat Korrektur lesen", faellig: 5 }, { id: "m16", wer: "XD", mehr: true, prio: 2, text: "Fahrplan Mustertag aufschreiben", alter: 4 },
+      { id: "m17", wer: "XD", mehr: true, prio: 3, text: "Beispielrequisiten zurückbringen", alter: 5 },
+      { id: "e1", wer: "LES", prio: 2, done: true, text: "Beispielvertrag ablegen", von: "LES", vor: 1 }, { id: "e2", wer: "JB", prio: 2, done: true, text: "Beispieltermin Abnahme bestätigen", von: "JB", vor: 2 }
+    ].filter(function (m) { return !m.mehr || KZ >= 6; });
+    var INTERN = {};
+    MENSCHEN.forEach(function (m) {
+      var d = { text: m.text, typ: m.typ || "aufgabe", wer: m.wer, prio: m.prio, done: !!m.done, created: vor((m.alter || 1) * TAG) };
+      if (m.faellig != null) d.faellig = tg(m.faellig);
+      if (m.plan) d.plan = m.plan;
+      if (m.done) { d.geaendert_von = m.von; d.geaendert_am = vor(m.vor * TAG); d.geaendert_rolle = "admin"; d.erledigtAm = vor(m.vor * TAG); }
+      if (m.intern) { d.art = "aufgabe"; INTERN["demo-aufgabe-" + m.id] = d; } else T[m.id] = d;
+    });
+    store.todos = Object.assign(T, { meta: store.todos.meta });
+    Object.keys(store.intern).forEach(function (k) { if (store.intern[k] && store.intern[k].art === "aufgabe") delete store.intern[k]; });
+    Object.assign(store.intern, INTERN);
+    /* Anwesenheit: Sitzungen und Hintergrunddienst (status wie die Sitzung ihn meldet; »ab«: ab welcher Zahl von Claude-Aufgaben es den Eintrag gibt) */
+    var ANW = [
+      { kennung: "LES@schnitt11", zuletzt: "10:38", status: { sitzung: "4c1e9a07", mitarbeiter: "LES", zustand: "arbeitet", auftrag: { id: "c1", titel: "Kapitelübersicht Musterfilm entwerfen und gegenprüfen" }, modell: "opus", modell_genau: "claude-opus-5-5", modell_quelle: "protokoll", effort: "xhigh", arbeitsweise: "subagenten", zugriff: ["repo"], gesetzt: "10:14",
+          helfer: [{ id: "a1f0c2d3", rolle: "creative", rollenbild: "Informationsdesignerin", modell_genau: "claude-opus-5-5", effort: "xhigh", zustand: "arbeitet" }, { id: "b7c2e4f5", rolle: "pruefer", rollenbild: "Lektorin", modell_genau: "claude-opus-5-5", effort: "high", zustand: "wartet" },
+                   { id: "c93d0a1b", rolle: "scout", rollenbild: "Archivar", modell_genau: "claude-sonnet-5-5", effort: "low", zustand: "fertig" }] } },
+      { kennung: "?@schnitt11", zuletzt: "09:57", abgemeldet: "09:58", abgemeldetGrund: "kontowechsel", abgemeldetSitzung: "4c1e9a07", status: { sitzung: "4c1e9a07", zustand: "wartet", gesetzt: "09:57" } },
+      { kennung: "Dropout@schnitt11", zuletzt: "10:36", status: { sitzung: "b7d20f35", zustand: "arbeitet", auftrag: "c3", modell: "opus", modell_quelle: "umgebung", gesetzt: "10:21" } },
+      { kennung: "?@vps", zuletzt: "10:35", status: { dienst: "listener", zustand: "arbeitet", gesetzt: "10:20" } },
+      { kennung: "LES@vps", zuletzt: "08:50", abgemeldet: "08:52", abgemeldetGrund: "abgemeldet", abgemeldetSitzung: "c09d71be", status: { sitzung: "c09d71be", mitarbeiter: "LES", zustand: "fertig", gesetzt: "08:41" } },
+      { kennung: "JB@cloud", zuletzt: "09:55", status: { sitzung: "91aa3f60", mitarbeiter: "JB", zustand: "fertig", auftrag: { id: "d1", titel: "Dateinamen im Musterordner prüfen" }, gesetzt: "09:40" } },
+      { kennung: "LES@macbook-les", ab: 14, zuletzt: "10:39", status: { sitzung: "d3f0c8e1", mitarbeiter: "LES", zustand: "arbeitet", auftrag: { id: "c12", titel: "Beispieltabelle der Musterorte ordnen" }, modell: "sonnet", modell_genau: "claude-sonnet-5-5", modell_quelle: "protokoll", effort: "medium", arbeitsweise: "einzeln", helfer: [], zugriff: ["lokal"], gesetzt: "10:31" } },
+      { kennung: "Dropout@vps", ab: 21, zuletzt: "10:40", status: { sitzung: "7a2b6d44", zustand: "arbeitet", auftrag: { id: "c18", titel: "Beispielskript in drei Schritten umbauen und prüfen" }, modell: "sonnet", modell_genau: "claude-sonnet-5-5", modell_quelle: "protokoll", effort: "medium", arbeitsweise: "workflow", zugriff: ["repo"], gesetzt: "10:33",
+          helfer: [{ id: "d4100a0a", rolle: "worker", rollenbild: "Systemtechnikerin", modell_genau: "claude-sonnet-5-5", effort: "medium", zustand: "arbeitet" }, { id: "e5a80b0b", rolle: "pruefer", rollenbild: "Wirtschaftsprüfer", modell_genau: "claude-opus-5-5", effort: "high", zustand: "wartet" }] } },
+      { kennung: "JB@macbook12", ab: 21, zuletzt: "10:39", abgemeldetOffen: "10:40", abgemeldetSitzung: "5b90e2aa", status: { sitzung: "5b90e2aa", mitarbeiter: "JB", zustand: "arbeitet", auftrag: { id: "c16", titel: "Beispielnotizen nach Themen ordnen" }, gesetzt: "10:37" } },
+      { kennung: "?@testplatz", ab: 21, zuletzt: "10:30", status: { sitzung: "a41c77d0", zustand: "wartet", gesetzt: "10:30" } }
+    ].filter(function (a) { return !a.ab || a.ab <= N; });
+    var AW = {}, ZA = ["zuletzt", "abgemeldet", "abgemeldetOffen"];
+    ANW.forEach(function (a) { var d = { kennung: a.kennung, status: JSON.parse(JSON.stringify(a.status)) }; ZA.forEach(function (k) { if (a[k]) d[k] = z(a[k]); }); if (a.abgemeldetGrund) d.abgemeldetGrund = a.abgemeldetGrund; if (a.abgemeldetSitzung) d.abgemeldetSitzung = a.abgemeldetSitzung; if (d.status.gesetzt) d.status.gesetzt = z(d.status.gesetzt); AW[a.kennung] = d; });
+    store.kanal_anwesenheit = AW;
+    /* Zeilen des Agenten-Kanals, die auf einen Auftrag verweisen (Feldname in VERWEIS), und die Nachrichten an Menschen */
+    var VERWEIS = "bez" + "ug";   // Feldname der Sammlung kanal; der Suchlauf des Prüfstands hielte das Wort sonst für einen Namen (wie im Kanal-Skript)
+    var K = [["08:12", "LES", "schnitt11", "auftrag", "c2"], ["08:14", "LES@schnitt11", "", "beansprucht", "c2"], ["08:31", "LES@schnitt11", "", "fehler", "c2"], ["08:40", "JB", "schnitt11", "auftrag", "c8"], ["08:45", "LES@schnitt11", "", "beansprucht", "c8"],
+      ["08:58", "JB@cloud", "", "vorschlag", "d2"], ["09:20", "LES@schnitt11", "", "abgegeben", "c8", "Limit erreicht, gebe ab"], ["09:40", "JB@cloud", "", "fertig", "d1"], ["09:44", "LES", "macbook-les", "auftrag", "c12"], ["09:48", "JB", "schnitt11", "auftrag", "c3"],
+      ["09:55", "JB@cloud", "", "vorschlag", "c6"], ["09:58", "LES", "schnitt11", "auftrag", "c1"], ["10:01", "LES", "schnitt11", "auftrag", "c20"], ["10:02", "LES@schnitt11", "", "beansprucht", "c1"], ["10:02", "LES@schnitt11", "", "vorschlag", "c15"],
+      ["10:06", "LES@schnitt11", "", "beansprucht", "c20"], ["10:08", "LES", "alle", "auftrag", "c13"], ["10:10", "JB", "cloud", "auftrag", "c11"], ["10:20", "Dropout@schnitt11", "", "beansprucht", "c3"], ["10:25", "LES", "vps", "auftrag", "c18"],
+      ["10:27", "Dropout@vps", "", "beansprucht", "c18"], ["10:31", "LES@macbook-les", "", "beansprucht", "c12"]];
+    var KAN = {}, n = 0;
+    K.forEach(function (r) { if (T[r[4]] === undefined) return; var d = { von: r[1], rolle: /@/.test(r[1]) ? "agent" : "team", art: r[3], created: z(r[0]) }; d[VERWEIS] = r[4]; if (r[2]) d.an = r[2]; if (r[5]) d.text = r[5]; if (r[3] === "auftrag") d.titel = T[r[4]].text; KAN["demo-k" + (++n)] = d; });
+    [["09:25", "JB", "LES", "", "Kannst du heute noch die Beispielfassung ansehen?", 0], ["10:12", "Dropout@schnitt11", "LES", "c3", "Soll die Clipliste auch die Tonspuren zählen?\n\nBeispieltag B hat getrennte Tonordner. Ohne Antwort zähle ich nur die Bildclips.", 0],
+      ["10:33", "Dropout@vps", "JB", "", "Schritt 2 braucht den Beispielschlüssel — legst du ihn ab?", 21], ["10:36", "LES@macbook-les", "LES", "c12", "Zwei Zeilen der Beispieltabelle tragen kein Datum — löschen oder stehen lassen?", 21],
+      ["10:38", "Dienst@vps", "LES", "c13", "Wartet seit 30 min auf alle Agenten: »Musterglossar auf Dopplungen prüfen« — noch keine Sitzung hat ihn übernommen.", 14]].forEach(function (r) {
+      if (r[5] > N || (r[3] && T[r[3]] === undefined)) return;
+      var d = { von: r[1], rolle: /@/.test(r[1]) ? "agent" : "team", an: r[2], art: "nachricht", text: r[4], created: z(r[0]) }; if (r[3]) d[VERWEIS] = r[3]; KAN["demo-k" + (++n)] = d;
+    });
+    store.kanal = KAN;
+  })();
+
   /* ---- Vermerke nach Vertrag V4: Kennzeichen im lesbaren Eintrag, Text im Begleit-Eintrag intern/vermerk--{sammlung}--{fp(kennung)} ---- */
   var mitAltbestand = !/[?&]altbestand=0(&|$)/.test(location.search);
   var ALT = window.LEITSTAND_DEMO_ALTBESTAND || [];

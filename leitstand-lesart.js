@@ -7,7 +7,8 @@
      · Namen der Arbeitsplätze, ihre Reihenfolge und die Marke als HTML (§ 4),
      · (Bauschritt 3) die zwei Marken für Konto (wer) und Arbeitsplatz (wo), nie in einem Wort verschmolzen, und die Regel, wann ein Eintrag der Anwesenheit abgemeldet ist,
      · (Bauschritt 4) die Liste »Warten auf dich« mit den Nachrichten an das Kürzel (über die Schnittstelle des Kanals, window.LEITSTAND_KANAL), der Zustand einer laufenden oder pausierten Chat-Nachricht
-       und die erste Zeile einer Nachricht (kern).
+       und die erste Zeile einer Nachricht (kern),
+     · (Bauschritt 5, Brett) die Sätze des Aufgeklappten: Stand als Satz, wer als Nächstes dran ist, wer den Auftrag übernimmt, »liegt seit … min«, die Konto-Marke dessen, der eine Aufgabe hält, und die Reihenfolge in einer Gruppe.
    Rückfall: Fehlt diese Datei oder hat sie eine andere `fassung`, fragen die vier Aufrufer (index.html, agenten-kanal.js, leitstand-db.js,
    claude-chat.js) `window.LEITSTAND_LESART` ab und tun, was sie vor dem Schritt taten. Die Datei kennt keine Datenbank von sich aus: Der Schreibweg
    bekommt sie über `verbinde`. Sichtbarer Text: nur Wortlaut der Bauvorlage oder der veröffentlichten Seite. */
@@ -15,7 +16,7 @@
   "use strict";
 
   var FASSUNG = 1;
-  var SCHRITT = 4;   // Bauschritt 4: wer die Lesart mit der Liste der Nachrichten und dem Chat-Zustand braucht, fragt `schritt`; die Fassung bleibt 1, damit die vier Dateien aus Paket 2 sie weiter annehmen
+  var SCHRITT = 4;   // Das Merkmal data-lesart-schritt bleibt »4«: die Stilregeln des Lagebilds hängen daran. Wer die Sätze für das Brett braucht (Bauschritt 5), fragt `brett` (Funktionen, nicht Fassung). Bauschritt 4: wer die Lesart mit der Liste der Nachrichten und dem Chat-Zustand braucht, fragt `schritt`; die Fassung bleibt 1, damit die vier Dateien aus Paket 2 sie weiter annehmen
   var FREIGEBER = ["LES", "JB"];
 
   var TEXT = {
@@ -23,6 +24,7 @@
     speichernFehl: "Speichern fehlgeschlagen — kurz warten und noch einmal versuchen.",             // Wortlaut der veröffentlichten Seite (Formular »+ Aufgabe«)
     zurueckgeholt: "zurückgeholt — läuft nicht noch einmal, dafür eine neue Aufgabe anlegen",       // Bauvorlage § 3.1
     herkunft: "Hier wird dieser Auftrag nicht freigegeben — seine Herkunft ist nicht erkennbar. Neu anlegen, dann »Jetzt erledigen«.",   // Bauvorlage § 3.2
+    herkunftNeu: "Kein »Neu anfordern« bei diesem Auftrag — seine Herkunft ist nicht erkennbar. Neu anlegen, dann »Jetzt erledigen«.",   // Wortlaut abgenommen 13.10.2026 (Wortlaut Herkunft an Fehler und Abbruch): an »Fehler« und »abgebrochen« ohne erkennbare Herkunft; der Satz bei »nicht freigegeben« bleibt
     alsText: "»angefordert« ist als Text gespeichert — kein Hintergrunddienst nimmt es so",         // Bauvorlage § 3.2
     knopf: { zum: "Zum Vorschlag →", jetzt: "Jetzt erledigen", neu: "Neu anfordern" },
     kontoOffen: "Konto nicht gemeldet",                                                             // Bauvorlage § 4 (Tabelle »Konto«), Schritt 3
@@ -111,7 +113,7 @@
     else if (n === 2 && !wahrWert(v.done)) z.zusatz = "zurueckgeholt";
     return z;
   }
-  function hinweisText(z) { return z.hinweis === "herkunft" ? TEXT.herkunft : z.hinweis === "text" ? TEXT.alsText : z.zusatz === "zurueckgeholt" ? TEXT.zurueckgeholt : ""; }
+  function hinweisText(z) { return z.hinweis === "herkunft" ? (z.nr === 6 || z.nr === 7 ? TEXT.herkunftNeu : TEXT.herkunft) : z.hinweis === "text" ? TEXT.alsText : z.zusatz === "zurueckgeholt" ? TEXT.zurueckgeholt : ""; }
   function markeHtml(z) {
     return '<span class="llMarke ' + esc(z.klasse) + '" data-zustand="' + esc(z.klasse) + '" data-stufe="' + esc(z.stufe) + '"><i aria-hidden="true"></i>' + esc(z.wort) + "</span>";
   }
@@ -124,8 +126,23 @@
      ist das Ziel egal, alle oder fehlt es, steht er unter »Arbeitsplatz egal«. Der Text der Datenbank in s11ziel (»Konto @ Arbeitsplatz«; ohne s11kennung nur in Altbestand) ist keine Meldung des Ortes:
      Die Seite liest für die Anzeige nie den Text in s11ziel (§ 4). */
   function ortDesLaufs(v) { v = v || {}; return ortVonZiel(textDa(v.s11kennung) ? v.s11kennung : textDa(v.s11ziel) && !/\s@\s/.test(String(v.s11ziel)) ? v.s11ziel : (v.ziel || "egal")); }
-  /* Läuft oder pausiert eine Aufgabe, zählt, wo sie läuft (Kennung oder Ort des Dienstes, sonst das Ziel: E1); sonst, wohin sie soll */
-  function arbeitsplatz(v) { v = v || {}; return laeuftOderPausiert(v) ? ortDesLaufs(v) : ortVonZiel(v.ziel || "egal"); }
+  /* Läuft oder pausiert eine Aufgabe, zählt, wo sie läuft (Kennung oder Ort des Dienstes, sonst das Ziel: E1); sonst, wohin sie soll.
+     Runde 3 (Entscheidung C1): Trägt der Lauf keine Kennung und nennt der Status einer Sitzung die Aufgabe (`id`) als ihren Auftrag, gilt der Arbeitsplatz dieser Sitzung — er ist dann die einzige Meldung, wo sie läuft.
+     Die Anwesenheit kommt in `ctx` (über window.LEITSTAND_KANAL.anwesenheit, Schnittstelle aus Schritt 4). Es zählt dieselbe Sitzung wie im Lagebild (agenten-kanal.js, lageModell, Teil 1): ein Eintrag mit Kennung, gesehen
+     in den letzten 12 Stunden oder ohne Zeit, nicht abgemeldet, kein Hintergrunddienst; nennen ihn mehrere, der zuletzt gesehene; ihr Arbeitsplatz wie ihre Zone dort (`ort`, sonst aus der Kennung). Ohne `ctx` oder `id`: E1. */
+  var SICHTBAR_MS = 12 * 3600000;
+  function nennendeSitzung(id, ctx) {
+    if (!textDa(id) || !ctx || !Array.isArray(ctx.anwesenheit)) return null;
+    var jetzt = ctx.jetzt != null ? ctx.jetzt : Date.now();
+    return ctx.anwesenheit.filter(function (a) { if (!a || typeof a !== "object" || !a.kennung) return false; var z = ms(a.zuletzt); return (z == null || jetzt - z <= SICHTBAR_MS) && !abgemeldet(a) && !istDienst(a); })
+      .sort(function (a, b) { return String(b.zuletzt || "").localeCompare(String(a.zuletzt || "")); })
+      .filter(function (a) { var au = stat(a).auftrag; return (typeof au === "string" ? au : au && typeof au === "object" && !Array.isArray(au) && typeof au.id === "string" ? au.id : null) === String(id); })[0] || null;
+  }
+  function arbeitsplatz(v, ctx, id) {
+    v = v || {}; if (!laeuftOderPausiert(v)) return ortVonZiel(v.ziel || "egal");
+    var s = textDa(v.s11kennung) ? null : nennendeSitzung(id, ctx);
+    return s ? String(s.ort || ortVonZiel(s.kennung)) : ortDesLaufs(v);
+  }
   function arbeitsplatzName(o) { return o === "egal" ? "Arbeitsplatz egal" : Object.prototype.hasOwnProperty.call(ORT_NAMEN, o) ? ORT_NAMEN[o] : String(o); }   // kein fester Arbeitsplatz: »Arbeitsplatz egal«
   function ortNamen() { var a = {}; Object.keys(ORT_NAMEN).forEach(function (k) { a[k] = ORT_NAMEN[k]; }); return a; }
   /* feste Arbeitsplätze in fester Reihenfolge, andere nach dem Alphabet, zuletzt »egal« und »offen« */
@@ -233,6 +250,113 @@
     }).catch(function () { melde(TEXT.speichernFehl); });
   }
 
+  /* ---- Bauschritt 5 (Brett): die Sätze des Aufgeklappten und was eine Zeile braucht. Wortlaut: Entwurf der Bauvorlage Fassung 2 (lesart, naechster, nimmt, anwText) und § 2.2, § 2.3, § 4.
+     Jede fehlende Angabe heißt »nicht gemeldet« (§ 2.3). Zeiten: von heute die Uhrzeit, sonst Tag und Uhrzeit (Berliner Zeit, wie »Zuletzt gesehen« im Kanal). ---- */
+  var NG = "nicht gemeldet", LIEGT_MIN = 30, AKTIV_MS = 45 * 60000;   // 30 Minuten: gesetzt wie die Wartezeit des Wächters (§ 2.2); 45 Minuten: aktiv wie im Kanal
+  var DIENST_ORTE = ["schnitt11", "vps"];                              // nur hier übernimmt ein Hintergrunddienst von selbst
+  var RANG = { fehler: 0, abgebrochen: 1, vorschlag: 2, nichtfrei: 3, laeuft: 4, pausiert: 5, zurueck: 6, neuang: 7, bereit: 8 };   // in jeder Arbeitsplatz-Gruppe zuerst, was auf dich wartet
+  var ZUSTAND_NAME = { arbeitet: "arbeitet", wartet: "wartet", pause: "Pause", fertig: "fertig" };
+  var ZEIT_BERLIN = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  function rang(z) { return hat(RANG, z.klasse) ? RANG[z.klasse] : 9; }
+  function zeitTeile(t) { var p = {}; ZEIT_BERLIN.formatToParts(new Date(t)).forEach(function (x) { p[x.type] = x.value; }); return p; }
+  function zeitKurz(x, jetzt) {   // von heute: HH:MM; sonst TT.MM. HH:MM; fehlt oder unlesbar: leer
+    var t = ms(x); if (t == null) return "";
+    var a = zeitTeile(t), b = zeitTeile(jetzt == null ? Date.now() : jetzt);
+    return a.year === b.year && a.month === b.month && a.day === b.day ? a.hour + ":" + a.minute : a.day + "." + a.month + ". " + a.hour + ":" + a.minute;
+  }
+  function satz(a) { return a.filter(Boolean).join(" · "); }
+  function kennungText(k) {   // als reiner Text (Sätze): »LES Claude @ Schnitt 11«; ohne »@« wie gespeichert; fehlt sie: »nicht gemeldet«
+    if (!textDa(k)) return NG;
+    var t = kennungTeile(k); if (t.roh !== undefined) return t.roh;
+    return (t.konto === TEXT.dienst ? TEXT.dienst : kontoName(t.konto)) + " @ " + arbeitsplatzName(t.ort);
+  }
+  function freiTeil(v) {   // wer hat wann freigegeben
+    var von = textDa(v.angefordertVon) ? String(v.angefordertVon) : "", am = zeitKurz(v.angefordertAm);
+    return von && am ? "freigegeben von " + von + " " + am : von ? "freigegeben von " + von + ", Zeit der Freigabe " + NG : am ? "freigegeben " + am + ", Freigeber " + NG : "Freigeber und Zeit der Freigabe " + NG;
+  }
+  /* Ein freigegebener Auftrag (freigegeben, neu angefordert, zurückgegeben), der 30 Minuten oder länger nicht übernommen ist: »liegt seit … min«; sonst leer */
+  function liegtSeit(v, jetzt) {
+    v = v && typeof v === "object" ? v : {};
+    var z = zustand(v); if (z.nr !== 8 && z.nr !== 9 && z.nr !== 10) return "";
+    var seit = ms(z.nr === 8 ? v.s11zurueckAm : v.angefordertAm); if (seit == null) return "";
+    var min = Math.floor(((jetzt == null ? Date.now() : jetzt) - seit) / 60000);
+    return min >= LIEGT_MIN ? "liegt seit " + min + " min" : "";
+  }
+  /* Stand als Satz (erste Zeile des Aufgeklappten) */
+  function standSatz(v, z, jetzt) {
+    v = v && typeof v === "object" ? v : {}; z = z || zustand(v);
+    var s = v.s11status, an = v.angefordert === true, frei = an ? freiTeil(v) : "", ende = zeitKurz(v.s11beendetAm, jetzt), start = zeitKurz(v.s11gestartetAm, jetzt);
+    switch (z.nr) {
+      case 1: return "abgelehnt von " + (textDa(v.abgelehntVon) ? v.abgelehntVon : NG) + (zeitKurz(v.abgelehntAm, jetzt) ? " " + zeitKurz(v.abgelehntAm, jetzt) : ", Zeit " + NG);
+      case 2: return satz(["fertig " + (ende || "— Ende " + NG), wahrWert(v.done) ? "" : TEXT.zurueckgeholt]);
+      case 3: return satz([start ? "läuft seit " + start : "läuft — Beginn " + NG, frei]);
+      case 4: return satz([ende ? "pausiert seit " + ende : "pausiert — Beginn der Pause " + NG, frei]);
+      case 5: return satz(["Vorschlag " + (textDa(v.vorgeschlagenVon) ? "von " + kennungText(v.vorgeschlagenVon) : "— Absender " + NG) + (zeitKurz(v.vorgeschlagenAm, jetzt) ? " " + zeitKurz(v.vorgeschlagenAm, jetzt) : ", Zeit " + NG) + " — noch nicht bestätigt",
+        textDa(v.abgelehntVon) ? "war abgelehnt von " + v.abgelehntVon + (zeitKurz(v.abgelehntAm, jetzt) ? " " + zeitKurz(v.abgelehntAm, jetzt) : "") + ", zurückgeholt" : ""]);
+      case 6: case 7: return satz([(s === "fehler" ? "mit Fehler beendet " : "abgebrochen ") + (ende || "— Ende " + NG), frei, z.knopf ? "" : "Herkunft nicht erkennbar"]);
+      case 8: return satz(["zurückgegeben, wieder offen" + (zeitKurz(v.s11zurueckAm, jetzt) ? " seit " + zeitKurz(v.s11zurueckAm, jetzt) : " — Zeit " + NG), frei]);
+      case 9: return "neu angefordert" + frei.replace(/^freigegeben/, "") + " — nach " + (s === "fehler" ? "Fehler " : s === "abgebrochen" ? "Abbruch " : "Pause ") + (ende || NG);
+      case 10: return satz(["freigegeben, noch nicht übernommen", frei.replace(/^freigegeben /, "")]);
+      default: return satz(["noch nicht freigegeben", "angelegt " + (zeitKurz(v.created, jetzt) || NG), z.hinweis === "text" ? TEXT.alsText : "", z.knopf || z.hinweis === "text" ? "" : "Herkunft nicht erkennbar"]);
+    }
+  }
+  /* Was am gewünschten Arbeitsplatz besonders ist (steht rechts in der Zeile und im Aufgeklappten) */
+  function zielMarke(v) {
+    v = v || {}; var z = String(v.ziel == null || v.ziel === "" ? "egal" : v.ziel), m = /^([^@]+)@(.+)$/.exec(z);
+    return z === "alle" ? "für alle Agenten" : m && !textDa(v.s11kennung) ? "nur für " + kontoName(m[1].trim()) : "";
+  }
+  function sitzungenAn(ctx) { return ((ctx && ctx.anwesenheit) || []).filter(function (a) { return a && typeof a === "object" && textDa(a.kennung) && !abgemeldet(a) && !istDienst(a); }); }
+  function stat(a) { return a && a.status && typeof a.status === "object" && !Array.isArray(a.status) ? a.status : {}; }
+  function aktivA(a, jetzt) { var t = ms(a.zuletzt); return t != null && jetzt - t <= AKTIV_MS; }
+  /* Wer übernimmt einen freigegebenen Auftrag? Nur an Schnitt 11, am VPS und bei »Arbeitsplatz egal« ein Hintergrunddienst — sonst nur eine Sitzung, die dort gerade läuft. */
+  function nimmt(v, ctx) {
+    v = v && typeof v === "object" ? v : {}; ctx = ctx || {};
+    var jetzt = ctx.jetzt != null ? ctx.jetzt : Date.now(), z = String(v.ziel == null || v.ziel === "" ? "egal" : v.ziel), o = ortVonZiel(z), pl = v.plan && typeof v.plan === "object" && !Array.isArray(v.plan) ? v.plan : null;
+    var nur = pl && textDa(pl.konto) && pl.konto !== "egal" ? " Abgesprochen: nur " + kontoName(pl.konto) + " übernimmt." : "", S = sitzungenAn(ctx), m = /^([^@]+)@(.+)$/.exec(z);
+    if (z === "egal") return { t: "Übernimmt der Hintergrunddienst von selbst (Schnitt 11 oder VPS)." + nur };
+    if (z === "alle") return { warn: true, t: "Liegt, bis irgendeine laufende Sitzung den Auftrag holt — kein Hintergrunddienst übernimmt »für alle Agenten«." + nur };
+    if (m) { var a = S.filter(function (x) { return x.kennung === z; })[0];
+      return { warn: !(a && aktivA(a, jetzt)), t: "Nur " + kennungText(z) + " darf ihn holen" + (a && aktivA(a, jetzt) ? " — die Sitzung läuft." : a ? " — zuletzt gesehen " + (zeitKurz(a.zuletzt, jetzt) || NG) + "." : " — dort läuft keine Sitzung.") }; }
+    if (DIENST_ORTE.indexOf(o) !== -1) return { t: "Übernimmt der Hintergrunddienst an " + arbeitsplatzName(o) + " von selbst" + (o === "schnitt11" ? ", wenn Schnitt 11 an ist." : ".") + nur };
+    var s = S.filter(function (x) { return ortVonZiel(x.kennung) === o; }), akt = s.filter(function (x) { return aktivA(x, jetzt); });
+    return { warn: !akt.length, t: "Liegt, bis an " + arbeitsplatzName(o) + " eine Sitzung den Auftrag holt — dort gibt es keinen Hintergrunddienst. " +
+      (akt.length ? "Gerade läuft dort " + kontoName(kennungTeile(akt[0].kennung).konto) + "." : s.length ? "Zuletzt gesehen: " + kontoName(kennungTeile(s[0].kennung).konto) + " " + (zeitKurz(s[0].zuletzt, jetzt) || NG) + "." : "Dort hat sich noch keine Sitzung gemeldet.") + nur };
+  }
+  /* Wer ist als Nächstes dran? Ein Satz mit seiner Tönung (»du«, »warn«, leer), oder null. Ohne Knopf (Herkunft nicht erkennbar) steht der Satz der Lesart (hinweisText, bei Fehler und Abbruch der abgenommene Wortlaut). */
+  function naechster(v, z, ctx, id) {   // id: die Kennung der Aufgabe (Runde 3, C1: für arbeitsplatz)
+    v = v && typeof v === "object" ? v : {}; z = z || zustand(v); ctx = ctx || {};
+    var k = z.klasse, jetzt = ctx.jetzt, n, liegt;
+    if (k === "nichtfrei") return z.knopf === "jetzt" ? ["du", "Du bist dran: »Jetzt erledigen« gibt den Auftrag frei. Als Freigeber steht das Kürzel deiner Anmeldung."] : z.hinweis !== "text" && hinweisText(z) ? ["du", hinweisText(z)] : null;   // Runde 2 (Befund 6): »als Text gespeichert« steht schon im Stand-Satz
+    if (k === "vorschlag") return ["du", "Du bist dran: im Agenten-Kanal die Beschreibung lesen, dann bestätigen oder ablehnen. Hier wird ein Vorschlag nicht freigegeben."];
+    if (k === "fehler" || k === "abgebrochen") return z.knopf === "neu" ? ["du", "Du bist dran: " + (k === "fehler" ? "Ergebnis lesen, dann " : "") + "»Neu anfordern« — von selbst läuft der Auftrag nicht wieder an."] : hinweisText(z) ? ["du", hinweisText(z)] : null;
+    if (k === "pausiert") return ["", zeitKurz(v.s11wiederAb, jetzt) ? "Geht von selbst weiter ab " + zeitKurz(v.s11wiederAb, jetzt) + "." : "Geht von selbst weiter — wann, ist " + NG + "."];
+    if (k === "bereit" || k === "neuang" || k === "zurueck") {
+      n = nimmt(v, ctx); liegt = liegtSeit(v, jetzt);
+      return [n.warn || liegt ? "warn" : "", (k === "zurueck" ? "Zurückgegeben von " + kennungText(v.s11zurueckVon) + (zeitKurz(v.s11zurueckAm, jetzt) ? " " + zeitKurz(v.s11zurueckAm, jetzt) : "") +
+        (textDa(v.s11zurueckGrund) ? ": »" + v.s11zurueckGrund + "«. " : " — Grund " + NG + ". ") : "") + n.t + (liegt ? " Der Auftrag " + liegt + "." : "")];
+    }
+    if (k === "laeuft") { var wunsch = ortVonZiel(v.ziel == null || v.ziel === "" ? "egal" : v.ziel), lauf = arbeitsplatz(v, ctx, id);
+      if (wunsch !== lauf) return ["", "Gewünscht war »" + arbeitsplatzName(wunsch) + "«; übernommen hat " + arbeitsplatzName(lauf) + "."]; }
+    return null;
+  }
+  /* Rechts im Kopf einer Arbeitsplatz-Gruppe: wer dort gerade da ist — als Wort, ohne Punkt */
+  function anwText(o, ctx) {
+    ctx = ctx || {}; var jetzt = ctx.jetzt != null ? ctx.jetzt : Date.now();
+    if (o === "egal") return { t: "kein fester Arbeitsplatz" };
+    var s = sitzungenAn(ctx).filter(function (a) { return ortVonZiel(a.kennung) === o; }), akt = s.filter(function (a) { return aktivA(a, jetzt); });
+    if (akt.length) return { da: true, t: akt.map(function (a) { return kontoName(kennungTeile(a.kennung).konto) + " " + (hat(ZUSTAND_NAME, stat(a).zustand) ? ZUSTAND_NAME[stat(a).zustand] : "· Zustand " + NG); }).join(" · ") };
+    if (s.length) return { t: kontoName(kennungTeile(s[0].kennung).konto) + " · zuletzt " + (zeitKurz(s[0].zuletzt, jetzt) || NG) };
+    return { t: DIENST_ORTE.indexOf(o) !== -1 ? "Hintergrunddienst" : "keine Sitzung" };
+  }
+  /* Die Konto-Marke dessen, der die Aufgabe hält (läuft oder pausiert): das Konto der Kennung des Laufs; ein Lauf des Hintergrunddienstes (ohne Kennung) trägt das Konto, das er über sich meldet
+     (s11lauf, schreibt der Dienst erst mit Bauschritt 10), sonst »Konto nicht gemeldet«. An Aufgaben, die niemand hält, steht kein Konto: leer. */
+  function halterMarke(v) {
+    v = v && typeof v === "object" ? v : {};
+    if (!laeuftOderPausiert(v)) return "";
+    if (!textDa(v.s11kennung)) { var l = v.s11lauf && typeof v.s11lauf === "object" && !Array.isArray(v.s11lauf) ? v.s11lauf : {}; return kontoMarke(textDa(l.konto) && l.konto !== "offen" ? String(l.konto) : "?", true); }
+    return kontoMarke(kennungTeile(v.s11kennung).konto, false);
+  }
+
   var API = {
     fassung: FASSUNG, schritt: SCHRITT, TEXT: TEXT, STUFEN: STUFEN, FREIGEBER: FREIGEBER.slice(),
     merkmal: merkmal, wahrWert: wahrWert, textDa: textDa,
@@ -241,7 +365,8 @@
     zustand: zustand, hinweisText: hinweisText, markeHtml: markeHtml,
     ortVonZiel: ortVonZiel, ortDesLaufs: ortDesLaufs, arbeitsplatz: arbeitsplatz, laeuftOderPausiert: laeuftOderPausiert, chatZustand: chatZustand, kern: kern,
     kontoName: kontoName, kontoKlasse: kontoKlasse, kontoMarke: kontoMarke, platzMarke: platzMarke, markenPaar: markenPaar, kennungTeile: kennungTeile, kennungMarken: kennungMarken, abgemeldet: abgemeldet, istDienst: istDienst, arbeitsplatzName: arbeitsplatzName, ortNamen: ortNamen, zonenReihe: zonenReihe,
-    quelle: quelle, wartenAufDich: wartenAufDich, verbinde: verbinde, anmeldeKuerzel: anmeldeKuerzel, freigeben: freigeben
+    quelle: quelle, wartenAufDich: wartenAufDich, verbinde: verbinde, anmeldeKuerzel: anmeldeKuerzel, freigeben: freigeben,
+    brett: 1, RANG: RANG, rang: rang, LIEGT_MIN: LIEGT_MIN, zeitKurz: zeitKurz, kennungText: kennungText, liegtSeit: liegtSeit, standSatz: standSatz, zielMarke: zielMarke, nimmt: nimmt, naechster: naechster, anwText: anwText, halterMarke: halterMarke
   };
   root.LEITSTAND_LESART = API;
   try { if (root.document && root.document.documentElement) { root.document.documentElement.setAttribute("data-lesart", String(FASSUNG)); root.document.documentElement.setAttribute("data-lesart-schritt", String(SCHRITT)); } } catch (e) {}
