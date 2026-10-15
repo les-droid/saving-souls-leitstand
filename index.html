@@ -1437,7 +1437,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     abholenTage: 7,             // Rückmeldungen nicht abgeholt: nach 7 Tagen (Setzung)
     geradeAktiv: false,         // »Gerade aktiv« (A9) nur, wenn eingeschaltet — Standard aus (Entscheidung E6, Haltepunkt H3)
     redaktionDreiReiter: false, // Reiter »Redaktion«: false = ein Reiter mit drei Unteransichten, true = drei eigene Reiter (Paket 5, Entscheidung E14)
-    spalten: false,             // Brett (Bauschritt 5): Reiter »Aufgaben« als Felder nebeneinander — Standard aus; zum Ansehen vor dem Umschalten der Adress-Zusatz ?spalten=1. Die alte Karte »Aufgaben« und das Panel »Schnitt 11« bleiben bis Schritt 12 im Code und laufen bei ausgeschaltetem Schalter
+    spalten: true,              // Brett (Bauschritt 5): Reiter »Aufgaben« als Felder nebeneinander — eingeschaltet 15.10.2026 (Bauschritt 12, erster Teil); zurück: hier false; zum Ansehen vor dem Umschalten der Adress-Zusatz ?spalten=1. Die alte Karte »Aufgaben« und das Panel »Schnitt 11« bleiben bis Schritt 12 im Code und laufen bei ausgeschaltetem Schalter
     /* Projekt-Austausch (Stufe 2, Bauplan P2 Nr. 7): Anzeige-Schalter, Standard AUS — blendet Hochlade-Bereich, »eigene Uploads« und den Block »Eingänge«
        ein (die XML-Zeile hängt nicht daran). KEIN Notausgang: eine feste Konstante im öffentlichen Seitencode hält keinen direkten Aufruf der Schnittstelle
        auf. Der Notausgang ist der Server-Schalter (v3, leitstand_intern.projekt_austausch); den Hochlade-Bereich zeigt die Seite nur, wenn dieser Schalter
