@@ -313,6 +313,7 @@
     v = v && typeof v === "object" ? v : {}; ctx = ctx || {};
     var jetzt = ctx.jetzt != null ? ctx.jetzt : Date.now(), z = String(v.ziel == null || v.ziel === "" ? "egal" : v.ziel), o = ortVonZiel(z), pl = v.plan && typeof v.plan === "object" && !Array.isArray(v.plan) ? v.plan : null;
     var nur = pl && textDa(pl.konto) && pl.konto !== "egal" ? " Abgesprochen: nur " + kontoName(pl.konto) + " übernimmt." : "", S = sitzungenAn(ctx), m = /^([^@]+)@(.+)$/.exec(z);
+    if (v.ziel !== null && typeof v.ziel === "object" && !Array.isArray(v.ziel)) return { t: "", keine: true };   // Bauschritt 6 (G7): ein Ziel, das ein Objekt ist, ist keine lesbare Angabe — »Arbeitsplatz egal« wäre erfunden, also auch kein Hintergrunddienst, der es von selbst übernimmt
     if (z === "egal") return { t: "Übernimmt der Hintergrunddienst von selbst (Schnitt 11 oder VPS)." + nur };
     if (z === "alle") return { warn: true, t: "Liegt, bis irgendeine laufende Sitzung den Auftrag holt — kein Hintergrunddienst übernimmt »für alle Agenten«." + nur };
     if (m) { var a = S.filter(function (x) { return x.kennung === z; })[0];
@@ -332,8 +333,10 @@
     if (k === "pausiert") return ["", zeitKurz(v.s11wiederAb, jetzt) ? "Geht von selbst weiter ab " + zeitKurz(v.s11wiederAb, jetzt) + "." : "Geht von selbst weiter — wann, ist " + NG + "."];
     if (k === "bereit" || k === "neuang" || k === "zurueck") {
       n = nimmt(v, ctx); liegt = liegtSeit(v, jetzt);
-      return [n.warn || liegt ? "warn" : "", (k === "zurueck" ? "Zurückgegeben von " + kennungText(v.s11zurueckVon) + (zeitKurz(v.s11zurueckAm, jetzt) ? " " + zeitKurz(v.s11zurueckAm, jetzt) : "") +
-        (textDa(v.s11zurueckGrund) ? ": »" + v.s11zurueckGrund + "«. " : " — Grund " + NG + ". ") : "") + n.t + (liegt ? " Der Auftrag " + liegt + "." : "")];
+      var satz6 = (k === "zurueck" ? "Zurückgegeben von " + kennungText(v.s11zurueckVon) + (zeitKurz(v.s11zurueckAm, jetzt) ? " " + zeitKurz(v.s11zurueckAm, jetzt) : "") +
+        (textDa(v.s11zurueckGrund) ? ": »" + v.s11zurueckGrund + "«. " : " — Grund " + NG + ". ") : "") + n.t + (liegt ? " Der Auftrag " + liegt + "." : "");
+      if (n.keine) { satz6 = satz6.trim(); if (!satz6) return null; }   // G7: wer übernimmt, ist nicht zu sagen — dann steht dort nichts statt eines erfundenen Satzes
+      return [n.warn || liegt ? "warn" : "", satz6];
     }
     if (k === "laeuft") { var wunsch = ortVonZiel(v.ziel == null || v.ziel === "" ? "egal" : v.ziel), lauf = arbeitsplatz(v, ctx, id);
       if (wunsch !== lauf) return ["", "Gewünscht war »" + arbeitsplatzName(wunsch) + "«; übernommen hat " + arbeitsplatzName(lauf) + "."]; }
@@ -357,6 +360,112 @@
     return kontoMarke(kennungTeile(v.s11kennung).konto, false);
   }
 
+  /* ---- Bauschritt 6: der Detailblock — ein Baustein für das Aufgeklappte unter dem Titel im Brett und die Einzelheiten unter dem Lagebild (Bauvorlage Fassung 2, § 2.3, § 2.2).
+     Wortlaut: Entwurf der Bauvorlage (detailHtml, werHtml, kette) und § 2.3; was fehlt, heißt »nicht gemeldet«. Verschieden sind an den zwei Stellen nur die Sprünge am Ende (`wo`).
+     Die Anwesenheit und die Zeilen des Kanals kommen über window.LEITSTAND_KANAL (anwesenheit, zeilenZu, kette, planZeile, abweichungen); fehlt die Schnittstelle (Gast, Rückfall), entfallen die Teile,
+     die sie brauchen — der Block behauptet dann nichts über Kanal und Lagebild. Angaben, die es erst mit späteren Schritten gibt (Datenbank, Werkzeug, Dienst), lesen wir, wo sie da sind; sonst steht »nicht gemeldet«. ---- */
+  var BL = {
+    auftrag: "Auftrag", details: "Details", ohneBeschr: "ohne Beschreibung", angelegt: "angelegt", gewuenscht: "gewünschter Arbeitsplatz", alleAgenten: "alle Agenten", fortschritt: "Fortschritt", ergebnis: "Ergebnis des letzten Laufs",
+    wer: "Wer arbeitet daran", niemand: "noch niemand", niemandMehr: "niemand mehr — erledigt", konto: "Konto", arbeitsplatz: "Arbeitsplatz", sitzung: "Sitzung", modell: "Modell", effort: "Effort", helfer: "Helfer", hinweis: "Hinweis", absprache: "Absprache",
+    ueberWeg: " über den Weg ", keinWeg: "— der Hintergrunddienst hat keinen Weg gemeldet", dienstWort: "Hintergrunddienst", keineSitzung: "keine — ein Lauf des Hintergrunddienstes",
+    mensch: " Mensch an der Sitzung: ", gesehen: "· zuletzt gesehen ", kennungNg: "Kennung " + NG, zustandNg: "Zustand " + NG, rolleNg: "Rolle " + NG, rollenbildNg: "Rollenbild " + NG, fassungNg: "— genaue Fassung " + NG,
+    nennt: function (roh) { return "— Kennung »" + roh + "« nennt kein Konto"; },
+    nichtsGemeldet: "Für diesen Auftrag hat die Sitzung nichts gemeldet", statusNennt: function (t) { return " — ihr Status nennt »" + t + "«."; }, nichtInAnwesenheit: " — sie steht nicht in der Anwesenheit.",
+    einzeln: "keine — arbeitet einzeln", welcheHelfer: "— welche Helfer, ist " + NG, weichtAb: "weicht ab: ",
+    gemeldet: "gemeldet ", angabe: "Angabe, kein Nachweis", sitzungNichts: "die Sitzung hat nichts gemeldet", dienstNichts: "der Hintergrunddienst hat nichts gemeldet",
+    kanal: "Im Agenten-Kanal", lagebild: "Im Lagebild", keineZeile: "Keine Zeile im Kanal", vomDienst: " — der Hintergrunddienst schreibt dort nicht", ausFormular: " — die Aufgabe kam aus dem Formular", aelter: "älter als die gezeigten Zeilen",
+    inAufgaben: "in den Aufgaben zeigen", imLagebild: "im Lagebild zeigen", imKanal: "im Kanal zeigen", zumVorschlag: "zum Vorschlag im Kanal", absender: "Absender " + NG, zeit: "Zeit " + NG
+  };
+  var MODELL_NAME = { opus: "Opus", sonnet: "Sonnet", haiku: "Haiku" }, WEISE_NAME = { einzeln: "einzeln", subagenten: "mit Sub-Agenten", workflow: "Workflow" };
+  var QUELLE_NAME = { git: "aus git", laufend: "läuft gerade", protokoll: "aus dem Sitzungsprotokoll", umgebung: "aus der Umgebung", angabe: "angegeben", dienst: "vom Hintergrunddienst gemeldet" };
+  var WEGART_NAME = { api: "API-Guthaben", abo: "Abo", rechner: "Anmeldung am Arbeitsplatz" };
+  function obj(x) { return x && typeof x === "object" && !Array.isArray(x) ? x : null; }
+  function pfeil(s) { return esc(s).replace(/ →$/, ' <span aria-hidden="true">→</span>'); }   // der Pfeil am Ende eines Verweises wird gezeigt, nicht vorgelesen (wie die Seite)
+  function fehlt(t) { return '<span class="fehlt">' + esc(t == null ? NG : t) + "</span>"; }
+  function kanalSchnittstelle() { var K = root.LEITSTAND_KANAL; return K && typeof K === "object" ? K : null; }
+  function kanalFn(name) { var K = kanalSchnittstelle(); return K && typeof K[name] === "function" ? K[name] : null; }
+  function aufgabeVon(id) { try { var l = quellFn ? quellFn() : []; for (var i = 0; i < l.length; i++) if (l[i] && l[i].id === id) return l[i].v; } catch (e) {} return null; }
+  function auftragId(st) { var a = st.auftrag; return typeof a === "string" ? a : obj(a) && typeof a.id === "string" ? a.id : null; }
+  /* Wer hält die Aufgabe: niemand · der Hintergrunddienst (ein Lauf ohne Kennung) · eine Sitzung. Die Regel gegen falsche Zuordnung (§ 2.3): Modell, Effort und Helfer einer Sitzung gelten für eine Aufgabe nur,
+     wenn `status.auftrag` genau diese Aufgabe nennt (als Kennung oder als Objekt mit `id`). */
+  function werDaten(id, v, ctx) {
+    if (!laeuftOderPausiert(v)) return { art: "niemand" };
+    var l, st, a, ja, anderer, t, o = arbeitsplatz(v, ctx, id);
+    if (!textDa(v.s11kennung)) {
+      l = obj(v.s11lauf) || {};
+      return { art: "dienst", konto: textDa(l.konto) && l.konto !== "offen" ? String(l.konto) : "?", ort: o, weg: textDa(l.weg) ? String(l.weg) : "", wegart: textDa(l.art) ? String(l.art) : "", modell_genau: textDa(l.modell_genau) ? String(l.modell_genau) : "",
+        modell: textDa(l.modell) ? String(l.modell) : "", effort: textDa(l.effort) ? String(l.effort) : "", gemeldet: textDa(l.gemeldet) ? String(l.gemeldet) : "" };
+    }
+    t = kennungTeile(v.s11kennung); a = ((ctx && ctx.anwesenheit) || []).filter(function (x) { return x && typeof x === "object" && x.kennung === v.s11kennung; })[0] || null; st = stat(a);
+    ja = auftragId(st) === id; anderer = !ja && auftragId(st) ? aufgabeVon(auftragId(st)) : null;
+    return { art: "sitzung", konto: t.konto, roh: t.roh || "", ort: o, anw: a, sitzung: textDa(st.sitzung) ? String(st.sitzung) : "", zustand: textDa(st.zustand) ? String(st.zustand) : "", mitarbeiter: textDa(st.mitarbeiter) ? String(st.mitarbeiter) : "",
+      passt: ja, anderer: anderer, anderId: !ja ? auftragId(st) : null, modell_genau: ja && textDa(st.modell_genau) ? String(st.modell_genau) : "", modell: ja && textDa(st.modell) ? String(st.modell) : "", effort: ja && textDa(st.effort) ? String(st.effort) : "",
+      arbeitsweise: ja && textDa(st.arbeitsweise) ? String(st.arbeitsweise) : "", helfer: ja && Array.isArray(st.helfer) ? st.helfer.filter(obj) : null, gemeldet: ja && textDa(st.gesetzt) ? String(st.gesetzt) : "", quelle: ja && textDa(st.modell_quelle) ? String(st.modell_quelle) : "" };
+  }
+  function modellHtml(d) { return d.modell_genau ? "<code>" + esc(d.modell_genau) + "</code>" : d.modell ? esc(hat(MODELL_NAME, d.modell) ? MODELL_NAME[d.modell] : d.modell) + " " + fehlt(BL.fassungNg) : fehlt(); }
+  function effortHtml(d) { return d.effort ? esc(d.effort) : fehlt(); }
+  function werHtml(id, v, ctx, jetzt, fertig) {
+    var d = werDaten(id, v, ctx), h, gem = "", zk = function (x) { return zeitKurz(x, jetzt) || NG; };
+    if (d.art === "niemand") return '<section class="wer" data-baustein="wer"><h5>' + esc(BL.wer) + '</h5><p class="fehlt">' + esc(fertig ? BL.niemandMehr : BL.niemand) + "</p></section>";
+    if (d.art === "dienst") {
+      h = "<dt>" + esc(BL.konto) + "</dt><dd>" + kontoMarke(d.konto, true) + (d.weg ? esc(BL.ueberWeg) + "<code>" + esc(d.weg) + "</code>" + (hat(WEGART_NAME, d.wegart) ? " · " + esc(WEGART_NAME[d.wegart]) : "") : " " + fehlt(BL.keinWeg)) + "</dd>" +
+        "<dt>" + esc(BL.arbeitsplatz) + "</dt><dd>" + platzMarke(d.ort) + " " + esc(BL.dienstWort) + "</dd><dt>" + esc(BL.sitzung) + "</dt><dd>" + esc(BL.keineSitzung) + "</dd>" +
+        "<dt>" + esc(BL.modell) + "</dt><dd>" + modellHtml(d) + "</dd><dt>" + esc(BL.effort) + "</dt><dd>" + effortHtml(d) + "</dd><dt>" + esc(BL.helfer) + "</dt><dd>" + fehlt() + "</dd>";
+      gem = d.gemeldet ? BL.gemeldet + zk(d.gemeldet) + " · " + QUELLE_NAME.dienst : BL.dienstNichts;
+    } else {
+      var hl = d.helfer, pf = kanalFn("planZeile"), pl = obj(v.plan), abw = pl && d.anw && kanalFn("abweichungen") ? (kanalFn("abweichungen")(d.anw, stat(d.anw), pl) || []) : [];
+      h = "<dt>" + esc(BL.konto) + "</dt><dd>" + kontoMarke(d.konto, false) + (d.roh ? " " + fehlt(BL.nennt(d.roh)) : "") + "</dd>" +
+        "<dt>" + esc(BL.arbeitsplatz) + "</dt><dd>" + platzMarke(d.ort) + (d.mitarbeiter ? esc(BL.mensch + d.mitarbeiter) : "") + (d.anw && !aktivA(d.anw, jetzt) ? " " + fehlt(BL.gesehen + zk(d.anw.zuletzt)) : "") + "</dd>" +
+        "<dt>" + esc(BL.sitzung) + "</dt><dd>" + (d.sitzung ? "<code>" + esc(d.sitzung) + "</code>" : fehlt(BL.kennungNg)) + " · " + (d.zustand ? esc(hat(ZUSTAND_NAME, d.zustand) ? ZUSTAND_NAME[d.zustand] : d.zustand) : fehlt(BL.zustandNg)) + "</dd>" +
+        (d.passt ? "" : '<dt class="vh">' + esc(BL.hinweis) + '</dt><dd class="voll fehlt">' + esc(BL.nichtsGemeldet + (d.anderId && d.anderer ? BL.statusNennt(textDa(d.anderer.text) ? String(d.anderer.text) : NG) : d.anderId ? BL.statusNennt(NG) : d.anw ? "." : BL.nichtInAnwesenheit)) + "</dd>") +
+        "<dt>" + esc(BL.modell) + "</dt><dd>" + modellHtml(d) + "</dd><dt>" + esc(BL.effort) + "</dt><dd>" + effortHtml(d) + "</dd>" +
+        "<dt>" + esc(BL.helfer) + "</dt><dd>" + (hl ? (hl.length ? hl.length + (d.arbeitsweise ? " · " + esc(hat(WEISE_NAME, d.arbeitsweise) ? WEISE_NAME[d.arbeitsweise] : d.arbeitsweise) : "") +
+            '<ul class="helfer">' + hl.map(function (x) { return '<li><span class="rolle">' + (textDa(x.rolle) ? esc(x.rolle) : esc(BL.rolleNg)) + '</span><span class="bild">' + (textDa(x.rollenbild) ? esc(x.rollenbild) : fehlt(BL.rollenbildNg)) + "</span><span>" +
+              (textDa(x.modell_genau) ? "<code>" + esc(x.modell_genau) + "</code>" : fehlt()) + " · " + (textDa(x.effort) ? esc(x.effort) : fehlt()) + '</span><span class="hz">' + (textDa(x.zustand) ? esc(x.zustand) : esc(BL.zustandNg)) + "</span></li>"; }).join("") + "</ul>" : esc(BL.einzeln))
+          : d.arbeitsweise === "einzeln" ? esc(BL.einzeln) : d.arbeitsweise ? esc(hat(WEISE_NAME, d.arbeitsweise) ? WEISE_NAME[d.arbeitsweise] : d.arbeitsweise) + " " + fehlt(BL.welcheHelfer) : fehlt()) + "</dd>" +
+        (pl && pf ? "<dt>" + esc(BL.absprache) + "</dt><dd>" + esc(pf(pl)) + (abw.length ? ' <span class="abw">' + esc(BL.weichtAb + abw.join(", ")) + "</span>" : "") + "</dd>" : "");
+      gem = d.gemeldet ? BL.gemeldet + zk(d.gemeldet) + (d.quelle ? " · " + (hat(QUELLE_NAME, d.quelle) ? QUELLE_NAME[d.quelle] : d.quelle) : "") + " · " + BL.angabe : BL.sitzungNichts;
+    }
+    return '<section class="wer" data-baustein="wer"><h5>' + esc(BL.wer) + ' <span class="gem">' + esc(gem) + '</span></h5><dl class="wer">' + h + "</dl></section>";
+  }
+  /* Die Zeilen des Kanals, die auf diese Aufgabe zeigen: `gezeigt` sind die, die der Kanal zeichnet (die letzten 100); ältere stehen nur in den geladenen Daten */
+  function kanalZeilenHtml(zl, v) {
+    var gez = zl.filter(function (k) { return k && k.gezeigt; });
+    if (gez.length) return gez.map(function (k) { return '<span class="glz"><time>' + esc(textDa(k.zeit) ? k.zeit : BL.zeit) + "</time>" + (textDa(k.von) ? k.von : fehlt(BL.absender)) + (textDa(k.was) ? " · " + esc(k.was) : "") + (textDa(k.text) ? " — " + esc(k.text) : "") + "</span>"; }).join("");
+    if (zl.length) return '<span class="glz fehlt">' + esc(BL.aelter) + "</span>";
+    return '<span class="glz fehlt">' + esc(BL.keineZeile + (textDa(v.s11ziel) && !textDa(v.s11kennung) ? BL.vomDienst : v.quelle === "formular" ? BL.ausFormular : "") + ".") + "</span>";
+  }
+  function knopfHtml(id, z) { return '<button type="button" class="btn ja" data-act="' + (z.knopf === "zum" ? "vorschlag" : esc(z.knopf)) + '" data-id="' + esc(id) + '">' + (z.knopf === "zum" ? pfeil(TEXT.knopf.zum) : esc(TEXT.knopf[z.knopf])) + "</button>"; }
+  function detailBlock(x, opt) {
+    opt = opt || {}; x = x || {};
+    var id = String(x.id), v = x.v && typeof x.v === "object" ? x.v : {}, z = opt.zustand || zustand(v), jetzt = opt.jetzt != null ? opt.jetzt : Date.now(), wo = opt.wo === "lage" ? "lage" : "feld";
+    var K = kanalSchnittstelle(), anw = []; try { anw = K && typeof K.anwesenheit === "function" ? K.anwesenheit() : []; } catch (e) { anw = []; }
+    var ctx = opt.ctx || { anwesenheit: Array.isArray(anw) ? anw : [], jetzt: jetzt };
+    var n = naechster(v, z, ctx, id), b = String(v.beschreibung == null ? "" : v.beschreibung), zm = zielMarke(v), fertig = erledigt(v), ziel = String(v.ziel == null || v.ziel === "" ? "egal" : v.ziel), vorschlag = z.klasse === "vorschlag";
+    var wunsch = v.ziel !== null && typeof v.ziel === "object" && !Array.isArray(v.ziel) ? esc(NG) : ziel === "alle" ? esc(BL.alleAgenten) : /@/.test(ziel) ? kennungMarken(ziel) : platzMarke(ziel);   // ein Ziel, das ein Objekt ist, ist keine lesbare Angabe: »nicht gemeldet« (§ 2.3)
+    var zl = []; try { var zf = kanalFn("zeilenZu"); zl = zf ? zf(id) : null; } catch (e) { zl = null; }
+    var kanalDa = Array.isArray(zl), kette = null; try { var kf = kanalFn("kette"); kette = kf && !fertig ? kf(id) : null; } catch (e) { kette = null; }
+    var pf = kanalFn("planZeile"), w0 = werDaten(id, v, ctx), pl = obj(v.plan);
+    var sprung = function (art, text) { return '<button type="button" class="lnk" data-sprung="' + art + '" data-id="' + esc(id) + '">' + esc(text) + "</button>"; };
+    var gezeigt = kanalDa ? zl.filter(function (k) { return k && k.gezeigt; }).length : 0;
+    var spruenge = (fertig ? "" : wo === "lage" ? sprung("feld", BL.inAufgaben) : kette ? sprung("lage", BL.imLagebild) : "") +
+      (kanalDa && gezeigt && !vorschlag ? sprung("kanal", BL.imKanal + " (" + gezeigt + ")") : "") + (vorschlag && kanalSchnittstelle() ? sprung("vorschlag", BL.zumVorschlag) : "");
+    return '<div class="llBlock" data-baustein="block" data-id="' + esc(id) + '" data-wo="' + wo + '">' +
+      '<p class="pstand">' + esc(standSatz(v, z, jetzt) + (zm ? " · " + zm : "")) + "</p>" +
+      (n ? '<p class="pnaechst ' + esc(n[0]) + '">' + esc(n[1]) + "</p>" : "") +
+      (z.knopf && !fertig ? '<p class="paktion">' + knopfHtml(id, z) + "</p>" : "") +
+      "<h5>" + esc(BL.auftrag) + "</h5><p>" + (b ? esc(b.slice(0, 300)) + (b.length > 300 ? "…" : "") : fehlt(BL.ohneBeschr)) + "</p>" +   // 300 Zeichen: gesetzt wie die Notiz an der Zeile im Lagebild
+      (b.length > 300 ? '<details class="tdet"><summary>' + esc(BL.details) + '</summary><div class="tbeschr">' + esc(b) + "</div></details>" : "") +   // Entscheidung G6: was die alte Karte unter »Details« zeigt, geht nicht verloren — der ganze Text, wo die 300 Zeichen ihn kürzen
+      '<p class="pklein">' + esc(BL.angelegt) + " " + esc(zeitKurz(v.created, jetzt) || NG) + " · " + esc(BL.gewuenscht) + ": " + wunsch + "</p>" +
+      (textDa(v.s11fortschritt) && (z.klasse === "laeuft" || z.klasse === "pausiert") ? "<h5>" + esc(BL.fortschritt) + '</h5><p class="pmono">' + esc(v.s11fortschritt) + "</p>" : "") +
+      (textDa(v.s11ergebnis) && z.klasse !== "laeuft" ? "<h5>" + esc(BL.ergebnis) + "</h5><p>" + esc(v.s11ergebnis) + "</p>" : "") +
+      werHtml(id, v, ctx, jetzt, fertig) +
+      (pl && pf && w0.art !== "sitzung" ? "<h5>" + esc(BL.absprache) + "</h5><p>" + esc(pf(pl)) + "</p>" : "") +
+      (kanalDa ? "<h5>" + esc(BL.kanal) + "</h5><div>" + kanalZeilenHtml(zl, v) + "</div>" : "") +
+      (kette && kette.length ? "<h5>" + esc(BL.lagebild) + '</h5><div class="kette">' + kette.map(function (k) { return '<span class="kn ' + esc(k[0]) + '">' + esc(k[1]) + "</span>"; }).join('<span class="pf" aria-hidden="true">→</span>') + "</div>" : "") +
+      (spruenge ? '<p class="gll lsSpruenge">' + spruenge + "</p>" : "") + "</div>";
+  }
+
   var API = {
     fassung: FASSUNG, schritt: SCHRITT, TEXT: TEXT, STUFEN: STUFEN, FREIGEBER: FREIGEBER.slice(),
     merkmal: merkmal, wahrWert: wahrWert, textDa: textDa,
@@ -366,7 +475,7 @@
     ortVonZiel: ortVonZiel, ortDesLaufs: ortDesLaufs, arbeitsplatz: arbeitsplatz, laeuftOderPausiert: laeuftOderPausiert, chatZustand: chatZustand, kern: kern,
     kontoName: kontoName, kontoKlasse: kontoKlasse, kontoMarke: kontoMarke, platzMarke: platzMarke, markenPaar: markenPaar, kennungTeile: kennungTeile, kennungMarken: kennungMarken, abgemeldet: abgemeldet, istDienst: istDienst, arbeitsplatzName: arbeitsplatzName, ortNamen: ortNamen, zonenReihe: zonenReihe,
     quelle: quelle, wartenAufDich: wartenAufDich, verbinde: verbinde, anmeldeKuerzel: anmeldeKuerzel, freigeben: freigeben,
-    brett: 1, RANG: RANG, rang: rang, LIEGT_MIN: LIEGT_MIN, zeitKurz: zeitKurz, kennungText: kennungText, liegtSeit: liegtSeit, standSatz: standSatz, zielMarke: zielMarke, nimmt: nimmt, naechster: naechster, anwText: anwText, halterMarke: halterMarke
+    brett: 1, block: 1, detailBlock: detailBlock, pfeil: pfeil, RANG: RANG, rang: rang, LIEGT_MIN: LIEGT_MIN, zeitKurz: zeitKurz, kennungText: kennungText, liegtSeit: liegtSeit, standSatz: standSatz, zielMarke: zielMarke, nimmt: nimmt, naechster: naechster, anwText: anwText, halterMarke: halterMarke
   };
   root.LEITSTAND_LESART = API;
   try { if (root.document && root.document.documentElement) { root.document.documentElement.setAttribute("data-lesart", String(FASSUNG)); root.document.documentElement.setAttribute("data-lesart-schritt", String(SCHRITT)); } } catch (e) {}

@@ -144,7 +144,7 @@
      »genaue Fassung nicht gemeldet«) und der statische Entwurf der Bauvorlage (Konto · Arbeitsplatz, Konto je Auftrag, je Auftrag, Anwesenheit nicht gemeldet, keine Helfer, abgemeldet) */
   var FEST = { ng: "nicht gemeldet", fassungNg: "genaue Fassung nicht gemeldet", keinAuftrag: "kein Auftrag übernommen", nichts: "Modell, Effort, Helfer nicht gemeldet · kein Auftrag übernommen",
     anwesenheitNg: "Anwesenheit nicht gemeldet", kontoJeAuftrag: "Konto je Auftrag", jeAuftrag: "je Auftrag", keineHelfer: "keine Helfer", helfer: "Helfer",
-    auftrag: "Auftrag", menschSitzung: "Mensch an der Sitzung", abgemeldet: "abgemeldet", dienstWort: "Hintergrunddienst", sitzung: "Sitzung", gesehen: "zuletzt gesehen", konto: "Konto", arbeitsplatz: "Arbeitsplatz",
+    auftrag: "Auftrag", dieseAufgabe: "diese Aufgabe", menschSitzung: "Mensch an der Sitzung", abgemeldet: "abgemeldet", dienstWort: "Hintergrunddienst", sitzung: "Sitzung", gesehen: "zuletzt gesehen", konto: "Konto", arbeitsplatz: "Arbeitsplatz",
     nennt: function (roh) { return "Kennung »" + roh + "« nennt kein Konto"; } };
   if (marken()) {
     KANAL_TEXT.ziel = "gewünschter Arbeitsplatz"; KANAL_TEXT.kontoOffen = marken().TEXT.kontoOffen;                 // AK29 »Ort«, AK37 »Claude (Konto offen)«
@@ -292,9 +292,10 @@
     var vonH = agent ? (Lm && !vonDa ? ngHtml(FEST.ng) : anzeigeHtml(v.von)) : esc(von), anH = anzeigeHtml(v.an || "alle");   // Bauschritt 3 (»Schritt 3«: jede fehlende Angabe — auch Zeit und Name — heißt »nicht gemeldet«): Agent ohne Absender
     var zeitH = esc(uhr(v.created) || (Lm ? FEST.ng : ""));                                                                  // … und eine Nachricht ohne lesbare Zeit
     var was = (artTxt ? '<div class="akWas">' + esc(artTxt) + (v.titel ? " · <q>" + esc(v.titel) + "</q>" : "") + "</div>" : "") + bezugHtml(v[FELD_VERWEIS]);
-    if (system) return '<li class="akMsg akSystem" data-id="' + esc(id) + '"><div class="akPille"><span class="akVon">' + vonH + "</span>" + was +
+    var vb = vier() && typeof v[FELD_VERWEIS] === "string" && v[FELD_VERWEIS] !== "" ? ' data-' + FELD_VERWEIS + '="' + esc(v[FELD_VERWEIS]) + '" tabindex="-1"' : "";   // Bauschritt 6: der Sprung aus einer Aufgabe in den Kanal findet seine Zeilen an diesem Merkmal; die Zeile ist ein Ziel für den Fokus
+    if (system) return '<li class="akMsg akSystem" data-id="' + esc(id) + '"' + vb + '><div class="akPille"><span class="akVon">' + vonH + "</span>" + was +
       '<span class="akAn">' + esc(KANAL_TEXT.an) + " " + anH + '</span><time class="akUhr">' + zeitH + "</time></div></li>";
-    return '<li class="akMsg' + (agent ? " akAgent" : " akTeam") + (eigen ? " akEigen" : "") + '" data-id="' + esc(id) + '">' +
+    return '<li class="akMsg' + (agent ? " akAgent" : " akTeam") + (eigen ? " akEigen" : "") + '" data-id="' + esc(id) + '"' + vb + '>' +
       (eigen ? "" : '<span class="akBild' + (agent ? " akBildAgent" : " " + esc(String(v.von || ""))) + '" aria-hidden="true">' + esc(bildText(v, agent)) + "</span>") +
       '<div class="akBlase"><div class="akMeta">' + (agent ? '<span class="akArt">' + esc(KANAL_TEXT.agent) + "</span>" : "") +
         (eigen ? "" : '<span class="akVon">' + vonH + "</span>") + '<span class="akAn">' + esc(KANAL_TEXT.an) + " " + anH + "</span></div>" +
@@ -316,14 +317,14 @@
     return '<div class="akBeschr"><span class="akLabel">' + esc(KANAL_TEXT.beschreibung) + '</span><div class="akText">' + esc(t[0]) + (t[1] ? "…" : "") + "</div>" +
       (t[1] ? '<details class="akMehr"><summary>' + esc(KANAL_TEXT.mehr) + " (" + t[1].length + " " + esc(KANAL_TEXT.zeichen) + ')</summary><div class="akText">' + esc(t[1]) + "</div></details>" : "") + "</div>";
   }
-  function zeileVorschlag(id, v) {
+  function zeileVorschlag(id, v, mitLink) {
     return '<li class="akVorschlag" data-id="' + esc(id) + '" tabindex="-1">' +   // tabindex -1: »Zum Vorschlag →« der Aufgabenzeile setzt den Fokus auf die Karte, nicht auf einen Knopf
       '<div class="akMeta">' + (typeof v.vorgeschlagenVon === "string" && v.vorgeschlagenVon.replace(/\s+/g, "") !== "" ? '<span class="akArt">' + esc(KANAL_TEXT.vorschlagVon) + "</span>" + (marken() ? anzeigeHtml(v.vorgeschlagenVon) : chip(anzeige(v.vorgeschlagenVon))) : '<span class="akArt">' + esc(KANAL_TEXT.absenderUnbekannt) + "</span>") +
         "<span>" + esc(KANAL_TEXT.ziel) + ": " + zielHtml(v.ziel || "egal") + "</span><span>" + esc(fmtZeit(v.vorgeschlagenAm || v.created)) + "</span></div>" +
       '<div class="akTitel">' + esc(v.text) + "</div>" +
       (v.beschreibung ? beschreibungHtml(v.beschreibung) : "") +
       (obj(v.planVorschlag) && planZeile(v.planVorschlag, true) ? '<div class="akPlan">' + esc(KANAL_TEXT.planVorschlag) + ": " + esc(planZeile(v.planVorschlag, true)) + "</div>" : "") +
-      '<div class="akKnoepfe"><button type="button" class="akBtn akJa" data-act="ja">' + esc(KANAL_TEXT.bestaetigen) + '</button>' +
+      '<div class="akKnoepfe">' + (mitLink ? '<button type="button" class="akLnk" data-act="zeige" data-id="' + esc(id) + '">' + esc(FEST4.inAufgaben) + "</button>" : "") + '<button type="button" class="akBtn akJa" data-act="ja">' + esc(KANAL_TEXT.bestaetigen) + '</button>' +   // Bauschritt 6 (§ 2.2): von der Sache zurück in die Aufgaben — nie ein Knopf, der freigibt
       '<button type="button" class="akBtn akNein" data-act="nein">' + esc(KANAL_TEXT.ablehnen) + "</button></div></li>";
   }
 
@@ -348,13 +349,18 @@
     if (!verlaufRoll.offen || !verlaufEl || !verlaufEl.clientHeight) return;
     verlaufRoll.offen = false; letzteId = verlaufRoll.neu; verlaufEl.scrollTop = verlaufEl.scrollHeight;
   }
+  var kanalSig = "", kanalAlle = [], kanalGezeigt = Object.create(null);   // Bauschritt 6: die geladenen Zeilen des Kanals (zeilenZu) und welche davon im Bild stehen (die letzten 100)
   var kanalSnap = null;   // Bauschritt 4: der letzte Stand des Kanals, damit die Marke »jetzt …« an Zeilen mit Verweisfeld neu gezeichnet werden kann, wenn sich die Aufgaben ändern
   function renderKanal(snap) {
     kanalSnap = snap;
     var alle = snap.docs.map(function (d) { return { id: d.id, v: d.data() || {} }; }).filter(function (r) { return r.v && typeof r.v === "object"; });
     var voll = alle.length >= KANAL_GRENZE;   // die Datenbank liefert höchstens 1000 Zeilen, ungeordnet: dann können die neuesten fehlen
     var rows = alle.sort(function (a, b) { return String(a.v.created || "").localeCompare(String(b.v.created || "")); });
+    kanalAlle = rows;   // Bauschritt 6: alle geladenen Zeilen, älteste zuerst — zeilenZu liest daraus; gezeigt werden davon die letzten MAX_ANZEIGE
     if (rows.length > MAX_ANZEIGE) rows = rows.slice(rows.length - MAX_ANZEIGE);
+    kanalGezeigt = Object.create(null); rows.forEach(function (r) { kanalGezeigt[r.id] = true; });
+    var sigK = alle.length + ":" + alle.map(function (r) { return r.id + String(r.v[FELD_VERWEIS] || ""); }).join(",");
+    if (vier() && sigK !== kanalSig) { kanalSig = sigK; setTimeout(function () { document.dispatchEvent(new CustomEvent("leitstand:kanal", { detail: { was: "zeilen" } })); }, 0); }   // Bauschritt 6: der Block im Feld liest die Zeilen des Kanals — kommt eine hinzu, zeichnet er neu
     var warnung = voll ? '<li class="akWarnung" role="note">' + esc(KANAL_TEXT.verlaufVoll) + "</li>" : "", tag = null;
     var html = warnung + (rows.length ? rows.map(function (r) {
       var t = tagText(r.v.created), trenner = t && t !== tag ? '<li class="akTag" role="presentation"><span>' + esc(t) + "</span></li>" : "";
@@ -383,13 +389,23 @@
     var m, titel;
     if (e.art === "nachricht") {
       m = e.v; titel = V.textDa(m.text) ? V.kern(m.text) : FEST.ng;
-      return '<li class="akWart akWartNachricht" data-wart="nachricht" data-id="' + esc(e.id) + '" tabindex="-1"><div class="akWKopf"><span class="akWMarke">' + esc(FEST4.nachrichtAnDich) + '</span><span class="akWTitel">' + esc(titel) + '</span><time class="akWZeit">' + esc(wartZeit(e)) + "</time></div>" +
+      return '<li class="akWart akWartNachricht" data-wart="nachricht" data-id="' + esc(e.id) + '" tabindex="-1"><div class="akWKopf"><span class="akWMarke">' + esc(FEST4.nachrichtAnDich) + '</span><time class="akWZeit">' + esc(wartZeit(e)) + '</time></div><div class="akWTitel">' + esc(titel) + "</div>" +
         (V.textDa(m.von) ? '<div class="akWVon">' + esc(FEST4.von) + " " + anzeigeHtml(m.von) + "</div>" : "") + "</li>";
     }
-    if (V.vorschlagKarte(e.v)) return zeileVorschlag(e.id, e.v).replace('<li class="akVorschlag"', '<li class="akVorschlag" data-wart="aufgabe" data-kl="' + esc(e.zustand.klasse) + '"');
+    if (V.vorschlagKarte(e.v)) return zeileVorschlag(e.id, e.v, true).replace('<li class="akVorschlag"', '<li class="akVorschlag" data-wart="aufgabe" data-kl="' + esc(e.zustand.klasse) + '"');
     titel = V.textDa(e.v.text) ? String(e.v.text) : FEST.ng;
-    return '<li class="akWart" data-wart="aufgabe" data-id="' + esc(e.id) + '" data-kl="' + esc(e.zustand.klasse) + '" tabindex="-1"><div class="akWKopf">' + V.markeHtml(e.zustand) + '<span class="akWTitel">' + esc(titel) + '</span><time class="akWZeit">' + esc(wartZeit(e)) + "</time></div>" +
+    return '<li class="akWart" data-wart="aufgabe" data-id="' + esc(e.id) + '" data-kl="' + esc(e.zustand.klasse) + '" tabindex="-1"><div class="akWKopf">' + V.markeHtml(e.zustand) + '<time class="akWZeit">' + esc(wartZeit(e)) + '</time></div><div class="akWTitel">' + esc(titel) + "</div>" +
       '<div class="akKnoepfe"><button type="button" class="akLnk" data-act="zeige" data-id="' + esc(e.id) + '">' + esc(FEST4.inAufgaben) + "</button></div></li>";
+  }
+  var nachAktion = null;   // Bauschritt 6: nach Bestätigen oder Ablehnen geht der Fokus an die nächste Sache, sonst an »Warten auf dich« — nie ins Leere, und frei im Fenster
+  function fokusNachAktion() {
+    var a = nachAktion; if (!a) return;
+    if (Date.now() > a.bis) { nachAktion = null; return; }
+    var liste = [].slice.call(vorschlagEl.querySelectorAll("li[data-id]"));
+    if (liste.some(function (x) { return x.dataset.id === a.id; })) return;   // die Karte steht noch da: der Eintrag hat sich noch nicht geändert
+    nachAktion = null;
+    var af = document.activeElement; if (af && af !== document.body && karte && karte.contains(af)) return;   // der Mensch hat den Fokus schon selbst gesetzt
+    fokusFrei(liste[Math.min(Math.max(a.idx, 0), liste.length - 1)] || (karte && karte.querySelector("#akWartenTitel")));
   }
   function renderWarten(V) {
     var W = V.wartenAufDich(ich(), todos), zahl = karte && karte.querySelector("#akWartenZahl");   // der Kasten ist immer da (kein hidden mit der Lesart): die Sprungzeile hat ein Ziel, auch wenn nichts wartet
@@ -399,7 +415,7 @@
     if (!setzeHtml(vorschlagEl, W.length ? W.map(function (e) { return wartZeile(e, V); }).join("") : '<li class="empty">' + esc(KANAL_TEXT.keineVorschlaege) + "</li>")) return;
     [].forEach.call(vorschlagEl.querySelectorAll("li.akVorschlag"), function (li) {
       var d = li.querySelector("details.akMehr"), v = todoVon(li.dataset.id); if (d && v && vorschlagOffen[li.dataset.id] && vorschlagGelesen[li.dataset.id] === v.beschreibung) d.open = true; });
-    fokusZurueck(vorschlagEl, f);
+    fokusZurueck(vorschlagEl, f); fokusNachAktion();
   }
   function renderVorschlaege() {
     if (!vorschlagEl) return;
@@ -504,9 +520,10 @@
       : { done: true, abgelehntVon: k, abgelehntAm: jetzt };
     if (b.dataset.act === "ja" && obj(v.planVorschlag) && !obj(v.plan)) { patch.plan = v.planVorschlag; patch.planVon = k; patch.planAm = jetzt; }   // was LES/JB bestätigen, gilt als Absprache
     var knoepfe = [].slice.call(li.querySelectorAll("button[data-act]")); knoepfe.forEach(function (x) { x.disabled = true; });
+    if (blockDa()) nachAktion = { id: id, idx: [].slice.call(vorschlagEl.querySelectorAll("li[data-id]")).indexOf(li), bis: Date.now() + 8000 };   // Bauschritt 6: wohin der Fokus geht, wenn die Karte verschwindet
     db.collection("todos").doc(id).update(patch)
       .then(function () { meldung(b.dataset.act === "ja" ? KANAL_TEXT.bestaetigtMeldung : KANAL_TEXT.abgelehntMeldung); })
-      .catch(function () { knoepfe.forEach(function (x) { x.disabled = false; }); meldung(KANAL_TEXT.aktionFehler); });
+      .catch(function () { nachAktion = null; knoepfe.forEach(function (x) { x.disabled = false; }); meldung(KANAL_TEXT.aktionFehler); });
   }
 
   /* ================= Lagebild und Absprache (Fassung 3) ================= */
@@ -514,10 +531,19 @@
   function ms(isoStr) { var t = isoStr ? new Date(isoStr).getTime() : NaN; return isNaN(t) ? null : t; }
   function todoVon(id) { return Object.prototype.hasOwnProperty.call(todoIndex, id) ? todoIndex[id] : null; }
   function texte(a) { return Array.isArray(a) ? a.filter(function (x) { return typeof x === "string" && x; }) : []; }
-  function kontoText(k) { return LAGE_TEXT.kontoName[k] || (k ? k + " " + KANAL_TEXT.claude : ""); }
-  function zugriffText(a) { return texte(a).map(function (z) { return LAGE_TEXT.zugriffName[z] || z; }).join(", "); }
-  function wieText(m, e, a) { return [m ? LAGE_TEXT.modellName[m] || m : "", e || "", a ? LAGE_TEXT.arbeitsweiseName[a] || a : ""].filter(Boolean).join(" · "); }
+  function eigenName(t, k) { return t && Object.prototype.hasOwnProperty.call(t, k) ? t[k] : undefined; }   // Runde 2 (Befund »geerbte Namen«): nur eigene Einträge, wie ortName (C7) — sonst stünde für »constructor« Programmtext im Block
+  function kontoText(k) { return eigenName(LAGE_TEXT.kontoName, k) || (k ? k + " " + KANAL_TEXT.claude : ""); }
+  function zugriffText(a) { return texte(a).map(function (z) { return eigenName(LAGE_TEXT.zugriffName, z) || z; }).join(", "); }
+  function wieText(m, e, a) { return [m ? eigenName(LAGE_TEXT.modellName, m) || m : "", e || "", a ? eigenName(LAGE_TEXT.arbeitsweiseName, a) || a : ""].filter(Boolean).join(" · "); }
   function kuerzen(s, n) { s = String(s).replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+  /* Bauschritt 6 (G2): an einer Wortgrenze gekürzt — nie mitten im Wort; höchstens `n` Zeichen samt »…«. Ein einziges Wort, das länger ist, bleibt ganz (der Kasten bricht es nur, wenn es als Ganzes nicht in eine Zeile passt). */
+  var FOLGEZEILE = 40;   // gesetzt: eine kurze Folgezeile (Material, Premiere-Fassung) im kleinen Kasten
+  function wortKuerzen(s, n) {
+    s = String(s).replace(/\s+/g, " ").trim(); if (s.length <= n) return s;
+    var teil = s.slice(0, n - 1), i = teil.lastIndexOf(" "), erstes = s.indexOf(" ");
+    if (i === -1) return erstes === -1 ? s : s.slice(0, erstes) + " …";
+    return teil.slice(0, i).replace(/[\s,;:·—\-–]+$/, "") + " …";
+  }
   /* Eine Absprache als Text — dieselbe Reihenfolge wie planText in kanal CL LES.mjs. voll = false (Zeile an der Aufgabe): die Notiz höchstens 300 Zeichen, mit »…« gekürzt;
      voll = true (Details, Vorschlag): bis 1000 Zeichen, so lang wie das Formular erlaubt. */
   function planTeile(pl, voll) {
@@ -531,7 +557,7 @@
     if (texte(pl.zugriff).length) t.push(T.zugriff + ": " + zugriffText(pl.zugriff));
     if (pl.premiere) t.push(T.premiere + " " + pl.premiere);
     if (pl.projekt) t.push(T.projekt + " " + pl.projekt);
-    if (pl.stand) t.push(T.standName[pl.stand] || String(pl.stand));
+    if (pl.stand) t.push(eigenName(T.standName, pl.stand) || String(pl.stand));
     if (pl.notiz) t.push(T.notiz + ": " + kuerzen(pl.notiz, voll ? 1000 : 300));
     return t;
   }
@@ -584,7 +610,7 @@
       /* Bauschritt 3: sagt der Lauf nichts, steht dort nur »läuft«. Nichts gesagt heißt auch: Kennung oder s11ziel bestehen aus Leerzeichen; und der Text der Datenbank in s11ziel (»Konto @ Arbeitsplatz«,
          ohne s11kennung nur in Altbestand) ist keine Ortsangabe — die Seite liest für die Anzeige nie den Text in s11ziel (§ 4) */
       var L = marken(), kDa = L ? L.textDa(v.s11kennung) : !!v.s11kennung, zDa = L ? L.textDa(v.s11ziel) && !/\s@\s/.test(String(v.s11ziel)) : !!v.s11ziel;
-      var wo = kDa ? anzeige(v.s11kennung) : zDa ? KANAL_TEXT.ortName[v.s11ziel] || v.s11ziel : "";
+      var wo = kDa ? anzeige(v.s11kennung) : zDa ? ortName(v.s11ziel) : "";
       if (L) return { t: wo ? T.laeuftAuf + wo : T.laeuftAuf.replace(/\s+auf\s*$/, ""), k: "laeuft", auf: kDa ? { kennung: v.s11kennung } : zDa ? { ziel: v.s11ziel } : null };
       return { t: T.laeuftAuf + wo, k: "laeuft" };
     }
@@ -730,6 +756,9 @@
     var l = obj(v.s11lauf) || {}, L = marken();
     return { konto: L.textDa(l.konto) && l.konto !== "offen" ? String(l.konto) : "?", modell_genau: typeof l.modell_genau === "string" ? l.modell_genau : "", modell: typeof l.modell === "string" ? l.modell : "", effort: typeof l.effort === "string" ? l.effort : "" };
   }
+  /* Bauschritt 6 (Entscheidung G4): Die Zeile zu den Helfern trägt kein doppeltes Wort (»Helfer keine Helfer«, »Helfer 1 Helfer«): ohne vorangestellte Beschriftung steht dort »keine Helfer«, »1 Helfer«, »n Helfer« oder »Helfer nicht gemeldet« */
+  function helferText(hk) { return hk ? esc(hk) : ngHtml(FEST.helfer + " " + FEST.ng); }
+  function helferZeile(hk) { return '<span class="llZeile">' + helferText(hk) + "</span>"; }
   function zeileKasten(label, html, extra) { return '<span class="llZeile' + (extra ? " " + extra : "") + '"><span class="llLb">' + esc(label) + "</span> " + html + "</span>"; }
   function zustandWort(st) { return st.zustand ? LAGE_TEXT.zustand[st.zustand] || st.zustand : "Zustand " + FEST.ng; }
   function sitzungTeile(n, L) {   // Kasten einer Sitzung: Konto-Marke, Arbeitsplatz-Marke, Zustand oder »zuletzt …«, dann vier feste Zeilen — Modell, Effort, Auftrag, Helfer
@@ -737,7 +766,7 @@
     var held = au ? (au.v && au.v.text) || au.titel || au.id : "";
     return { neu: true, kopf: "", kp: L.markenPaar(kt.konto, n.zone, false), klein: n.aktiv ? zustandWort(st) : T.zuletzt + " " + (a.zuletzt && fmtZeit(a.zuletzt) ? fmtZeit(a.zuletzt) : FEST.ng),   // Runde 3: nicht von heute → Tag und Uhrzeit, wie »Zuletzt gesehen« und die Einzelheiten (fmtZeit); von heute nur die Uhrzeit
       zeilenH: nichts ? ['<span class="llZeile">' + ngHtml(FEST.nichts) + "</span>"]
-        : [zeileKasten(T.modell, modellHtml(sd)), zeileKasten(T.effort, effortHtml(sd)), zeileKasten(FEST.auftrag, held ? esc(held) : n.genannt ? genanntHtml(n.genannt) : ngHtml(FEST.keinAuftrag), "llAuftrag"), zeileKasten(FEST.helfer, hk ? esc(hk) : ngHtml(FEST.ng))],
+        : [zeileKasten(T.modell, modellHtml(sd)), zeileKasten(T.effort, effortHtml(sd)), zeileKasten(FEST.auftrag, held ? esc(held) : n.genannt ? genanntHtml(n.genannt) : ngHtml(FEST.keinAuftrag), "llAuftrag"), helferZeile(hk)],
       marke: n.abw && n.abw.length ? T.abweichung + ": " + n.abw.join(", ") : "", zst: null };
   }
   function genanntHtml(g) { return ngHtml("»" + g.titel + "« — " + FEST4.genannt); }   // der Status nennt einen Auftrag, der nicht mehr offen ist (§ 2.4): kein Kasten AUFGABE, nur dieser Satz in der Zeile »Auftrag«
@@ -781,7 +810,7 @@
     else if (n.art === "platz") { kopf = T.warteTitel; z.push(KANAL_TEXT.ziel + ": " + anName(n.ziel)); }
     else if (n.art === "aufgabe") {
       kopf = n.titel; if (n.sorte === "thema") { klein = T.thema; } else if (n.v) { var s = statusAufgabe(n.v), pl = obj(n.v.plan) || {};
-        if (s.k === "fehler") { marke = s.t; if (n.v.s11ergebnis) z.push(kuerzen(n.v.s11ergebnis, 90)); } else klein = s.t;   // Warnfarbe und letztes Ergebnis statt »freigegeben«
+        if (s.k === "fehler") { marke = s.t; if (n.v.s11ergebnis && !vier()) z.push(kuerzen(n.v.s11ergebnis, 90)); } else klein = s.t;   // Warnfarbe und letztes Ergebnis statt »freigegeben«; Bauschritt 6 (G2): mit der Lesart steht das Ergebnis nur in den Einzelheiten, nicht im kleinen Kasten
         zst = s.zst || null;
         if (texte(pl.material).length) z.push(texte(pl.material).join("; ")); if (pl.premiere) z.push(T.premiere + " " + pl.premiere); }
     }
@@ -791,7 +820,7 @@
   /* »auf …« hinter »läuft«: der Ort, an dem der Lauf steht, als die zwei Marken (Kennung) oder die Arbeitsplatz-Marke (Ort des Dienstes); sonst der Text, wie ihn der Lauf meldet */
   function aufHtml(auf, L) {
     return esc(LAGE_TEXT.laeuftAuf.trim().split(/\s+/).slice(1).join(" ")) + " " +
-      (auf.kennung ? L.kennungMarken(auf.kennung) : /^[a-z0-9-]+$/.test(String(auf.ziel)) ? '<span class="llKp">' + L.platzMarke(auf.ziel) + "</span>" : esc(KANAL_TEXT.ortName[auf.ziel] || auf.ziel));
+      (auf.kennung ? L.kennungMarken(auf.kennung) : /^[a-z0-9-]+$/.test(String(auf.ziel)) ? '<span class="llKp">' + L.platzMarke(auf.ziel) + "</span>" : esc(ortName(auf.ziel)));
   }
   function kleinHtml(t) {   // mit der Lesart: die Marke des Zustands, dahinter, was die Seite schon sagte (Ort, Fortschritt); sonst der Text wie zuvor
     var L = lesart(), s = t.zst ? (t.marke || t.klein) : "", M = marken();
@@ -814,7 +843,7 @@
     if (V && n.art === "aufgabe" && n.cl && n.v && t.zst) {   // jede offene Claude-Aufgabe: Kennung, Wort und Stufe am Kasten; was läuft oder pausiert, hängt groß an Sitzung oder Dienst, alles andere klein
       attr = ' data-lid="' + esc(n.id) + '" data-kl="' + esc(t.zst.klasse) + '" data-stufe="' + esc(t.zst.stufe) + '"';
       if (t.zst.nr !== 3 && t.zst.nr !== 4) return '<button type="button" class="' + esc(kl) + ' alKlein" data-key="' + esc(n.key) + '"' + attr + ' aria-pressed="false"' + breiteAttr + '><span class="alKrow">' + kleinHtml(t) + '<span class="alKKopf alKTitel">' + esc(t.kopf) + "</span></span>" +
-        t.zeilen.map(function (x) { return '<span class="alKZeile">' + esc(x) + "</span>"; }).join("") + "</button>";
+        t.zeilen.slice(0, 1).map(function (x) { return '<span class="alKZeile">' + esc(wortKuerzen(x, FOLGEZEILE)) + "</span>"; }).join("") + "</button>";   // Bauschritt 6 (G2): höchstens eine kurze Folgezeile
     }
     if (V && n.art === "aufgabe" && n.chatN && n.v) { attr = ' data-chat="' + esc(n.id) + '"'; t.kopf = FEST4.chat + t.kopf; }   // eine laufende oder pausierte Chat-Nachricht: eigener Kasten CHAT, zählt nicht mit
     if (t.neu) return '<button type="button" class="' + esc(kl) + '" data-key="' + esc(n.key) + '" aria-pressed="false"' + (breite ? ' style="width:' + breite + 'px"' : "") + ">" +   // Bauschritt 3: Sitzung, Dienst, Warte- und Mensch-Platz mit den zwei Marken
@@ -846,7 +875,7 @@
       zeileH(FEST.sitzung, st.sitzung ? "<code>" + esc(st.sitzung) + "</code>" : ngHtml("Kennung " + FEST.ng)) +
       zeileH(T.zustandWort, st.zustand ? esc(T.zustand[st.zustand] || st.zustand) : ngHtml(FEST.ng)) + zeileH(T.zuletzt, a.zuletzt && fmtZeit(a.zuletzt) ? esc(fmtZeit(a.zuletzt)) : ngHtml(FEST.ng)) +
       zeileH(T.modell, modellHtml(sd) + (sd.modell && st.modell_quelle ? " " + esc("(" + T.modell + " " + (T.quelle[st.modell_quelle] || st.modell_quelle) + ")") : "")) + zeileH(T.effort, effortHtml(sd)) +
-      zeileH(T.arbeitsweise, sd.arbeitsweise ? esc(T.arbeitsweiseName[sd.arbeitsweise] || sd.arbeitsweise) : "") + zeileH(FEST.helfer, hk ? esc(hk) : ngHtml(FEST.ng)) +
+      zeileH(T.arbeitsweise, sd.arbeitsweise ? esc(T.arbeitsweiseName[sd.arbeitsweise] || sd.arbeitsweise) : "") + '<div class="alZeile">' + helferText(hk) + "</div>" +
       zeileH(T.aufgabe, au ? esc((au.v && au.v.text) || au.titel || au.id) : n.genannt ? genanntHtml(n.genannt) : ngHtml(FEST.keinAuftrag)) + zeile(T.thema, st.thema || "") +
       (pl ? '<div class="alZeile' + (n.abw.length ? " alAbweichung" : "") + '"><span class="alLabel">' + esc(T.absprache) + "</span> " + esc(planZeile(pl, true)) +
         (n.abw.length ? ' <span class="alMarke">' + esc(T.abweichung + ": " + n.abw.join(", ")) + "</span>" : "") + "</div>" : "") +
@@ -866,8 +895,16 @@
     return zeileH(T.art, esc(n.sorte === "mensch" ? (n.konto ? kontoText(n.konto) : T.mensch) : T.warteTitel)) + zeileH(T.rechner, zoneMarke(n.zone)) +
       (n.sorte === "warte" ? zeileH(KANAL_TEXT.ziel, zielHtml(n.ziel)) : "") + (n.sorte === "mensch" ? zeile(T.mitarbeiter, n.wer || "") : "");
   }
+  /* Bauschritt 6: der Block der Lesart (§ 2.3) — derselbe Baustein wie im Aufgeklappten des Brettes. Er steht, wenn die Lesart ihn liefert UND ihre Stildatei da ist (Eigenschaft --ll-block); sonst gelten die Einzelheiten wie zuvor. */
+  function blockDa() {
+    var L = vier(), css = "";
+    try { css = getComputedStyle(document.documentElement).getPropertyValue("--ll-block").trim(); } catch (e) { css = ""; }
+    return L && L.block === 1 && typeof L.detailBlock === "function" && css === "1" ? L : null;
+  }
   function detailHtml(n) {
-    var T = LAGE_TEXT, M = lage.modell, h = "", knopf = null, L = marken();
+    var T = LAGE_TEXT, M = lage.modell, h = "", knopf = null, L = marken(), BL = n.art === "aufgabe" && n.cl && n.v ? blockDa() : null;
+    if (BL) return '<div class="alDetailKopf"><span class="alKKopf' + (L ? " llKopfMarken" : "") + '">' + kurzNameH(n) + '</span><button type="button" class="akBtn akNein" data-act="schliessen">' + esc(T.schliessen) + "</button></div>" +
+      BL.detailBlock({ id: n.id, v: n.v }, { wo: "lage", jetzt: Date.now() }) + '<div class="akKnoepfe"><button type="button" class="akBtn akNein" data-act="absprache" data-id="' + esc(n.id) + '">' + esc(T.aendern) + "</button></div>";
     var namen = function (keys) { return keys.map(function (k) { return kurzNameH(M.knoten[k]); }).join(" · "); };
     if (n.art === "mitarbeiter") h = zeile(T.mitarbeiter, n.wer) + zeile(T.praesenzWort, n.praesenz || "") + (n.ohneMeldung ? zeile("", T.ohneMeldung) : "");
     else if (L && n.art === "platz" && n.sorte === "claude") { h = sitzungDetail(n, L); if (n.auftrag && n.auftrag.v && !n.auftrag.v.done) knopf = n.auftrag.id; }
@@ -904,6 +941,30 @@
       zeile(T.reichweite, T.aufwaerts + " " + nh + " · " + T.abwaerts + " " + nr);
     return '<div class="alDetailKopf"><span class="alKKopf' + (L ? " llKopfMarken" : "") + '">' + kurzNameH(n) + '</span><button type="button" class="akBtn akNein" data-act="schliessen">' + esc(T.schliessen) + "</button></div>" + h +
       (knopf ? '<div class="akKnoepfe"><button type="button" class="akBtn akNein" data-act="absprache" data-id="' + esc(knopf) + '">' + esc(T.aendern) + "</button></div>" : "");
+  }
+
+  /* Bauschritt 6 (§ 2.3): die Zeilen des Kanals, die auf eine Aufgabe zeigen — für den Block der Lesart. Der Kanal behält dafür die geladenen Zeilen (älteste zuerst); `gezeigt` sind die, die er zeichnet (die letzten 100).
+     Je Zeile fertig gesetzt: Zeit, Absender (HTML, geprüft mit esc), was sie tut, Text. */
+  function zeilenZu(id) {
+    if (typeof id !== "string" || id === "") return [];
+    return kanalAlle.filter(function (r) { return r.v && r.v[FELD_VERWEIS] === id; }).map(function (r) {
+      var v = r.v, agent = v.rolle === "agent", system = v.rolle === "system", vonDa = typeof v.von === "string" && v.von.replace(/\s+/g, "") !== "";
+      return { id: r.id, gezeigt: kanalGezeigt[r.id] === true, zeit: fmtZeit(v.created) || FEST.ng,
+        von: agent ? (vonDa ? anzeigeHtml(v.von) : ngHtml(FEST.ng)) : system ? esc(KANAL_TEXT.system) : vonDa ? chip(v.von) : ngHtml(FEST.ng),
+        was: v.art && v.art !== "nachricht" ? eigenName(KANAL_TEXT.art, v.art) || String(v.art) : "", text: typeof v.text === "string" && v.text ? kurztitel(v.text) : "" };
+    });
+  }
+  /* Die Kette im Lagebild: die Kästen, an denen die Aufgabe hängt — Mensch, Platz (Sitzung, Dienst, »Warten auf dich« oder »wartet auf Übernahme«), die Aufgabe selbst, ihr Speicher. null, wenn sie keinen Kasten hat. */
+  function kette(id) {
+    var M = lage.modell, n = M && typeof id === "string" ? M.knoten["t:" + id] : null; if (!n || !n.cl || !n.v) return null;
+    var k = [], p = n.links.map(function (x) { return M.knoten[x]; }).filter(function (x) { return x && x.art === "platz"; })[0], zs = vier() ? vier().zustand(n.v) : null;
+    if (p) {
+      var m = p.links.map(function (x) { return M.knoten[x]; }).filter(function (x) { return x && x.art === "mitarbeiter"; })[0]; if (m) k.push(["m", m.wer]);
+      k.push([p.sorte === "dienst" ? "d" : p.sorte === "claude" ? "p" : "w", p.sorte === "claude" ? anzeige(p.anw.kennung) : p.sorte === "dienst" ? FEST.dienstWort + " @ " + zoneName(p.zone) : (p.sorte === "dran" ? FEST4.warten : LAGE_TEXT.warteTitel) + " · " + zoneName(p.zone)]);
+    }
+    k.push(["a", FEST.dieseAufgabe + " · " + (zs ? zs.wort : "")]);
+    n.rechts.forEach(function (x) { var s = M.knoten[x]; if (s && s.art === "speicher") k.push(["s", eigenName(LAGE_TEXT.zugriffName, s.z) || s.z]); });
+    return k;
   }
 
   /* ---- Setzen und Zeichnen ---- */
@@ -966,15 +1027,46 @@
     };
     // Arbeitsplätze in Zonen
     var y = top0, zonenPos = {};
-    zr.forEach(function (o) {
-      var oben = y; y += V ? 44 : 30;
-      spalte("platz").filter(function (n) { return n.zone === o; }).sort(platzOrdnung).forEach(function (n) { pos[n.key] = { x: X[1], y: y }; y += hoch[n.key] + LUECKE; });
-      zonenPos[o] = { y: oben, h: y - oben - LUECKE + 10 }; y += 18;
-    });
     var schnitt = function (keys, rueck) { var w = keys.filter(function (k) { return pos[k]; }).map(mitte); return w.length ? w.reduce(function (s, v) { return s + v; }, 0) / w.length : rueck; };
-    setzeSpalte(spalte("mitarbeiter"), X[0], function (n) { return schnitt(n.rechts, 1e6 + MITARBEITER.indexOf(n.wer)); });
-    setzeSpalte(spalte("aufgabe"), X[2], function (n) { return schnitt(n.links, 1e6); });
-    setzeSpalte(spalte("speicher"), X[3], function (n) { return schnitt(n.links, 1e6); });
+    if (V) {
+      /* Bauschritt 6 (Entscheidung G1): Die Kästen einer Zone stehen in ihrem Band. Wächst die Spalte rechts neben einer Zone (Aufgaben, Themen, Nachrichten), wird die Zone so hoch, dass alle ihre Kästen neben ihr stehen;
+         die nächste Zone beginnt darunter. Ein Mitarbeiter gehört der Zone seines ersten Platzes (Zonen in ihrer Reihenfolge), ein Speicher der Zone seiner ersten Aufgabe; Kästen ohne Zone stehen unter der letzten Zone.
+         Linien zwischen Kästen derselben Zone bleiben so im Band; nur die Linie eines Mitarbeiters oder Speichers zu einer anderen Zone läuft durch fremde Zonen (bekannte Grenze). */
+      var zi = function (o) { return zr.indexOf(o); };
+      var ersteZone = function (n, seite) { var b = null; n[seite].forEach(function (k) { var m = M.knoten[k], o = m && m.zone; if (o != null && zi(o) !== -1 && (b == null || zi(o) < zi(b))) b = o; }); return b; };
+      var band = {};
+      alle.forEach(function (n) {
+        var o = n.zone != null ? n.zone : n.art === "mitarbeiter" ? ersteZone(n, "rechts") : n.art === "aufgabe" || n.art === "speicher" ? ersteZone(n, "links") : null;
+        band[n.key] = o != null && zi(o) !== -1 ? o : null;
+      });
+      var stapel = function (liste, x, ziel, start) {   // nach Zielhöhe sortiert, ohne Überlappung; liefert die Unterkante des letzten Kastens
+        var yy = start, ende = start - LUECKE;
+        liste.map(function (n) { return { n: n, z: ziel(n) }; }).sort(function (a, b) { return a.z - b.z || a.n.key.localeCompare(b.n.key); }).forEach(function (o) {
+          var p = Math.max(yy, Math.round(o.z - hoch[o.n.key] / 2)); pos[o.n.key] = { x: x, y: p }; yy = p + hoch[o.n.key] + LUECKE; ende = p + hoch[o.n.key]; });
+        return ende;
+      };
+      var imBand = function (keys, o) { return keys.filter(function (k) { return band[k] === o; }); };
+      var bandSetzen = function (o, oben, kopf) {
+        var von = oben + kopf, mit = alle.filter(function (n) { return band[n.key] === o; }), ende = von - LUECKE, py = von;
+        mit.filter(function (n) { return n.art === "platz"; }).sort(platzOrdnung).forEach(function (n) { pos[n.key] = { x: X[1], y: py }; py += hoch[n.key] + LUECKE; });
+        ende = Math.max(ende, py - LUECKE);
+        ende = Math.max(ende, stapel(mit.filter(function (n) { return n.art === "aufgabe"; }).sort(ordnung.aufgabe), X[2], function (n) { return schnitt(imBand(n.links, o), von); }, von));
+        ende = Math.max(ende, stapel(mit.filter(function (n) { return n.art === "mitarbeiter"; }).sort(ordnung.mitarbeiter), X[0], function (n) { return schnitt(imBand(n.rechts, o), von); }, von));
+        ende = Math.max(ende, stapel(mit.filter(function (n) { return n.art === "speicher"; }).sort(ordnung.speicher), X[3], function (n) { return schnitt(imBand(n.links, o), von); }, von));
+        return ende;
+      };
+      zr.forEach(function (o) { var oben = y, ende = bandSetzen(o, oben, 44); zonenPos[o] = { y: oben, h: ende - oben + 10 }; y = ende + LUECKE + 18; });
+      if (alle.some(function (n) { return band[n.key] == null; })) y = bandSetzen(null, y, 0) + LUECKE;
+    } else {
+      zr.forEach(function (o) {
+        var oben = y; y += 30;
+        spalte("platz").filter(function (n) { return n.zone === o; }).sort(platzOrdnung).forEach(function (n) { pos[n.key] = { x: X[1], y: y }; y += hoch[n.key] + LUECKE; });
+        zonenPos[o] = { y: oben, h: y - oben - LUECKE + 10 }; y += 18;
+      });
+      setzeSpalte(spalte("mitarbeiter"), X[0], function (n) { return schnitt(n.rechts, 1e6 + MITARBEITER.indexOf(n.wer)); });
+      setzeSpalte(spalte("aufgabe"), X[2], function (n) { return schnitt(n.links, 1e6); });
+      setzeSpalte(spalte("speicher"), X[3], function (n) { return schnitt(n.links, 1e6); });
+    }
     var unten = 0;
     Object.keys(pos).forEach(function (k) { var e = el[k]; e.style.left = pos[k].x + "px"; e.style.top = pos[k].y + "px"; unten = Math.max(unten, pos[k].y + hoch[k]); });
     [].forEach.call(g.querySelectorAll(".alZone"), function (z) { var p = zonenPos[z.dataset.ort]; z.style.left = (X[1] - 8) + "px"; z.style.width = (BW + 16) + "px"; z.style.top = (p.y) + "px"; z.style.height = p.h + "px"; unten = Math.max(unten, p.y + p.h); });
@@ -1063,6 +1155,17 @@
     var f = d.contains(document.activeElement) && document.activeElement.dataset ? document.activeElement.dataset.act || null : null;
     h.appendChild(d); return f;
   }
+  /* Runde 2 (B3): das fokussierte Element in den Einzelheiten, beschrieben durch Art, Sprung und Aktion — nach dem Neuzeichnen bekommt das gleiche Element den Fokus zurück, ohne zu rollen (wie fokusZurueck) */
+  function blockFokusVon(d) {
+    var a = document.activeElement; if (!a || a === document.body || a === d || !d.contains(a)) return null;
+    return { tag: a.tagName, sprung: a.getAttribute("data-sprung"), act: a.getAttribute("data-act") };
+  }
+  function blockFokusZurueck(d, f) {
+    var k = [].filter.call(d.querySelectorAll(f.tag.toLowerCase()), function (e) { return e.getAttribute("data-sprung") === f.sprung && e.getAttribute("data-act") === f.act; })[0];
+    if (!k || k === document.activeElement || !k.focus) return;
+    window.leitstandFokusWieder = true;
+    try { k.focus({ preventScroll: true }); } finally { window.leitstandFokusWieder = false; }
+  }
   function detailZeigen(dfk) {
     legendeZeigen();
     var d = karte && karte.querySelector("#alDetail"); if (!d) return;
@@ -1075,7 +1178,7 @@
       d.classList.toggle("alUnten", unter); d.classList.toggle("alHaftet", !!n && !unter);
     }
     var html = n ? detailHtml(n) : '<p class="akHinweis">' + esc(LAGE_TEXT.tippHinweis) + "</p>";
-    if (d._html !== html) { d.innerHTML = html; d._html = html; }
+    if (d._html !== html) { var fd = blockFokusVon(d); d.innerHTML = html; d._html = html; if (fd) blockFokusZurueck(d, fd); }   // Runde 2 (B3): zeichnet der Block neu (eine Zeile des Kanals kam dazu), bleibt der Fokus auf seinem Element
     d.classList.toggle("alOffen", !!n);
     if (V && dfk) { var fb = d.querySelector('[data-act="' + dfk + '"]'); if (fb) fb.focus({ preventScroll: true }); }
   }
@@ -1176,7 +1279,19 @@
     if (r.top < kopf + 8) dy = r.top - kopf - 8; else if (r.bottom > unten - 8) dy = Math.min(r.bottom - unten + 8, r.top - kopf - 8);
     if (dy) window.scrollBy({ top: dy, behavior: "auto" });
   }
-  function zumKasten(key) { var b = lageEl && [].filter.call(lageEl.querySelectorAll(".alKasten"), function (x) { return x.dataset.key === key; })[0]; if (b) b.focus({ preventScroll: true }); }
+  function zumKasten(key) { var b = lageEl && [].filter.call(lageEl.querySelectorAll(".alKasten"), function (x) { return x.dataset.key === key; })[0]; if (b) { b.focus({ preventScroll: true }); if (blockDa()) kastenInsFenster(b); } }   // Bauschritt 6: nach jedem Fokus der Seite wird nachgerollt
+  /* Bauschritt 6 (§ 2.6): Fokus setzen und frei rollen — die Seite (index.html) liefert die Funktion; Zeilen im Verlauf des Kanals rollen zusätzlich in ihrem Rollbereich. Ohne sie: fokussieren und selbst unter den Kopf rollen (Runde 2, B5). */
+  function fokusFrei(el) {
+    if (!el) return;
+    var v = el.closest && el.closest("ul.akVerlauf");
+    if (v && v !== el) { var vb = v.getBoundingClientRect(), eb = el.getBoundingClientRect(); if (eb.top < vb.top) v.scrollTop -= vb.top - eb.top + 4; else if (eb.bottom > vb.bottom) v.scrollTop += eb.bottom - vb.bottom + 4; }
+    if (typeof window.leitstandFokus === "function") window.leitstandFokus(el);
+    else {   // Runde 2 (B5): eine index.html von vor dem Schritt (Zwischenspeicher) hat die Funktion nicht — dann rollt der Kanal selbst, bis das Ziel unter dem Kopf im Fenster steht
+      el.focus({ preventScroll: true });
+      var r = el.getBoundingClientRect(), kopf = kopfUnten();
+      if (r.top < kopf || r.bottom > window.innerHeight) window.scrollBy({ top: r.top - kopf - 12, behavior: "auto" });
+    }
+  }
   function lageVerdrahten() {
     lageEl = karte.querySelector("#alInhalt"); lageMeldEl = karte.querySelector("#alMeldung"); edForm = karte.querySelector("#alForm"); edWahl = karte.querySelector("#alAufgabe");
     var lk = karte.querySelector("#alKarte");
@@ -1198,6 +1313,15 @@
         lage.wahl = lage.wahl === k.dataset.key ? null : k.dataset.key; hervorheben(); detailZeigen(); if (vier() && lage.wahl) kastenInsFenster(k); return;
       }
       if (ev.target.closest('button[data-act="schliessen"]')) { var war = lage.wahl; lage.wahl = null; hervorheben(); detailZeigen(); if (vier() && war) zumKasten(war); return; }
+      var bk = ev.target.closest && ev.target.closest(".llBlock [data-act], .llBlock [data-sprung]");   // Bauschritt 6: der Knopf im Block ruft den einen Schreibweg der Lesart, die Sprünge führen in die Aufgaben, zu den Zeilen im Kanal und zu ihrer Sache
+      if (bk && blockDa()) {
+        var bid = bk.dataset.id, ba = bk.dataset.act, bs = bk.dataset.sprung;
+        if (ba === "jetzt" || ba === "neu") { vier().freigeben(bid, ba, bk.closest(".llBlock")); return; }
+        if (ba === "vorschlag" || bs === "vorschlag") { springeZu("warten", bid); return; }
+        if (bs === "feld") { zeigeAufgabe(bid); return; }
+        if (bs === "kanal") { springeZeile(bid); return; }
+        return;
+      }
       var b = ev.target.closest('button[data-act="absprache"]'); if (!b) return;
       aufgabenWahl(); edWahl.value = b.dataset.id; if (edWahl.value !== b.dataset.id) return;
       editorFuellen(b.dataset.id); lageMeldung("");
@@ -1215,7 +1339,26 @@
       try { taste = k.matches(':focus-visible'); } catch (e) { taste = false; }
       if (taste) kastenInsFenster(k);
     });
-    lk.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && (lage.wahl || lage.schwebe)) { var war = lage.wahl; lage.wahl = null; lage.schwebe = null; hervorheben(); detailZeigen(); if (vier() && war) zumKasten(war); } });   // Bauschritt 4: Escape schließt die Einzelheiten und gibt den Fokus an den Kasten zurück
+    document.addEventListener("focusin", function (ev) {   // Bauschritt 6 (§ 2.6): Fokus nie unter den haftenden Einzelheiten — ein Halt der Tastatur außerhalb des Lagebilds (Chat, Kanal, Absprache), den sie verdecken würden, wird über sie gerollt
+      var d = karte && karte.querySelector("#alDetail"), e = ev.target;
+      if (!blockDa() || !d || !d.classList.contains("alHaftet") || !d.classList.contains("alOffen") || window.leitstandFokusWieder === true || !e || !e.getBoundingClientRect || !e.closest || d.contains(e) || e.closest("header.top") || lageEl.contains(e)) return;
+      var taste = false; try { taste = e.matches(":focus-visible"); } catch (x) { taste = false; }
+      var r = e.getBoundingClientRect(), dr = d.getBoundingClientRect(), boden = dr.bottom >= window.innerHeight - 2 ? dr.top : window.innerHeight;   // sie decken nur, solange sie am unteren Fensterrand kleben
+      if (taste && r.height && r.bottom > boden - 4) window.scrollBy({ top: Math.min(r.bottom - boden + 8, r.top - kopfUnten() - 8), behavior: "auto" });
+    });
+    lk.addEventListener("keydown", function (ev) {   // Bauschritt 4: Escape schließt die Einzelheiten und gibt den Fokus an den Kasten zurück; Bauschritt 6: zuerst die Meldung (der Seite und des Kanals), und wer das Escape verbraucht, ruft preventDefault
+      if (ev.key !== "Escape" || ev.defaultPrevented || !(lage.wahl || lage.schwebe)) return;
+      var toast = document.getElementById("toast");
+      if (blockDa() && ((toast && toast.classList.contains("on")) || (meldungEl && !meldungEl.hidden))) return;
+      var war = lage.wahl; lage.wahl = null; lage.schwebe = null; hervorheben(); detailZeigen(); if (vier() && war) { ev.preventDefault(); zumKasten(war); }
+    });
+    karte.addEventListener("keydown", function (ev) {   // Bauschritt 6 (§ 2.6): die Meldung unten, »mehr« am Vorschlag
+      if (ev.key !== "Escape" || ev.defaultPrevented || !blockDa()) return;
+      var toast = document.getElementById("toast"); if (toast && toast.classList.contains("on")) return;   // die Meldung der Seite schließt ihr eigener Hörer
+      var a = document.activeElement, d = a && a.closest ? a.closest("details[open]") : null;   // »mehr« am Vorschlag und »Details« im Block
+      if (meldungEl && !meldungEl.hidden) { ev.preventDefault(); meldung(""); return; }
+      if (d) { ev.preventDefault(); d.open = false; fokusFrei(d.querySelector("summary")); }
+    });
     /* Breite 0 = Reiter verborgen: b0 vergessen, damit das Sichtbarwerden auch bei gleicher Breite neu zeichnet (und zwar mit dem Stand von jetzt, nicht von vorher) */
     if (typeof ResizeObserver === "function") { var b0 = 0; lage.ro = new ResizeObserver(function () {
       var w = lageEl.clientWidth; if (!w) { b0 = 0; return; }
@@ -1257,6 +1400,19 @@
     nav.addEventListener("click", function (ev) { var b = ev.target.closest("button[data-sprung]"); if (b) springeZu(b.dataset.sprung); });
     var h = host.querySelector("#claudeChatCard h2"); if (h) h.tabIndex = -1;   // das Ziel »Chat mit Claude« ist die Überschrift der Karte (claude-chat.js bleibt unverändert)
   }
+  /* Bauschritt 6: »im Kanal zeigen« — die erste Zeile im Verlauf, die auf die Aufgabe zeigt; sie steht frei im Fenster und hat den Fokus */
+  function springeZeile(id) {
+    var z = verlaufEl && [].filter.call(verlaufEl.querySelectorAll("li[data-" + FELD_VERWEIS + "]"), function (x) { return x.getAttribute("data-" + FELD_VERWEIS) === String(id); })[0];
+    if (z) fokusFrei(z);
+  }
+  /* Bauschritt 6: »im Lagebild zeigen« — der Kasten der Aufgabe steht frei im Fenster und hat den Fokus. Zeichnet das Lagebild gerade nicht (der Reiter wurde eben erst gezeigt), wird kurz gewartet. */
+  function zeigeKasten(id, versuch) {
+    var key = "t:" + id; if (!lage.modell || !lage.modell.knoten[key]) return;
+    if (!lageEl || !lageEl.clientWidth) { if ((versuch || 0) < 20) setTimeout(function () { zeigeKasten(id, (versuch || 0) + 1); }, 50); return; }
+    var kasten = function () { return [].filter.call(lageEl.querySelectorAll(".alKasten"), function (x) { return x.dataset.key === key; })[0]; }, b = kasten();
+    if (!b) { renderLage(); b = kasten(); }
+    if (b) { b.focus({ preventScroll: true }); kastenInsFenster(b); }   // der Kasten hat den Fokus (sein Strang leuchtet auf) und ist nicht gewählt: die erste Eingabetaste öffnet die Einzelheiten, nicht schließt sie (Prüfbericht Entwurf im Browser, Befund 9)
+  }
   function springeZiel(el) {
     if (!el) return;
     var kopf = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--kopfhoehe")) || 0;
@@ -1270,6 +1426,7 @@
     else if (wohin === "lagebild") ziel = karte && karte.querySelector("#alTitel");
     else if (wohin === "kanal") ziel = karte && karte.querySelector("#akTitel");
     else if (wohin === "chat") ziel = document.querySelector("#page-claude #claudeChatCard h2");
+    if (wohin === "warten" && id && ziel && ziel.dataset && ziel.dataset.id === String(id) && blockDa()) { fokusFrei(ziel); return; }   // Bauschritt 6: die Sache selbst, frei im Fenster
     springeZiel(ziel);
   }
   function aufbauen(host) {
@@ -1322,12 +1479,17 @@
     var d = ev && ev.detail; if (!d || !fuenf()) return;
     if (d.art === "senden" && anEl) springeZiel(anEl); else if (d.art === "warten") springeZu("warten");
   });
+  document.addEventListener("leitstand:zeige", function (ev) {   // Bauschritt 6: aus einer Aufgabe ins Lagebild und zu ihren Zeilen im Kanal
+    var d = ev && ev.detail; if (!d || !blockDa() || typeof d.id !== "string") return;
+    if (d.art === "lage") zeigeKasten(d.id); else if (d.art === "kanal") springeZeile(d.id);
+  });
   document.addEventListener("leitstand:zeige", function (ev) {
     var d = ev && ev.detail; if (!d || d.art !== "vorschlag" || !vorschlagEl) return;
     sprungAm = performance.now();
     var li = [].filter.call(vorschlagEl.querySelectorAll("li.akVorschlag"), function (x) { return x.dataset.id === String(d.id); })[0]; if (!li) return;
     try { li.scrollIntoView({ block: "center" }); } catch (e) {}
     li.focus({ preventScroll: true });
+    if (blockDa()) fokusFrei(li);   // Bauschritt 6 (§ 2.6): nach dem Fokus der Seite wird nachgerollt, bis das Ziel frei im Fenster steht — auch über den haftenden Einzelheiten des Lagebilds
   });
 
   function init() {
@@ -1343,13 +1505,14 @@
       db.collection("todos").onSnapshot(function (snap) {               // eine Abfrage für Vorschläge, Lagebild, Aufgabenwahl und Zeilen
         todos = snap.docs.map(function (x) { return { id: x.id, v: x.data() || {} }; }).filter(function (x) { return obj(x.v); });
         todoIndex = {}; todos.forEach(function (x) { todoIndex[x.id] = x.v; });
-        if (admin) { renderVorschlaege(); renderLage(); aufgabenWahl(); if (vier() && kanalSnap) renderKanal(kanalSnap); }   // Bauschritt 4: die Marke »jetzt …« an den Zeilen mit Verweisfeld liest die Aufgaben
+        if (admin) { renderVorschlaege(); renderLage(); aufgabenWahl(); if (vier() && kanalSnap) renderKanal(kanalSnap); if (blockDa()) document.dispatchEvent(new CustomEvent("leitstand:kanal", { detail: { was: "aufgaben" } })); }   // Bauschritt 4: die Marke »jetzt …« an den Zeilen mit Verweisfeld liest die Aufgaben; Bauschritt 6: die Kette im Lagebild liest sie auch — der Block im Feld zeichnet neu
         schmuecken();
       }, function () {});
       if (!admin || !host) return;                                      // Gäste: weder Kanal noch Lagebild; "kanal", "kanal_anwesenheit", "praesenz" nie abgefragt
       /* Bauschritt 4: die Schnittstelle des Kanals (nur für Editoren): die Anwesenheit, wie sie gerade gilt, und die Nachrichten an ein Kürzel, die noch auf Antwort oder »Gesehen« warten — leer, bis der Kanal
          »Antworten« und »Gesehen« schreibt (eigener, späterer Umbau). Ändert sich etwas, kommt das Ereignis leitstand:kanal; wer die Liste braucht, fragt dann neu. */
-      window.LEITSTAND_KANAL = { anwesenheit: function () { try { return JSON.parse(JSON.stringify(anwesenheit)); } catch (e) { return []; } }, wartendeNachrichten: function () { return []; } };
+      window.LEITSTAND_KANAL = { anwesenheit: function () { try { return JSON.parse(JSON.stringify(anwesenheit)); } catch (e) { return []; } }, wartendeNachrichten: function () { return []; },
+        zeilenZu: zeilenZu, kette: kette, planZeile: function (pl) { return planZeile(pl, true); }, abweichungen: function (a, st, pl) { return obj(a) && obj(st) && obj(pl) ? abweichungen(a, st, pl) : []; } };   // Bauschritt 6: für den Block der Lesart
       document.addEventListener("leitstand:kanal", function () { renderVorschlaege(); renderLage(); });
       if (!document.getElementById("akKarte")) aufbauen(host);
       db.collection("kanal").onSnapshot(renderKanal, function () { meldung(KANAL_TEXT.keineVerbindung); });

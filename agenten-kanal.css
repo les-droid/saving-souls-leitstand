@@ -111,10 +111,10 @@
 #page-claude .alArt-aufgabe { --kat: var(--al-green); --fl: var(--al-green-f); }
 #page-claude .alSorte-thema { border-style: dashed; }
 #page-claude .alArt-speicher { --kat: var(--al-violet); --fl: var(--al-violet-f); }
-#page-claude .alKKopf { font-weight: 600; font-size: 11.5px; color: #FFFFFF; overflow-wrap: break-word; hyphens: auto; max-width: 100%;
+#page-claude .alKKopf { font-weight: 600; font-size: 11.5px; color: #FFFFFF; overflow-wrap: break-word; hyphens: manual; max-width: 100%;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 #page-claude .alKKlein { font: 700 9px var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--kat); }
-#page-claude .alKZeile { color: #94A3B8; max-width: 100%; overflow-wrap: break-word; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#page-claude .alKZeile { color: #94A3B8; max-width: 100%; overflow-wrap: break-word; hyphens: manual; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 #page-claude .alKMarke { font-weight: 700; font-size: 9.5px; color: var(--al-rose); }
 #page-claude .alKasten.alWarn { border-color: var(--al-rose); }
 #page-claude .alKasten.alBlass { opacity: 0.5; }
@@ -192,7 +192,7 @@
 #page-claude li.akWart { border: 1px solid var(--line); border-radius: 12px; padding: 8px 11px; background: color-mix(in srgb, var(--surface) 65%, transparent); }
 #page-claude li.akWart:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 #page-claude .akWKopf { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-#page-claude .akWTitel { flex: 1 1 140px; min-width: 0; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+#page-claude .akWTitel { display: block; margin-top: 4px; font-size: 14px; font-weight: 600; overflow-wrap: break-word; hyphens: manual; }   /* Bauschritt 6 (G5): der Titel nutzt die volle Breite der Karte; Marke und Zeit stehen in der Zeile darüber (.akWKopf) */
 #page-claude .akWZeit { font: 400 11px var(--font-ui); color: var(--muted); margin-left: auto; }
 #page-claude .akWMarke { font: 600 11px var(--font-ui); color: var(--muted); border: 1px dashed currentColor; border-radius: 999px; padding: 0 8px; }
 #page-claude .akWVon { font-size: 12px; color: var(--muted); margin-top: 3px; }

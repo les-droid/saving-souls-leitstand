@@ -50,10 +50,10 @@
 #page-claude .alKasten .llPlatz.egal { background: none; color: #94A3B8; }
 #page-claude .alKasten .llMarke { max-width: 100%; }
 #page-claude .alKKlein .llRest { font: 400 10.5px var(--font-mono); letter-spacing: normal; text-transform: none; color: #94A3B8; overflow-wrap: anywhere; }
-#page-claude .alKasten .llZeile { max-width: 100%; color: #E2E8F0; overflow-wrap: anywhere; hyphens: auto; }
+#page-claude .alKasten .llZeile { max-width: 100%; color: #E2E8F0; overflow-wrap: break-word; hyphens: manual; }
 #page-claude .alKasten .llZeile .llLb { color: #94A3B8; }
 #page-claude .alKasten .llZeile .llFehlt { color: #94A3B8; font-style: italic; }
-#page-claude .alKasten .llZeile code { font: inherit; white-space: normal; overflow-wrap: anywhere; }
+#page-claude .alKasten .llZeile code { font: inherit; display: inline-block; max-width: 100%; vertical-align: top; white-space: normal; overflow-wrap: anywhere; }   /* Bauschritt 6 (G3): eine Kennung wie claude-opus-5-5 steht als Ganzes in einer Zeile, auch wenn davor ein Wort steht — gebrochen wird sie nur, wenn sie als Ganzes nicht in den Kasten passt */
 #page-claude .alKasten .llZeile.llAuftrag { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 #page-claude .alKKopf.llKopfMarken { display: block; -webkit-line-clamp: unset; overflow: visible; }
 #page-claude .alDetail .llKp { vertical-align: baseline; }
@@ -150,8 +150,9 @@ html.gast #brett .plus { display: none !important; }
 #brett ul.todos { list-style: none; margin: 0; padding: 0; }
 #brett ul.todos > li.empty { color: var(--muted); font-size: 12.5px; }
 /* Aufgaben für Menschen im Feld: wie die Zeile der Seite, Angabe, Kürzel und Marke in der zweiten Zeile */
-#brett ul.todos > li { flex-wrap: wrap; row-gap: 4px; }
-#brett ul.todos .tbody { flex: 1 1 calc(100% - 60px); }
+#brett ul.todos > li { flex-wrap: wrap; row-gap: 4px; column-gap: 6px; }   /* Bauschritt 6 (G3): in den schmalen Feldern bleibt dem Titel Platz für ein ganzes Wort */
+#brett ul.todos .tbody { flex: 1 1 calc(100% - 60px); width: 100%; min-width: auto; }   /* Bauschritt 6 (G3): das längste Wort bleibt ganz — passt es nicht neben die anderen, rückt der Titel in eine eigene Zeile. Runde 2 (B1): höchstens so breit wie die Zeile (die Mindestbreite ist das Kleinere aus längstem Wort und Zeile) — ein Wort, das breiter ist als die Zeile, bricht, statt die Seite quer rollen zu lassen */
+#brett ul.todos .ttext, #brett ul.todos .tvorschlag, #brett ul.todos .tbeschr, #brett ul.todos .akAbsprache { overflow-wrap: break-word; hyphens: manual; }
 #brett ul.todos .tbody + * { margin-left: 36px; }
 html.gast #brett ul.todos .tbody + * { margin-left: 19px; }
 #brett details.donebox { margin-top: 4px; padding-top: 2px; border-top: 1px solid var(--line); }
@@ -184,14 +185,24 @@ html.gast #brett ul.todos .tbody + * { margin-left: 19px; }
 #brett li.cl:first-child { border-top: none; }
 #brett li.cl.aus { display: none; }
 #brett .ortgruppe.leer { display: none; }
-#brett .crow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 6px; min-height: 28px; }
+#brett .crow { display: flex; align-items: center; column-gap: 6px; min-height: 28px; }   /* Bauschritt 6 (G6): Haken · Titel · Knopf · »Zurückholen« · »×« — dieselben Bedienelemente wie die alte Karte */
+#brett .crow > .ctitel { flex: 1 1 0; min-width: 0; }
+#brett .crow > label.haken { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; cursor: pointer; }
+#brett .crow > label.haken input[type="checkbox"] { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+#brett .crow > .undo { flex: none; align-self: center; margin-top: 0; }
+#brett .crow > .del { flex: none; align-self: center; min-width: 28px; min-height: 28px; }
+#brett .llZeilenAktion { display: none; margin: 0 0 4px; gap: 6px; align-items: center; flex-wrap: wrap; }
+#brett .llZeilenAktion .undo { margin-top: 0; }
+#brett li.cl > .tvon { display: block; margin: 0 0 2px 34px; font-size: 11.5px; color: var(--muted); }
+
 #brett .ctitel { display: grid; grid-template-columns: minmax(var(--zstb), max-content) minmax(0, 1fr) auto; align-items: center; column-gap: 8px; width: 100%; min-height: 28px; padding: 0 2px; background: none; border: 0; border-radius: 6px; text-align: left; color: var(--ink); font: inherit; cursor: pointer; }
-#brett .ctitel .ttext { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#brett .ctitel .ttext { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: break-word; hyphens: manual; }
 #brett .ctitel:hover .ttext { text-decoration: underline; text-decoration-color: var(--muted); text-underline-offset: 3px; }
 #brett .zk { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 #brett .zk .llMarke { margin: 0; }
 #brett .zwei .ctitel { align-items: start; padding-top: 5px; padding-bottom: 5px; }   /* Titel zweizeilig, wenn dafür Platz ist (Platzregel) */
 #brett .zwei .ctitel .ttext { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.38; }
+#brett .zwei .ctitel .ttext.ein, #brett.eng .ctitel .ttext.ein { white-space: nowrap; display: block; -webkit-line-clamp: unset; text-overflow: ellipsis; overflow: hidden; }   /* Bauschritt 6 (G3): ein Wort, das nicht in die Spalte des Titels passt, wird nicht getrennt — der Titel steht dann einzeilig mit »…« (den ganzen Titel zeigen das Aufklappen und der Maus-Hinweis) */
 #brett .zwei .ctitel .cmeta { margin-top: 1px; }
 #brett .ctitel[aria-expanded="true"] .ttext { display: block; white-space: normal; overflow: visible; font-weight: 600; }
 #brett .ctitel .cmeta { display: inline-flex; align-items: center; gap: 5px; max-width: 190px; font-size: 11.5px; color: var(--muted); white-space: nowrap; font-feature-settings: "tnum" 1; }
@@ -210,6 +221,15 @@ html.gast #brett ul.todos .tbody + * { margin-left: 19px; }
   #brett li.cl .dupill { display: inline-flex; }
 }
 @container (min-width: 420px) { #brett li.cl .cpanel .paktion { display: none; } }   /* breite Spalte: der Knopf steht schon in der Zeile */
+@container (width < 420px) {   /* Bauschritt 6 (G6): Zurückholen und × stehen dann im Aufgeklappten, wie der Knopf */
+  #brett .crow > .undo, #brett .crow > .del { display: none; }
+  #brett li.cl .llZeilenAktion { display: flex; }
+}
+@container (width < 300px) {   /* Der Haken steht in der ersten Zeile, die Zeile mit Marke und Konto behält ihre Breite */
+  #brett .crow { position: relative; }
+  #brett .crow > label.haken { position: absolute; left: 0; top: 2px; }
+  #brett .crow > .ctitel .ttext { padding-left: 32px; }
+}
 @container (width < 300px) {   /* sehr schmale Spalte (Kürzel-Felder von Hand daneben aufgeklappt): Titel über Marke */
   #brett .ctitel { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "t t" "z m"; row-gap: 1px; padding: 4px 2px; align-items: center; }
   #brett .ctitel .ttext { grid-area: t; } #brett .ctitel .zk { grid-area: z; flex-wrap: wrap; gap: 2px 6px; } #brett .ctitel .cmeta { grid-area: m; justify-self: end; }
@@ -221,16 +241,50 @@ html.gast #brett ul.todos .tbody + * { margin-left: 19px; }
 /* Aufgeklapptes einer Claude-Zeile */
 #brett .cpanel { margin: 2px 0 8px; padding: 8px 10px 6px; border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, var(--bg) 70%, var(--surface)); font-size: 12px; overflow-wrap: break-word; max-height: min(46vh, 380px); overflow: auto; color: var(--ink); }   /* gesetzt: 46 % der Fensterhöhe, höchstens 380 px; darin wird gerollt */
 #brett .cpanel[hidden] { display: none; }
-#brett .cpanel p { margin: 0 0 4px; }
-#brett .cpanel .pstand { color: var(--ink); }
-#brett .cpanel .pnaechst { color: var(--muted); }
-#brett .cpanel .pnaechst.du { color: var(--accent); }
-#brett .cpanel .pnaechst.warn { color: var(--signal); }
-#brett .cpanel .pklein { color: var(--muted); }
-#brett .cpanel .pmono { white-space: pre-wrap; font-feature-settings: "tnum" 1; color: var(--muted); }
-#brett .cpanel h5 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; margin: 8px 0 3px; font: 600 11px var(--font-ui); letter-spacing: 0.03em; color: var(--muted); text-transform: none; }
-#brett .cpanel .fehlt { color: var(--muted); font-style: italic; }
-#brett .cpanel .llPlatz, #brett .cpanel .llKonto { vertical-align: baseline; }
+/* ===== Bauschritt 6: der Detailblock — ein Baustein, hier gestaltet: dieselben Regeln gelten im Aufgeklappten des Brettes und unter dem Lagebild (Bauvorlage Fassung 2, § 2.3; Gestaltung wie der Entwurf).
+   Alles hängt an .llBlock, nicht an einer Karte: Schrift, Farbe, Abstand und Zeilenhöhe sind an beiden Stellen dieselben. ===== */
+:root { --ll-block: 1; }
+.llBlock { font: 400 12px/1.45 var(--font-ui, inherit); color: var(--ink); overflow-wrap: break-word; hyphens: manual; min-width: 0; text-align: left; letter-spacing: normal; text-transform: none; }
+.llBlock p { margin: 0 0 4px; }
+.llBlock .pstand { color: var(--ink); }
+.llBlock .pnaechst { color: var(--muted); }
+.llBlock .pnaechst.du { color: var(--accent); }
+.llBlock .pnaechst.warn { color: var(--signal); }
+.llBlock .pklein { color: var(--muted); }
+.llBlock .pmono { white-space: pre-wrap; font-feature-settings: "tnum" 1; color: var(--muted); }
+.llBlock h5 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; margin: 8px 0 3px; font: 600 11px var(--font-ui, inherit); letter-spacing: 0.03em; color: var(--muted); text-transform: none; }
+.llBlock h5 .gem { margin-left: auto; font-weight: 400; letter-spacing: 0; }
+.llBlock .fehlt { color: var(--muted); font-style: italic; }
+.llBlock .llPlatz, .llBlock .llKonto { vertical-align: baseline; white-space: normal; overflow-wrap: anywhere; }
+.llBlock section.wer { margin: 0; }
+.llBlock dl.wer { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 10px; margin: 0; align-items: baseline; }
+.llBlock dl.wer dt { color: var(--muted); margin: 0; }
+.llBlock dl.wer dd { margin: 0; min-width: 0; }
+.llBlock dl.wer dd.voll { grid-column: 1 / -1; }
+.llBlock dl.wer dt.vh { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.llBlock code { font: 11px var(--font-mono, monospace); display: inline-block; max-width: 100%; vertical-align: baseline; overflow-wrap: anywhere; }
+.llBlock .abw { font-weight: 600; color: var(--signal); }
+.llBlock ul.helfer { list-style: none; margin: 3px 0 0; padding: 0; }
+.llBlock ul.helfer li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 7px; padding: 3px 0 3px 8px; border-left: 2px solid #22D3EE; }
+.llBlock ul.helfer li + li { margin-top: 3px; }
+.llBlock ul.helfer .rolle { font: 600 11px var(--font-ui, inherit); padding: 0 6px; border-radius: 4px; border: 1px solid var(--line); background: var(--surface2); }
+.llBlock ul.helfer .bild { font-weight: 600; }
+.llBlock ul.helfer .hz { color: var(--muted); }
+.llBlock .glz { display: block; color: var(--ink); }
+.llBlock .glz time { color: var(--muted); font-feature-settings: "tnum" 1; margin-right: 6px; }
+.llBlock .glz.fehlt { color: var(--muted); }
+.llBlock .kette { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.llBlock .kn { --kat: #94A3B8; font: 600 11px var(--font-ui, inherit); padding: 1px 7px; border-radius: 6px; border: 1.5px solid var(--kat); color: var(--ink); background: color-mix(in srgb, var(--kat) 12%, transparent); overflow-wrap: break-word; min-width: 0; }
+.llBlock .kn.m { --kat: #94A3B8; } .llBlock .kn.p { --kat: #22D3EE; } .llBlock .kn.d { --kat: #FB923C; } .llBlock .kn.a { --kat: #34D399; } .llBlock .kn.s { --kat: #A78BFA; } .llBlock .kn.w { --kat: #94A3B8; border-style: dashed; }
+.llBlock .kette .pf { color: var(--muted); font-size: 11px; }
+.llBlock .gll { margin: 7px 0 0; display: flex; flex-wrap: wrap; gap: 2px 14px; }
+.llBlock .tdet { margin: 2px 0 4px; font-size: 12px; }
+.llBlock .tbeschr { margin: 4px 0 0; font-size: 12px; color: var(--muted); white-space: pre-wrap; overflow-wrap: break-word; }
+.llBlock .lnk { background: none; border: none; color: var(--accent); font: inherit; font-size: 12px; padding: 2px 0; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent); text-underline-offset: 3px; cursor: pointer; text-align: left; }
+.llBlock .btn { font: 600 12px var(--font-ui, inherit); padding: 2px 11px; border-radius: 999px; min-height: 28px; white-space: nowrap; background: none; cursor: pointer; }
+.llBlock .btn.ja { color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.llBlock .lnk:focus-visible, .llBlock .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+@media (pointer: coarse) { .llBlock .lnk, .llBlock .btn { min-height: 44px; display: inline-flex; align-items: center; } }
 #brett .llPlatz, #brett .llKonto { white-space: normal; overflow-wrap: anywhere; }   /* Runde 3 (N3): ein sehr langer Name ohne Leerzeichen (Kennung, Konto, Arbeitsplatz) bricht an der Stelle um, das Brett rollt nicht quer — wie die Marken im Lagebild */
 #brett .ortgruppe > h4 > .llPlatz { flex-shrink: 0; }   /* im Kopf der Gruppe gibt zuerst der Text rechts nach (»… arbeitet«), nicht der Name des Arbeitsplatzes */
 
@@ -240,6 +294,11 @@ html.gast #brett ul.todos .tbody + * { margin-left: 19px; }
 #brett.eng .feld { scroll-snap-align: start; }
 #brett.eng .feld.du { flex: 0 0 300px; } #brett.eng .feld.claude { flex: 0 0 420px; } #brett.eng .feld.k { flex: 0 0 260px; }   /* drei Breiten gesetzt; unter 700 px Fensterbreite gilt stattdessen 88 % */
 #brett.eng .zuklapp { display: none; }
+#brett.eng .crow { position: relative; }
+#brett.eng .crow > label.haken { position: absolute; left: 0; top: 2px; }
+#brett.eng .crow > .ctitel .ttext { padding-left: 32px; }
+#brett.eng .crow > .undo, #brett.eng .crow > .del { display: none; }
+#brett.eng li.cl .llZeilenAktion { display: flex; }
 #brett.eng .feld.claude .feldkopf { flex-wrap: wrap; align-items: center; } #brett.eng .feld.claude .feldkopf > .chip, #brett.eng .feld.claude .feldkopf > .zahl { margin-top: 0; }
 #brett.eng .ctitel { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "t t" "z m"; row-gap: 2px; padding: 5px 2px; align-items: center; }
 #brett.eng .ctitel .ttext { grid-area: t; white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; } #brett.eng .ctitel .zk { grid-area: z; flex-wrap: wrap; gap: 2px 6px; } #brett.eng .ctitel .cmeta { grid-area: m; justify-self: end; max-width: none; }
@@ -256,6 +315,8 @@ html.gast #brett ul.todos .tbody + * { margin-left: 19px; }
   #brett .ctitel .cmeta.liegt { font-size: 12px; }
 }
 @media (pointer: coarse) {
+  #brett .crow > label.haken, #brett .crow > .del, #brett .crow > .undo, #brett .llZeilenAktion .del, #brett .llZeilenAktion .undo { min-width: 44px; min-height: 44px; }
+  #brett.eng .crow > .ctitel .ttext { padding-left: 46px; }
   html[data-spalten="1"] #todoForm input[type="text"], html[data-spalten="1"] #todoForm select, html[data-spalten="1"] #neuAuf, html[data-spalten="1"] #neuMehrKnopf, html[data-spalten="1"] #todoForm .neumehr label, #feldtabs button { min-height: 44px; }
   #brett .btn, #brett .stufen button, #brett .lnk, #brett .zuklapp, #brett .leiste, #brett .crow, #brett .ctitel, #brett .dupill, #lagezeile .stufen button, #brettStatus > button { min-height: 44px; }
   #brett .plus, #brett .zuklapp { width: 44px; height: 44px; }

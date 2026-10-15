@@ -799,8 +799,8 @@
 <link rel="stylesheet" href="claude-chat.css?v=260923a">
 <link rel="stylesheet" href="baukasten.css?v=v2844935910">
 <link rel="stylesheet" href="vision-board.css?v=v820809728">
-<link rel="stylesheet" href="agenten-kanal.css?v=k261014b">
-<link rel="stylesheet" href="leitstand-lesart.css?v=261014a">
+<link rel="stylesheet" href="agenten-kanal.css?v=k261015a">
+<link rel="stylesheet" href="leitstand-lesart.css?v=261015a">
 <link rel="stylesheet" href="leitstand-thema.css?v=t3358641517">
 
 <div id="whoModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="whoTitle">
@@ -1232,7 +1232,7 @@ if (/[?&]demo=gast(&|$)/.test(location.search) && (location.protocol === "file:"
 // ?demo=1: erfundene Einträge der Sammlung redaktion (demo-redaktion.js, Paket 5) — nur in der Editor-Demo, nur lokal.
 if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname))) document.write('<script src="demo-redaktion.js"><\/script>');
 </script>
-<script src="leitstand-lesart.js?v=261014b"></script>
+<script src="leitstand-lesart.js?v=261015a"></script>
 <script src="leitstand-db.js?v=261013b"></script>
 <script src="redaktion.js?v=261007d"></script>
 <script src="baukasten.js?v=v2844935910"></script>
@@ -2006,6 +2006,10 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
   /* Zeile einer Aufgabe (K 5.2). Editoren: Punkt der Dringlichkeit (Lesehilfe), Haken, Titel, »Details«, Antwortfeld bei Rückfragen, Vermerk, Vorschlag
      von Claude; rechts Angabe, Kürzel, Marke »nur Editoren«, »Zurückholen« (erledigt), »×«. Gäste: Punkt, Titel, »Details«, Angabe, Kürzel — kein Haken,
      kein Antwortfeld, kein »Zurückholen«, kein ×. item.claude: Auftrag an Claude unter »Bei Claude«, Zeile wie gebaut (IX 1072–1083) ohne Angabe. */
+  function vonVermerk(v) {   // »abgehakt von …« bzw. »zurückgeholt von …« — an jeder Zeile, die jemand abgehakt oder zurückgeholt hat (alte Karte und Brett)
+    return v.geaendert_von ? '<span class="tvon">' + (v.done ? "abgehakt" : "zurückgeholt") + " von " + esc(v.geaendert_von) + (v.geaendert_rolle === "gast" ? " (Gast)" : "") + (v.geaendert_am ? ", " + new Date(v.geaendert_am).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "") + "</span>" : "";
+  }
+  function aufgTid(item) { return "aufgT-" + (item.coll === "intern" ? "i-" : "t-") + String(item.id).replace(/[^\w-]/g, function (c) { return "_" + c.charCodeAt(0).toString(16); }); }   // GP-S09: Haken heißt wie die Aufgabe (wie auf Heute)
   function todoLi(item) {
     var v = item.v, gast = gastSicht(), T = AUFGABEN_TEXT; var p = [1, 2, 3].indexOf(Number(v.prio)) === -1 ? 2 : Number(v.prio);
     var det = v.beschreibung ? '<details class="tdet"><summary>Details</summary><div class="tbeschr">' + esc(v.beschreibung) + "</div></details>" : "";
@@ -2037,8 +2041,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
         : jetztErlaubt(v) ? '<div class="tclaude"><button type="button" data-act="jetzt">Jetzt erledigen</button><span>' + (nurS11 ? "startet auf Schnitt 11" : "startet sofort auf Schnitt 11 oder dem VPS") + '</span></div>'
         : '<div class="tclaude"><span data-marke="gesperrt">' + esc(T.nichtFreigegeben) + '</span></div>';   // weder Vorschlag noch nach der Positivregel freigebbar: sichtbare Marke, nie nichts
     }
-    var von = v.geaendert_von ? '<span class="tvon">' + (v.done ? "abgehakt" : "zurückgeholt") + " von " + esc(v.geaendert_von) + (v.geaendert_rolle === "gast" ? " (Gast)" : "") + (v.geaendert_am ? ", " + new Date(v.geaendert_am).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "") + "</span>" : "";
-    var tid = "aufgT-" + (item.coll === "intern" ? "i-" : "t-") + String(item.id).replace(/[^\w-]/g, function (c) { return "_" + c.charCodeAt(0).toString(16); });   // GP-S09: Haken heißt wie die Aufgabe (wie auf Heute)
+    var von = vonVermerk(v), tid = aufgTid(item);
     var mensch = !item.claude, vs = mensch && !gast ? vorschlagText(v.vorschlag) : null, f = mensch && !v.done ? faelligTag(v) : null, an = zeitMs(v.created), heute = berlinTag(Date.now());
     var angabe = !mensch || v.done ? "" : f && f < heute ? '<span class="tangabe signal">' + esc(T.ueberfaellig + fmtTagMonat(f)) + "</span>"
       : f ? '<span class="tangabe">' + esc(T.faellig + fmtTagMonat(f)) + "</span>" : an != null ? '<span class="tangabe">' + esc(T.seit + fmtTagMonat(an)) + "</span>" : "";
@@ -2202,14 +2205,27 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     var knopf = z.warten && !fertig ? '<span class="knoepfe">' + (z.knopf ? brKnopf(x.id, z) : "") +
       '<button type="button" class="dupill' + (z.knopf ? "" : " immer") + '" data-act="auf" data-id="' + esc(x.id) + '" aria-label="' + esc(BRETT_TEXT.duBistDran + (z.knopf ? ": " + (z.knopf === "zum" ? L.TEXT.knopf.zum : L.TEXT.knopf[z.knopf]).replace(" →", "") : "") + " — " + BRETT_TEXT.einzelheiten) + '">du</button></span>' : "";
     return '<li class="cl' + (z.warten ? " dran" : "") + (brPasst(x) ? "" : " aus") + (fertig ? " done" : "") + '" data-id="' + esc(x.id) + '" data-stufe="' + esc(z.stufe) + '" data-kl="' + esc(z.klasse) + '">' +
-      '<div class="crow"><button type="button" class="ctitel" aria-expanded="' + auf + '" aria-controls="p-' + esc(x.id) + '"><span class="zk">' + L.markeHtml(z) + L.halterMarke(v) +
+      '<div class="crow"><label class="haken"><input type="checkbox"' + (v.done ? " checked" : "") + ' aria-labelledby="' + aufgTid(x) + '"></label>' +
+      '<button type="button" class="ctitel" aria-expanded="' + auf + '" aria-controls="p-' + esc(x.id) + '"><span class="zk">' + L.markeHtml(z) + L.halterMarke(v) +
         (mitOrt ? "" : '<span class="llvh"> ' + esc(BRETT_TEXT.arbeitsplatz + " " + ort) + "</span>") + "</span>" +
-      '<span class="ttext" title="' + esc(titel + (zm ? " — " + zm : "")) + '">' + esc(titel) + "</span>" +
-      (liegt ? '<span class="cmeta liegt">' + esc(liegt) + "</span>" : mt ? '<span class="cmeta"><span class="mt">' + esc(mt) + "</span></span>" : "") + "</button>" + knopf + "</div>" +
+      '<span class="ttext" id="' + aufgTid(x) + '" title="' + esc(titel + (zm ? " — " + zm : "")) + '">' + esc(titel) + "</span>" +
+      (liegt ? '<span class="cmeta liegt">' + esc(liegt) + "</span>" : mt ? '<span class="cmeta"><span class="mt">' + esc(mt) + "</span></span>" : "") + "</button>" + knopf +
+      (v.done ? '<button type="button" class="undo" data-act="undo">Zurückholen</button>' : "") + '<button type="button" class="del">×</button></div>' + vonVermerk(v) +
       '<div class="cpanel" id="p-' + esc(x.id) + '" tabindex="-1"' + (auf ? "" : " hidden") + ">" + (auf ? brDetail(x, ctx) : "") + "</div></li>";
   }
   /* Das Aufgeklappte bis Schritt 6: Stand als Satz, wer als Nächstes dran ist, der Knopf (in schmalen Spalten), Beschreibung, angelegt und gewünschter Arbeitsplatz, Fortschritt, Ergebnis */
+  function brBlockDa() {   // Bauschritt 6: der Baustein steht, wenn die Lesart ihn liefert UND ihre Stildatei da ist (Eigenschaft --ll-block); sonst gilt das Aufgeklappte von Schritt 5
+    var L = lesartDa(), css = "";
+    try { css = getComputedStyle(document.documentElement).getPropertyValue("--ll-block").trim(); } catch (e) { css = ""; }
+    return !!L && L.block === 1 && typeof L.detailBlock === "function" && css === "1";
+  }
+  function brZeilenAktion(x) {   // Bauschritt 6 (G6): »Zurückholen« und »×« — in breiten Spalten stehen sie in der Zeile, in schmalen (unter 420 px, wie der Knopf) im Aufgeklappten; dieselben Wörter, Zeichen und derselbe Hörer wie in der alten Karte
+    return '<p class="llZeilenAktion">' + (x.v.done ? '<button type="button" class="undo" data-act="undo">Zurückholen</button>' : "") + '<button type="button" class="del">×</button></p>';
+  }
   function brDetail(x, ctx) {
+    return brZeilenAktion(x) + (brBlockDa() ? lesartDa().detailBlock({ id: x.id, v: x.v }, { wo: "feld", jetzt: ctx.jetzt, ctx: ctx, zustand: x.z }) : brDetailAlt(x, ctx));
+  }
+  function brDetailAlt(x, ctx) {
     var L = lesartDa(), v = x.v, z = x.z, n = L.naechster(v, z, ctx, x.id), b = String(v.beschreibung == null ? "" : v.beschreibung), zm = L.zielMarke(v), fertig = L.erledigt(v), ziel = String(v.ziel == null || v.ziel === "" ? "egal" : v.ziel);
     var wunsch = v.ziel !== null && typeof v.ziel === "object" && !Array.isArray(v.ziel) ? esc(BRETT_TEXT.ng) : ziel === "alle" ? esc(BRETT_TEXT.alleAgenten) : /@/.test(ziel) ? L.kennungMarken(ziel) : L.platzMarke(ziel);   // Runde 3 (N4): ein Ziel, das ein Objekt ist, ist keine lesbare Angabe — »nicht gemeldet« (§ 2.3) statt »[object Object]«
     return '<p class="pstand">' + esc(L.standSatz(v, z, ctx.jetzt) + (zm ? " · " + zm : "")) + "</p>" +
@@ -2314,6 +2330,19 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     [].forEach.call(z, function (r) { var b = r.getBoundingClientRect(); if (b.top + window.scrollY >= kopf - 1 && b.bottom + window.scrollY <= window.innerHeight + 0.5) drin++; });
     return { drin: drin, alle: z.length };
   }
+  function brTitelPassen() {   // Bauschritt 6 (G3): Ein Wort wird nur getrennt, wenn es als Ganzes nicht in eine Zeile seines Kastens passt. In zweizeiligen Titeln (und gewischten Feldern) mit einem Wort, das breiter ist als die Spalte des Titels, steht der Titel einzeilig mit »…«.
+    var feld = brEl("feld-claude"), brett = brEl("brett"); if (!feld) return;
+    var sonde = document.createElement("span"); sonde.style.cssText = "position:absolute;left:0;top:0;visibility:hidden;white-space:nowrap";
+    [].forEach.call(feld.querySelectorAll(".ctitel .ttext"), function (e) {
+      e.classList.remove("ein");
+      if (!feld.classList.contains("zwei") && !brett.classList.contains("eng")) return;   // einzeilig bricht nichts
+      var cs = getComputedStyle(e), w = e.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0), text = String(e.textContent), lang = 0; if (w <= 0) return;
+      e.appendChild(sonde);
+      text.split(/\s+/).forEach(function (wort) { if (wort.length >= 6) { sonde.textContent = wort; lang = Math.max(lang, sonde.getBoundingClientRect().width); } });
+      e.removeChild(sonde);
+      if (lang > w + 0.5) e.classList.add("ein");
+    });
+  }
   function brGruppenLeeren() { [].forEach.call(document.querySelectorAll("#feld-claude .ortgruppe"), function (g) { g.classList.toggle("leer", !g.querySelector("li.cl:not(.aus)")); }); }   // Arbeitsplatz-Gruppe ohne sichtbare Zeile verschwindet (Auswahl nach Zustand)
   function brLeistenHoehe() {   // eine Leiste ist nie höher als das Fenster: so hoch wie das Brett, höchstens bis zum unteren Fensterrand
     var b = brEl("brett"), oben = b.getBoundingClientRect().top + window.scrollY, felder = b.querySelectorAll(".feld"), h = felder.length ? Math.max.apply(null, [].map.call(felder, function (f) { return f.offsetHeight; })) : 200;
@@ -2322,11 +2351,11 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
   function brVerteilen(ctx) {
     var brett = brEl("brett"), kuerzel = BD.kuerzel, K = kuerzel.length, eng = brIstEng(K), r, c, N, zw;
     document.documentElement.classList.toggle("brett-eng", eng); brett.classList.toggle("eng", eng);
-    if (eng || BD.gast) { r = brHtml(1, kuerzel, 320, eng, false, ctx); brett.innerHTML = r.html; BR.lage = { spalten: 1, offen: kuerzel.slice(), leisten: 0, zwei: false, drin: 0, alle: 0, eng: eng }; return r; }
+    if (eng || BD.gast) { r = brHtml(1, kuerzel, 320, eng, false, ctx); brett.innerHTML = r.html; brTitelPassen(); BR.lage = { spalten: 1, offen: kuerzel.slice(), leisten: 0, zwei: false, drin: 0, alle: 0, eng: eng }; return r; }
     var B = brett.clientWidth, M = BR_MASS, frei = kuerzel.filter(function (k) { return !BR.zu[k]; }).length, cMax = Math.min(brPlatzMax(B, K), frei), cMin = Math.min(brHandOffen(kuerzel).length, cMax), best = null;   // was von Hand aufgeklappt ist, bleibt aufgeklappt, solange es der Breite nach passt
     var setze = function (k) {
       var w = brClaudeBreite(B, K, k.offen.length);
-      r = brHtml(k.N, k.offen, (w - M.polster - (k.N - 1) * M.spLuecke) / k.N, false, k.zwei, ctx); brett.innerHTML = r.html;
+      r = brHtml(k.N, k.offen, (w - M.polster - (k.N - 1) * M.spLuecke) / k.N, false, k.zwei, ctx); brett.innerHTML = r.html; brTitelPassen();
       var m = brZeilenImFenster(); BR.lage = { spalten: k.N, offen: k.offen, leisten: K - k.offen.length, zwei: k.zwei, drin: m.drin, alle: m.alle, eng: false }; return m;
     };
     for (c = cMax; c >= cMin; c--) {
@@ -2377,7 +2406,8 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
   }
   var brSigNeu = function (ctx) {   // ändert sich nichts an den Daten, am Platz und an der Minute, wird nichts neu gezeichnet (Fokus, Rollen und aufgeklappte Teile bleiben)
     var kur = BD.kuerzel.join(","), eins = brHtml(1, BD.kuerzel, 320, false, false, ctx).html;
-    return [brFensterBreite(), brEl("brett").clientWidth, BR.filter, BR.auf, BR.hand.join(","), JSON.stringify(BR.zu), kur, Math.floor(ctx.jetzt / 60000), me, BD.warten.length, eins].join("|");
+    var offen = BR.auf ? brClaudeOffen().concat(BD.fertig).filter(function (y) { return y.id === BR.auf; })[0] : null;   // Bauschritt 6: der Block hängt an Anwesenheit, Kanal und Lagebild — ändert er sich, wird neu gezeichnet
+    return [brFensterBreite(), brEl("brett").clientWidth, BR.filter, BR.auf, BR.hand.join(","), JSON.stringify(BR.zu), kur, Math.floor(ctx.jetzt / 60000), me, BD.warten.length, eins, offen ? brDetail(offen, ctx) : ""].join("|");
   };
   function brRender() {   // von renderTodos, vom Ereignis des Kanals, von der Fenstergröße und beim Sichtbarwerden des Reiters
     if (!BR.an || !heuteDa.todos) return;
@@ -2402,7 +2432,25 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
   function renderBrett(docs) { brRender(); }
 
   /* ---- Bedienung ---- */
-  function brFokus(el) { if (el && el.focus) el.focus({ preventScroll: false }); }
+  /* Bauschritt 6 (§ 2.6): Fokus setzen und frei rollen. Nach jedem Fokus, den die Seite setzt, wird nachgerollt, bis das Ziel frei im Fenster steht — nie unter dem haftenden Kopf und nie unter den haftenden Einzelheiten
+     des Lagebilds; ein Ziel, das höher ist als der freie Teil des Fensters, beginnt gleich unter dem Kopf. Innere Rollbereiche (Aufgeklapptes, Verlauf des Kanals) zeigt scrollIntoView. */
+  function fokusFrei(el) {
+    if (!el || !el.focus) return;
+    el.focus({ preventScroll: true });
+    if (!el.getBoundingClientRect || (el.closest && el.closest("header.top, #toast, #notizFeld"))) return;
+    try { el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" }); } catch (e) {}
+    for (var i = 0; i < 2; i++) {   // zweimal: beim Rollen rückt der Kopf an den Fensterrand, danach ist mehr Platz
+      var b = el.getBoundingClientRect(), kopf = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--kopfhoehe")) || document.querySelector("header.top").getBoundingClientRect().bottom, haft = document.querySelector("#alDetail.alHaftet.alOffen");
+      var hr = haft && haft.getBoundingClientRect(), boden = hr && hr.bottom >= window.innerHeight - 2 ? hr.top : window.innerHeight, luft = Math.max(0, Math.min(8, (boden - kopf - b.height) / 2)), oben = kopf + luft, unten = boden - luft;
+      if (b.top < oben) window.scrollBy({ top: b.top - oben, behavior: "auto" }); else if (b.bottom > unten) window.scrollBy({ top: Math.min(b.bottom - unten, b.top - oben), behavior: "auto" });
+    }
+  }
+  function brFrei(el) {   // Runde 2 (B2): steht das Element frei im Fenster (unter dem Kopf, über dem unteren Rand)?
+    var b = el.getBoundingClientRect(), kopf = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--kopfhoehe")) || document.querySelector("header.top").getBoundingClientRect().bottom;
+    return b.height > 0 && b.top >= kopf - 1 && b.bottom <= window.innerHeight + 1;
+  }
+  window.leitstandFokus = fokusFrei;   // agenten-kanal.js setzt seinen Fokus (Sprünge, Escape, nach Bestätigen und Ablehnen) damit; fehlt die Funktion (alte index.html), tut es, was es vorher tat
+  function brFokus(el) { fokusFrei(el); }
   function brLeisteAuf(k) {   // genau dieses Feld klappt auf; was dafür weicht, sagt die Statuszeile
     var vorher = BR.lage.offen.slice();
     delete BR.zu[k]; BR.hand = [k].concat(BR.hand.filter(function (x) { return x !== k; })); BR.status = "Feld " + k + " aufgeklappt."; BR.dirty = true; brRender();
@@ -2414,14 +2462,44 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     if (alt && alt !== id) { var pa = brEl("p-" + alt); if (pa) { pa.hidden = true; pa.innerHTML = ""; var ta = pa.parentNode.querySelector(".ctitel"); if (ta) ta.setAttribute("aria-expanded", "false"); } }
     var p = brEl("p-" + id), t = p && p.parentNode.querySelector(".ctitel"), x = brClaudeOffen().concat(BD.fertig).filter(function (y) { return y.id === id; })[0]; if (!p || !x) return;
     t.setAttribute("aria-expanded", String(auf)); p.hidden = !auf; p.innerHTML = auf ? brDetail(x, ctx) : "";
+    if (auf) brBlockSichtbar(p, t);
+  }
+  function brBlockSichtbar(p, t) {   // Bauschritt 6 (Prüfbericht Entwurf im Browser, Befund 7): das Aufgeklappte ragt nicht unter den Fensterrand — es wird bis zum Ende ins Fenster gerollt, soweit der Titel dabei unter dem Kopf bleibt
+    var kopf = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--kopfhoehe")) || document.querySelector("header.top").getBoundingClientRect().bottom, r = p.getBoundingClientRect(), tr = t.getBoundingClientRect(), zuweit = r.bottom - window.innerHeight;
+    if (zuweit > 0) { var dy = Math.min(zuweit + 8, tr.top - kopf - 4); if (dy > 0) window.scrollBy({ top: dy, behavior: "auto" }); }
   }
   function brOrtZeigen() {
     var w = brEl("todoWer"), t = brEl("todoTyp"), z = brEl("todoZiel"), h = brEl("ortHinweis"), c = (w && w.value === "Claude") || (t && t.value === "claude");
     if (z && h) { z.hidden = !c; h.hidden = !c; }
   }
-  function brSpringe(wohin) {   // Sprünge, die der Satz am Formular und die Zeile der Nachrichten brauchen: in den Kanal, auf das Sendefeld bzw. »Warten auf dich«
+  function brSpringe(wohin, id) {   // Sprünge: in den Kanal, auf das Sendefeld, zu »Warten auf dich« (Satz am Formular, Zeile der Nachrichten) — und mit Kennung der Aufgabe: ins Lagebild, zu ihren Zeilen im Kanal, zu ihrer Sache (Bauschritt 6)
     showPage("claude");
-    document.dispatchEvent(new CustomEvent("leitstand:zeige", { detail: { art: wohin } }));
+    document.dispatchEvent(new CustomEvent("leitstand:zeige", { detail: id ? { art: wohin, id: id } : { art: wohin } }));
+  }
+  /* Escape schließt, was sich öffnet (§ 2.6) — zuerst die Meldung (ihr eigener Hörer), dann das, worin der Fokus liegt, sonst die offenen Einzelheiten; der Fokus geht dorthin zurück, wo es aufging.
+     Hier: Aufklappbares (Erledigt, Fertig, Archiv), »mehr Angaben«, das Formular am Telefon, die Einzelheiten im Feld, ein von Hand aufgeklapptes Kürzel-Feld. Das Lagebild und »mehr« am Vorschlag schließt agenten-kanal.js;
+     wer ein Escape verbraucht, ruft preventDefault — der andere Hörer lässt es dann stehen. */
+  function brEscape(ev) {
+    if (ev.key !== "Escape" || ev.defaultPrevented || ev.isComposing) return;
+    if (document.getElementById("toast").classList.contains("on") || !document.getElementById("notizFeld").hidden) return;   // die Meldung und das Notizfeld haben ihre eigenen Hörer
+    var a = document.activeElement || document.body, x, nm = brEl("neuMehr"), nf = brEl("todoForm"), na = brEl("neuAuf"), form = !!na && getComputedStyle(na).display !== "none";
+    if (a.closest && a.closest("#transViewer, #boardLightbox, #tourCard, #whoModal, #introOffer, #liveLogin")) return;
+    var weg = function (f) { ev.preventDefault(); f(); };
+    var zl = a.closest && a.closest("#brett li.cl"); if (zl && BR.auf !== zl.dataset.id) zl = null;   // Runde 2 (B6): eine aufgeklappte Zeile in »Fertig« ist das Innere — sie schließt zuerst, nicht »Fertig«
+    if (a.closest && (x = a.closest("#aufgabenKarte details[open]")) && !(zl && x.contains(zl))) { weg(function () { x.open = false; fokusFrei(x.querySelector("summary")); }); return; }
+    if (nm && !nm.hidden && (a.id === "neuMehrKnopf" || (a.closest && a.closest("#neuMehr")))) { weg(function () { nm.hidden = true; brEl("neuMehrKnopf").setAttribute("aria-expanded", "false"); fokusFrei(brEl("neuMehrKnopf")); }); return; }
+    if (form && nf.classList.contains("auf") && (a.id === "neuAuf" || (a.closest && a.closest("#todoForm")))) { weg(function () { nf.classList.remove("auf"); na.setAttribute("aria-expanded", "false"); fokusFrei(na); }); return; }
+    if (a.closest && (x = a.closest("#brett li.cl")) && BR.auf === x.dataset.id) { var id = BR.auf; weg(function () { brDetailUmschalten(id, false); fokusFrei(document.querySelector('#brett li.cl[data-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"] .ctitel')); }); return; }
+    if (a.closest && (x = a.closest("#brett .feld.k")) && BR.hand.indexOf(x.dataset.kuerzel) !== -1) {
+      var k = x.dataset.kuerzel, vor = BR.lage.offen.slice();
+      weg(function () { BR.hand = BR.hand.filter(function (y) { return y !== k; }); BR.status = "Feld " + k + " wieder der Regel überlassen."; BR.dirty = true; brRender(); BR.status = brSatzStatus("Feld " + k + " wieder der Regel überlassen", vor); brStatusZeigen();
+        fokusFrei([].filter.call(document.querySelectorAll("#brett [data-auf]"), function (e) { return e.dataset.auf === k; })[0] || [].filter.call(document.querySelectorAll("#brett [data-zu]"), function (e) { return e.dataset.zu === k; })[0]); });
+      return;
+    }
+    if (!document.getElementById("page-aufgaben").classList.contains("on")) return;
+    if (BR.auf) { var id2 = BR.auf; weg(function () { brDetailUmschalten(id2, false); fokusFrei(document.querySelector('#brett li.cl[data-id="' + (window.CSS && CSS.escape ? CSS.escape(id2) : id2) + '"] .ctitel')); }); return; }   // sonst: die offenen Einzelheiten
+    if (nm && !nm.hidden) { weg(function () { nm.hidden = true; brEl("neuMehrKnopf").setAttribute("aria-expanded", "false"); fokusFrei(brEl("neuMehrKnopf")); }); return; }
+    if (form && nf.classList.contains("auf")) weg(function () { nf.classList.remove("auf"); na.setAttribute("aria-expanded", "false"); fokusFrei(na); });
   }
   function brAufbauen() {
     if (!brAn()) return;
@@ -2464,8 +2542,13 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
     neu("div", "feldtabs", "feldtabs", function (e) { e.setAttribute("role", "group");   // Runde 3 (N2, § 2.6): der Feldwähler rollt quer — jeder Fokus holt seinen Knopf ganz ins Bild (wie der Entwurf); der Browser tut es bei halb sichtbaren Knöpfen nicht
       e.addEventListener("focusin", function (ev) { var z = ev.target; if (z && z.scrollIntoView) z.scrollIntoView({ block: "nearest", inline: "nearest" }); }); });
     neu("div", "brett", "brett", null);
-    document.addEventListener("click", brKlick);
-    var ug = null; window.addEventListener("resize", function () { clearTimeout(ug); ug = setTimeout(function () { BR.dirty = true; brRender(); }, 80); });
+    document.addEventListener("click", brKlick); document.addEventListener("keydown", brEscape, true);   // im Abfangen: so sieht der Hörer die Meldung noch, bevor ihr eigener Hörer sie schließt — das erste Escape gilt ihr allein
+    var ug = null, frei = false;   // Runde 2 (B2, § 2.6 »Der Fokus bleibt bei neuer Fenstergröße auf derselben Aufgabe«): stand der Fokus im Brett frei im Fenster, steht er es nach der neuen Größe wieder; hat der Mensch ihn weggerollt, bleibt die Seite, wo sie ist
+    var freiMessen = function () { if (ug) return; var a = document.activeElement; frei = brEl("brett").contains(a) && brFrei(a); };   // gemessen beim Fokus und beim Rollen — nicht, solange eine neue Größe ansteht
+    document.addEventListener("focusin", freiMessen); window.addEventListener("scroll", freiMessen, { passive: true });
+    window.addEventListener("resize", function () { clearTimeout(ug); ug = setTimeout(function () { var vor = frei; ug = null; BR.dirty = true; brRender();   // brRender lässt den Fokus im Brett (fokusZurueck)
+      if (vor) requestAnimationFrame(function () { requestAnimationFrame(function () { var a = document.activeElement, f = a.closest && a.closest("#brett .feld"); if (BR.lage.eng && f) brZumFeld(f.id); fokusFrei(a); }); });   // zwei Bilder später, wenn das Brett fertig gesetzt ist (auch die Absprache-Zeilen, die agenten-kanal.js nachträgt); gewischt kommt sein Feld zuerst ins Bild (wie beim Sprung in die Aufgaben)
+    }, 80); });
     document.addEventListener("leitstand:kanal", function () { brRender(); });
     brEl("brett").addEventListener("scroll", function () { clearTimeout(brAktivesFeld.uhr); brAktivesFeld.uhr = setTimeout(brAktivesFeld, 60); });
   }
@@ -2478,7 +2561,7 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
       if (ziel) ziel.focus({ preventScroll: false });
       return;
     }
-    if (t.closest("#brett [data-sprung], #todoForm [data-sprung]") && (x = t.closest("[data-sprung]"))) { brSpringe(x.dataset.sprung); return; }
+    if (t.closest("#brett [data-sprung], #todoForm [data-sprung]") && (x = t.closest("[data-sprung]"))) { brSpringe(x.dataset.sprung, x.dataset.id); return; }
     if (!t.closest("#aufgabenKarte")) return;
     if ((x = t.closest("#brett .ctitel"))) { var li = x.closest("li.cl"); brDetailUmschalten(li.dataset.id, BR.auf !== li.dataset.id); return; }   // Titel einer Claude-Aufgabe: Aufgeklapptes auf und zu
     if ((x = t.closest(".stufen button"))) {
@@ -3615,11 +3698,13 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
   /* Bauschritt 4: eine Sache unter »Warten auf dich« im Kanal und der Titel einer Zeile mit Verweisfeld (agenten-kanal.js) melden leitstand:zeige {art:"aufgabe", id}: Reiter »Aufgaben«, die Zeile ins Fenster, der Fokus auf die Zeile selbst — nie auf einen Knopf, der freigibt. */
   document.addEventListener("leitstand:zeige", function (ev) {
     var d = ev && ev.detail; if (!d || d.art !== "aufgabe" || typeof d.id !== "string") return;
-    var li = [].filter.call(aufgabenKarte.querySelectorAll('li[data-id]:not([data-coll="intern"])'), function (x) { return x.dataset.id === d.id; })[0];
-    showPage("aufgaben");
+    var finde = function () { return [].filter.call(aufgabenKarte.querySelectorAll('li[data-id]:not([data-coll="intern"])'), function (x) { return x.dataset.id === d.id; })[0]; }, li;
+    showPage("aufgaben"); li = finde();   // Bauschritt 6: erst nach dem Reiterwechsel suchen — das Brett zeichnet sich dabei neu, die Zeile von vorher gibt es dann nicht mehr
+    if (li && li.classList.contains("aus") && BR.an) { BR.filter = null; BR.dirty = true; brRender(); li = finde(); }   // eine Auswahl nach Zustand verbirgt die Zeile — sie wird zurückgenommen
     if (!li || !li.isConnected) return;
     for (var dt = li.closest("details"); dt; dt = dt.parentElement && dt.parentElement.closest("details")) dt.open = true;   // »Bei Claude« und »Fertig« sind zugeklappt
-    li.setAttribute("tabindex", "-1"); li.scrollIntoView({ block: "center" }); li.focus({ preventScroll: false });
+    if (BR.an && BR.lage.eng && li.closest("#feld-claude")) brZumFeld("feld-claude");   // gewischt: das Claude-Feld kommt zuerst ins Bild
+    li.setAttribute("tabindex", "-1"); fokusFrei(li);
   });
   window.leitstandZeigeAufgabe = true;   // Runde 2: sagt agenten-kanal.js, dass diese Seite den Sprung in die Aufgaben hört; fehlt das (eine index.html von vor dem Schritt aus dem Zwischenspeicher), zeichnet agenten-kanal.js wie vor dem Schritt
   if (lesartDa()) {   // Bauschritt 2: Datenbank, Meldung an der Zeile und Sprung in den Kanal für den einen Schreibweg; die Liste »Warten auf dich« liest den Stand der Aufgaben
@@ -5386,4 +5471,4 @@ if (/[?&]demo=1(&|$)/.test(location.search) && (location.protocol === "file:" ||
 </script>
 <script src="leitstand-zeit.js?v=261007a"></script>
 <script src="claude-chat.js?v=261014a"></script>
-<script src="agenten-kanal.js?v=k261014b"></script>
+<script src="agenten-kanal.js?v=k261015a"></script>
